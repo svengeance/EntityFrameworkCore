@@ -6,9 +6,11 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Text;
+using JetBrains.Annotations;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
 using Microsoft.EntityFrameworkCore.Storage;
+using Microsoft.EntityFrameworkCore.Utilities;
 
 namespace Microsoft.EntityFrameworkCore.SqlServer.Query.Internal
 {
@@ -16,13 +18,16 @@ namespace Microsoft.EntityFrameworkCore.SqlServer.Query.Internal
     {
         private readonly ISqlExpressionFactory _sqlExpressionFactory;
 
-        public SqlServerByteArrayMethodTranslator(ISqlExpressionFactory sqlExpressionFactory)
+        public SqlServerByteArrayMethodTranslator([NotNull] ISqlExpressionFactory sqlExpressionFactory)
         {
             _sqlExpressionFactory = sqlExpressionFactory;
         }
 
         public virtual SqlExpression Translate(SqlExpression instance, MethodInfo method, IReadOnlyList<SqlExpression> arguments)
         {
+            Check.NotNull(method, nameof(method));
+            Check.NotNull(arguments, nameof(arguments));
+
             if (method.IsGenericMethod
                 && method.GetGenericMethodDefinition().Equals(EnumerableMethods.Contains)
                 && arguments[0].Type == typeof(byte[]))
