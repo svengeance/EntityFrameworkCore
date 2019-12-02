@@ -316,7 +316,7 @@ namespace Microsoft.EntityFrameworkCore.Query
             AssertQuery<NullSemanticsEntity1>(es => es.Where(e => !ids.Contains(e.NullableStringA)));
         }
 
-        [ConditionalFact(Skip = "issue #14171")]
+        [ConditionalFact]
         public virtual void Contains_with_local_nullable_array_closure_negated()
         {
             string[] ids = { "Foo" };
@@ -946,40 +946,58 @@ namespace Microsoft.EntityFrameworkCore.Query
             }
         }
 
-        [ConditionalFact(Skip = "issue #14171")]
+        [ConditionalFact]
         public virtual void Null_semantics_contains()
         {
-            using var ctx = CreateContext();
             var ids = new List<int?> { 1, 2 };
-            var query1 = ctx.Entities1.Where(e => ids.Contains(e.NullableIntA));
-            var result1 = query1.ToList();
+            AssertQuery<NullSemanticsEntity1>(es => es.Where(e => ids.Contains(e.NullableIntA)));
+            AssertQuery<NullSemanticsEntity1>(es => es.Where(e => !ids.Contains(e.NullableIntA)));
 
-            var query2 = ctx.Entities1.Where(e => !ids.Contains(e.NullableIntA));
-            var result2 = query2.ToList();
+            var ids2 = new List<int?> { 1, 2, null };
+            AssertQuery<NullSemanticsEntity1>(es => es.Where(e => ids2.Contains(e.NullableIntA)));
+            AssertQuery<NullSemanticsEntity1>(es => es.Where(e => !ids2.Contains(e.NullableIntA)));
 
-            var ids2 = new List<int?>
-            {
-                1,
-                2,
-                null
-            };
-            var query3 = ctx.Entities1.Where(e => ids.Contains(e.NullableIntA));
-            var result3 = query3.ToList();
+            AssertQuery<NullSemanticsEntity1>(es => es.Where(e => new List<int?> { 1, 2 }.Contains(e.NullableIntA)));
+            AssertQuery<NullSemanticsEntity1>(es => es.Where(e => !new List<int?> { 1, 2 }.Contains(e.NullableIntA)));
+            AssertQuery<NullSemanticsEntity1>(es => es.Where(e => new List<int?> { 1, 2, null }.Contains(e.NullableIntA)));
+            AssertQuery<NullSemanticsEntity1>(es => es.Where(e => !new List<int?> { 1, 2, null }.Contains(e.NullableIntA)));
+        }
 
-            var query4 = ctx.Entities1.Where(e => !ids.Contains(e.NullableIntA));
-            var result4 = query4.ToList();
+        [ConditionalFact]
+        public virtual void Null_semantics_contains_array_with_no_values()
+        {
+            var ids = new List<int?>();
+            AssertQuery<NullSemanticsEntity1>(es => es.Where(e => ids.Contains(e.NullableIntA)));
+            AssertQuery<NullSemanticsEntity1>(es => es.Where(e => !ids.Contains(e.NullableIntA)));
 
-            var query5 = ctx.Entities1.Where(e => !new List<int?> { 1, 2 }.Contains(e.NullableIntA));
-            var result5 = query5.ToList();
+            var ids2 = new List<int?> { null };
+            AssertQuery<NullSemanticsEntity1>(es => es.Where(e => ids2.Contains(e.NullableIntA)));
+            AssertQuery<NullSemanticsEntity1>(es => es.Where(e => !ids2.Contains(e.NullableIntA)));
 
-            var query6 = ctx.Entities1.Where(
-                e => !new List<int?>
-                {
-                    1,
-                    2,
-                    null
-                }.Contains(e.NullableIntA));
-            var result6 = query6.ToList();
+            AssertQuery<NullSemanticsEntity1>(es => es.Where(e => new List<int?>().Contains(e.NullableIntA)));
+            AssertQuery<NullSemanticsEntity1>(es => es.Where(e => !new List<int?>().Contains(e.NullableIntA)));
+            AssertQuery<NullSemanticsEntity1>(es => es.Where(e => new List<int?> { null }.Contains(e.NullableIntA)));
+            AssertQuery<NullSemanticsEntity1>(es => es.Where(e => !new List<int?> { null }.Contains(e.NullableIntA)));
+        }
+
+        [ConditionalFact]
+        public virtual void Null_semantics_contains_non_nullable_argument()
+        {
+            var ids = new List<int?> { 1, 2, null };
+            AssertQuery<NullSemanticsEntity1>(es => es.Where(e => ids.Contains(e.IntA)));
+            AssertQuery<NullSemanticsEntity1>(es => es.Where(e => !ids.Contains(e.IntA)));
+
+            var ids2 = new List<int?> { 1, 2, };
+            AssertQuery<NullSemanticsEntity1>(es => es.Where(e => ids2.Contains(e.IntA)));
+            AssertQuery<NullSemanticsEntity1>(es => es.Where(e => !ids2.Contains(e.IntA)));
+
+            var ids3 = new List<int?>();
+            AssertQuery<NullSemanticsEntity1>(es => es.Where(e => ids3.Contains(e.IntA)));
+            AssertQuery<NullSemanticsEntity1>(es => es.Where(e => !ids3.Contains(e.IntA)));
+
+            var ids4 = new List<int?> { null };
+            AssertQuery<NullSemanticsEntity1>(es => es.Where(e => ids4.Contains(e.IntA)));
+            AssertQuery<NullSemanticsEntity1>(es => es.Where(e => !ids4.Contains(e.IntA)));
         }
 
         [ConditionalFact]

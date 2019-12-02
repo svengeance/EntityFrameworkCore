@@ -343,7 +343,7 @@ LEFT JOIN (
     SELECT [e].[EmployeeID], [e].[City], [e].[Country], [e].[FirstName], [e].[ReportsTo], [e].[Title]
     FROM [Employees] AS [e]
     WHERE [e].[EmployeeID] = -1
-) AS [t] ON 1 = 1");
+) AS [t] ON CAST(1 AS bit) = CAST(1 AS bit)");
         }
 
         public override async Task Join_with_default_if_empty_on_both_sources(bool async)
@@ -359,7 +359,7 @@ LEFT JOIN (
     SELECT [e].[EmployeeID], [e].[City], [e].[Country], [e].[FirstName], [e].[ReportsTo], [e].[Title]
     FROM [Employees] AS [e]
     WHERE [e].[EmployeeID] = -1
-) AS [t] ON 1 = 1
+) AS [t] ON CAST(1 AS bit) = CAST(1 AS bit)
 INNER JOIN (
     SELECT [t0].[EmployeeID], [t0].[City], [t0].[Country], [t0].[FirstName], [t0].[ReportsTo], [t0].[Title]
     FROM (
@@ -369,7 +369,7 @@ INNER JOIN (
         SELECT [e0].[EmployeeID], [e0].[City], [e0].[Country], [e0].[FirstName], [e0].[ReportsTo], [e0].[Title]
         FROM [Employees] AS [e0]
         WHERE [e0].[EmployeeID] = -1
-    ) AS [t0] ON 1 = 1
+    ) AS [t0] ON CAST(1 AS bit) = CAST(1 AS bit)
 ) AS [t1] ON [t].[EmployeeID] = [t1].[EmployeeID]");
         }
 
@@ -386,7 +386,7 @@ LEFT JOIN (
     SELECT [e].[EmployeeID], [e].[City], [e].[Country], [e].[FirstName], [e].[ReportsTo], [e].[Title]
     FROM [Employees] AS [e]
     WHERE [e].[EmployeeID] = -1
-) AS [t] ON 1 = 1");
+) AS [t] ON CAST(1 AS bit) = CAST(1 AS bit)");
         }
 
         public override async Task Default_if_empty_top_level_positive(bool async)
@@ -402,7 +402,7 @@ LEFT JOIN (
     SELECT [e].[EmployeeID], [e].[City], [e].[Country], [e].[FirstName], [e].[ReportsTo], [e].[Title]
     FROM [Employees] AS [e]
     WHERE [e].[EmployeeID] > 0
-) AS [t] ON 1 = 1");
+) AS [t] ON CAST(1 AS bit) = CAST(1 AS bit)");
         }
 
         public override async Task Default_if_empty_top_level_projection(bool async)
@@ -418,7 +418,7 @@ LEFT JOIN (
     SELECT [e].[EmployeeID], [e].[City], [e].[Country], [e].[FirstName], [e].[ReportsTo], [e].[Title]
     FROM [Employees] AS [e]
     WHERE [e].[EmployeeID] = -1
-) AS [t] ON 1 = 1");
+) AS [t] ON CAST(1 AS bit) = CAST(1 AS bit)");
         }
 
         public override async Task Where_query_composition(bool async)
@@ -1460,7 +1460,7 @@ END");
     WHEN NOT EXISTS (
         SELECT 1
         FROM [Customers] AS [c]
-        WHERE (([c].[ContactName] <> N'') OR [c].[ContactName] IS NULL) AND ([c].[ContactName] IS NULL OR ([c].[ContactName] IS NULL OR ((LEFT([c].[ContactName], LEN([c].[ContactName])) <> [c].[ContactName]) OR LEFT([c].[ContactName], LEN([c].[ContactName])) IS NULL)))) THEN CAST(1 AS bit)
+        WHERE (([c].[ContactName] <> N'') OR [c].[ContactName] IS NULL) AND ([c].[ContactName] IS NULL OR ((LEFT([c].[ContactName], LEN([c].[ContactName])) <> [c].[ContactName]) OR LEFT([c].[ContactName], LEN([c].[ContactName])) IS NULL))) THEN CAST(1 AS bit)
     ELSE CAST(0 AS bit)
 END");
         }
@@ -3242,7 +3242,7 @@ LEFT JOIN (
     SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
     FROM [Customers] AS [c]
     WHERE [c].[City] = N'London'
-) AS [t] ON 1 = 1
+) AS [t] ON CAST(1 AS bit) = CAST(1 AS bit)
 WHERE [t].[CustomerID] IS NOT NULL");
         }
 
@@ -3273,7 +3273,7 @@ CROSS JOIN (
         SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
         FROM [Orders] AS [o]
         WHERE [o].[OrderID] > 15000
-    ) AS [t] ON 1 = 1
+    ) AS [t] ON CAST(1 AS bit) = CAST(1 AS bit)
 ) AS [t0]");
         }
 
@@ -3293,7 +3293,7 @@ CROSS JOIN (
         SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
         FROM [Orders] AS [o]
         WHERE [o].[OrderID] > 15000
-    ) AS [t] ON 1 = 1
+    ) AS [t] ON CAST(1 AS bit) = CAST(1 AS bit)
 ) AS [t0]
 LEFT JOIN [Orders] AS [o0] ON [c].[CustomerID] = [o0].[CustomerID]
 WHERE ([c].[City] = N'Seattle') AND ([t0].[OrderID] IS NOT NULL AND [o0].[OrderID] IS NOT NULL)

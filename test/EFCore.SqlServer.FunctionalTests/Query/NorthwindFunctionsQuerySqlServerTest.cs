@@ -36,7 +36,7 @@ WHERE [c].[ContactName] IS NOT NULL AND ([c].[ContactName] LIKE N'M%')");
             AssertSql(
                 @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
 FROM [Customers] AS [c]
-WHERE ([c].[ContactName] = N'') OR ([c].[ContactName] IS NOT NULL AND ([c].[ContactName] IS NOT NULL AND (LEFT([c].[ContactName], LEN([c].[ContactName])) = [c].[ContactName])))");
+WHERE ([c].[ContactName] = N'') OR ([c].[ContactName] IS NOT NULL AND (LEFT([c].[ContactName], LEN([c].[ContactName])) = [c].[ContactName]))");
         }
 
         public override async Task String_StartsWith_Column(bool async)
@@ -46,7 +46,7 @@ WHERE ([c].[ContactName] = N'') OR ([c].[ContactName] IS NOT NULL AND ([c].[Cont
             AssertSql(
                 @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
 FROM [Customers] AS [c]
-WHERE ([c].[ContactName] = N'') OR ([c].[ContactName] IS NOT NULL AND ([c].[ContactName] IS NOT NULL AND (LEFT([c].[ContactName], LEN([c].[ContactName])) = [c].[ContactName])))");
+WHERE ([c].[ContactName] = N'') OR ([c].[ContactName] IS NOT NULL AND (LEFT([c].[ContactName], LEN([c].[ContactName])) = [c].[ContactName]))");
         }
 
         public override async Task String_StartsWith_MethodCall(bool async)
@@ -76,7 +76,7 @@ WHERE [c].[ContactName] IS NOT NULL AND ([c].[ContactName] LIKE N'%b')");
             AssertSql(
                 @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
 FROM [Customers] AS [c]
-WHERE ([c].[ContactName] = N'') OR ([c].[ContactName] IS NOT NULL AND ([c].[ContactName] IS NOT NULL AND (RIGHT([c].[ContactName], LEN([c].[ContactName])) = [c].[ContactName])))");
+WHERE ([c].[ContactName] = N'') OR ([c].[ContactName] IS NOT NULL AND (RIGHT([c].[ContactName], LEN([c].[ContactName])) = [c].[ContactName]))");
         }
 
         public override async Task String_EndsWith_Column(bool async)
@@ -86,7 +86,7 @@ WHERE ([c].[ContactName] = N'') OR ([c].[ContactName] IS NOT NULL AND ([c].[Cont
             AssertSql(
                 @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
 FROM [Customers] AS [c]
-WHERE ([c].[ContactName] = N'') OR ([c].[ContactName] IS NOT NULL AND ([c].[ContactName] IS NOT NULL AND (RIGHT([c].[ContactName], LEN([c].[ContactName])) = [c].[ContactName])))");
+WHERE ([c].[ContactName] = N'') OR ([c].[ContactName] IS NOT NULL AND (RIGHT([c].[ContactName], LEN([c].[ContactName])) = [c].[ContactName]))");
         }
 
         public override async Task String_EndsWith_MethodCall(bool async)
@@ -1179,7 +1179,7 @@ WHERE ([o].[CustomerID] = N'ALFKI') AND ((CHARINDEX(N'1997', CONVERT(nvarchar(ma
 
             AssertSql(
                 @"SELECT CASE
-    WHEN N'' = N'' THEN 0
+    WHEN CAST(1 AS bit) = CAST(1 AS bit) THEN 0
     ELSE CHARINDEX(N'', [c].[ContactName]) - 1
 END
 FROM [Customers] AS [c]

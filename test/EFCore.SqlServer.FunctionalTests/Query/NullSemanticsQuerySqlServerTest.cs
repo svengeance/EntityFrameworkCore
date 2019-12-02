@@ -730,7 +730,9 @@ WHERE [e].[NullableStringA] NOT IN (N'Foo') AND [e].[NullableStringA] IS NOT NUL
             base.Contains_with_local_nullable_array_closure_negated();
 
             AssertSql(
-                @"");
+                @"SELECT [e].[Id]
+FROM [Entities1] AS [e]
+WHERE [e].[NullableStringA] NOT IN (N'Foo') OR [e].[NullableStringA] IS NULL");
         }
 
         public override void Contains_with_local_array_closure_with_multiple_nulls()
@@ -1447,7 +1449,109 @@ END = COALESCE([e0].[NullableBoolA], [e0].[BoolC]))");
             base.Null_semantics_contains();
 
             AssertSql(
-                @"");
+                @"SELECT [e].[Id]
+FROM [Entities1] AS [e]
+WHERE [e].[NullableIntA] IN (1, 2)",
+                //
+                @"SELECT [e].[Id]
+FROM [Entities1] AS [e]
+WHERE [e].[NullableIntA] NOT IN (1, 2) OR [e].[NullableIntA] IS NULL",
+                //
+                @"SELECT [e].[Id]
+FROM [Entities1] AS [e]
+WHERE [e].[NullableIntA] IN (1, 2) OR [e].[NullableIntA] IS NULL",
+                //
+                @"SELECT [e].[Id]
+FROM [Entities1] AS [e]
+WHERE [e].[NullableIntA] NOT IN (1, 2) AND [e].[NullableIntA] IS NOT NULL",
+                //
+                @"SELECT [e].[Id]
+FROM [Entities1] AS [e]
+WHERE [e].[NullableIntA] IN (1, 2)",
+                //
+                @"SELECT [e].[Id]
+FROM [Entities1] AS [e]
+WHERE [e].[NullableIntA] NOT IN (1, 2) OR [e].[NullableIntA] IS NULL",
+                //
+                @"SELECT [e].[Id]
+FROM [Entities1] AS [e]
+WHERE [e].[NullableIntA] IN (1, 2) OR [e].[NullableIntA] IS NULL",
+                //
+                @"SELECT [e].[Id]
+FROM [Entities1] AS [e]
+WHERE [e].[NullableIntA] NOT IN (1, 2) AND [e].[NullableIntA] IS NOT NULL");
+        }
+
+        public override void Null_semantics_contains_array_with_no_values()
+        {
+            base.Null_semantics_contains_array_with_no_values();
+
+            AssertSql(
+                @"SELECT [e].[Id]
+FROM [Entities1] AS [e]
+WHERE CAST(0 AS bit) = CAST(1 AS bit)",
+                //
+                @"SELECT [e].[Id]
+FROM [Entities1] AS [e]",
+                //
+                @"SELECT [e].[Id]
+FROM [Entities1] AS [e]
+WHERE [e].[NullableIntA] IS NULL",
+                //
+                @"SELECT [e].[Id]
+FROM [Entities1] AS [e]
+WHERE [e].[NullableIntA] IS NOT NULL",
+                //
+                @"SELECT [e].[Id]
+FROM [Entities1] AS [e]
+WHERE CAST(0 AS bit) = CAST(1 AS bit)",
+                //
+                @"SELECT [e].[Id]
+FROM [Entities1] AS [e]",
+                //
+                @"SELECT [e].[Id]
+FROM [Entities1] AS [e]
+WHERE [e].[NullableIntA] IS NULL",
+                //
+                @"SELECT [e].[Id]
+FROM [Entities1] AS [e]
+WHERE [e].[NullableIntA] IS NOT NULL");
+        }
+
+        public override void Null_semantics_contains_non_nullable_argument()
+        {
+            base.Null_semantics_contains_non_nullable_argument();
+
+            AssertSql(
+                @"SELECT [e].[Id]
+FROM [Entities1] AS [e]
+WHERE [e].[IntA] IN (1, 2)",
+                //
+                @"SELECT [e].[Id]
+FROM [Entities1] AS [e]
+WHERE [e].[IntA] NOT IN (1, 2)",
+                //
+                @"SELECT [e].[Id]
+FROM [Entities1] AS [e]
+WHERE [e].[IntA] IN (1, 2)",
+                //
+                @"SELECT [e].[Id]
+FROM [Entities1] AS [e]
+WHERE [e].[IntA] NOT IN (1, 2)",
+                //
+                @"SELECT [e].[Id]
+FROM [Entities1] AS [e]
+WHERE CAST(0 AS bit) = CAST(1 AS bit)",
+                //
+                @"SELECT [e].[Id]
+FROM [Entities1] AS [e]",
+                //
+                @"SELECT [e].[Id]
+FROM [Entities1] AS [e]
+WHERE CAST(0 AS bit) = CAST(1 AS bit)",
+                //
+                @"SELECT [e].[Id]
+FROM [Entities1] AS [e]");
         }
 
         public override void Null_semantics_with_null_check_simple()

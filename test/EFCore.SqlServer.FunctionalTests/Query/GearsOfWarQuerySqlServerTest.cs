@@ -869,10 +869,7 @@ FROM [Weapons] AS [w]");
             AssertSql(
                 @"SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[Discriminator], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank]
 FROM [Gears] AS [g]
-WHERE [g].[Discriminator] IN (N'Gear', N'Officer') AND (CASE
-    WHEN ([g].[LeaderNickname] = N'Marcus') AND [g].[LeaderNickname] IS NOT NULL THEN CAST(1 AS bit)
-    ELSE CAST(0 AS bit)
-END = CAST(1 AS bit))");
+WHERE [g].[Discriminator] IN (N'Gear', N'Officer') AND (([g].[LeaderNickname] = N'Marcus') AND [g].[LeaderNickname] IS NOT NULL)");
         }
 
         public override async Task Null_propagation_optimization2(bool async)
@@ -6652,7 +6649,7 @@ LEFT JOIN (
     SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[Discriminator], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank]
     FROM [Gears] AS [g]
     WHERE [g].[Discriminator] IN (N'Gear', N'Officer')
-) AS [t0] ON ((([t].[GearNickName] = [t0].[Nickname]) AND ([t].[GearSquadId] = [t0].[SquadId])) AND [t].[Note] IS NOT NULL) AND [t].[Note] IS NOT NULL
+) AS [t0] ON (([t].[GearNickName] = [t0].[Nickname]) AND ([t].[GearSquadId] = [t0].[SquadId])) AND [t].[Note] IS NOT NULL
 ORDER BY [t].[Id], [t0].[Nickname], [t0].[SquadId]");
         }
 
@@ -7063,10 +7060,7 @@ HAVING CAST(0 AS bit) = CAST(1 AS bit)");
             await base.Select_StartsWith_with_null_parameter_as_argument(async);
 
             AssertSql(
-                @"SELECT CASE
-    WHEN CAST(0 AS bit) = CAST(1 AS bit) THEN CAST(1 AS bit)
-    ELSE CAST(0 AS bit)
-END
+                @"SELECT CAST(0 AS bit)
 FROM [Gears] AS [g]
 WHERE [g].[Discriminator] IN (N'Gear', N'Officer')");
         }
@@ -7298,10 +7292,7 @@ SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthNa
 FROM [Gears] AS [g]
 WHERE [g].[Discriminator] IN (N'Gear', N'Officer') AND (CASE
     WHEN [g].[HasSoulPatch] = @__prm_0 THEN CAST(1 AS bit)
-    ELSE CASE
-        WHEN CAST(0 AS bit) = CAST(1 AS bit) THEN CAST(1 AS bit)
-        ELSE CAST(0 AS bit)
-    END
+    ELSE CAST(0 AS bit)
 END = CAST(1 AS bit))");
         }
 
@@ -7326,10 +7317,7 @@ WHERE [g].[Discriminator] IN (N'Gear', N'Officer') AND (CASE
             WHERE [w].[Id] = [g].[SquadId]) IS NOT NULL THEN CAST(1 AS bit)
         ELSE CAST(0 AS bit)
     END
-    ELSE CASE
-        WHEN CAST(0 AS bit) = CAST(1 AS bit) THEN CAST(1 AS bit)
-        ELSE CAST(0 AS bit)
-    END
+    ELSE CAST(0 AS bit)
 END = CAST(1 AS bit))");
         }
 

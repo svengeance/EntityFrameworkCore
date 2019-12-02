@@ -6108,7 +6108,7 @@ CROSS JOIN (
             SELECT 1
             FROM [OrganisationUser7973] AS [o0]
             WHERE [o].[Id] = [o0].[OrganisationId])
-    ) AS [t] ON 1 = 1
+    ) AS [t] ON CAST(1 AS bit) = CAST(1 AS bit)
 ) AS [t0]");
             }
         }

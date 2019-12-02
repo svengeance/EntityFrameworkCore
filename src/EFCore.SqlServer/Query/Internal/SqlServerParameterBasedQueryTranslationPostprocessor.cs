@@ -3,6 +3,7 @@
 
 using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore.Query;
+using Microsoft.EntityFrameworkCore.Query.Internal;
 using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
 
 namespace Microsoft.EntityFrameworkCore.SqlServer.Query.Internal
@@ -25,7 +26,10 @@ namespace Microsoft.EntityFrameworkCore.SqlServer.Query.Internal
             var searchConditionOptimized = (SelectExpression)new SearchConditionConvertingExpressionVisitor(Dependencies.SqlExpressionFactory)
                 .Visit(optimizedSelectExpression);
 
-            return (searchConditionOptimized, canCache);
+            var optimized = (SelectExpression)new SqlExpressionOptimizingExpressionVisitor(
+                Dependencies.SqlExpressionFactory, UseRelationalNulls, parametersValues).Visit(searchConditionOptimized);
+
+            return (optimized, canCache);
         }
     }
 }

@@ -1167,7 +1167,7 @@ CROSS APPLY (
 
             AssertSql(
                 @"SELECT CASE
-    WHEN N'' = N'' THEN 0
+    WHEN CAST(1 AS bit) = CAST(1 AS bit) THEN 0
     ELSE CHARINDEX(N'', [c].[ContactName]) - 1
 END
 FROM [Customers] AS [c]

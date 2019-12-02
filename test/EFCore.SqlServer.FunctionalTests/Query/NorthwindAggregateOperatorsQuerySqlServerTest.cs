@@ -1320,7 +1320,7 @@ FROM [Customers] AS [c]");
 FROM (
     SELECT NULL AS [empty]
 ) AS [empty]
-LEFT JOIN [Products] AS [p] ON 1 = 1");
+LEFT JOIN [Products] AS [p] ON CAST(1 AS bit) = CAST(1 AS bit)");
         }
 
         public override async Task Collection_Last_member_access_in_projection_translated(bool async)

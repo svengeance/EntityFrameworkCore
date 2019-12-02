@@ -326,7 +326,7 @@ WHERE UPPER([l0].[Name]) IS NOT NULL AND (UPPER([l0].[Name]) LIKE N'L%')");
                 @"SELECT [l].[Id], [l].[Date], [l].[Name], [l].[OneToMany_Optional_Self_Inverse1Id], [l].[OneToMany_Required_Self_Inverse1Id], [l].[OneToOne_Optional_Self1Id]
 FROM [LevelOne] AS [l]
 LEFT JOIN [LevelTwo] AS [l0] ON [l].[Id] = [l0].[Level1_Optional_Id]
-WHERE ([l0].[Name] = N'') OR ([l0].[Name] IS NOT NULL AND ([l0].[Name] IS NOT NULL AND (LEFT([l0].[Name], LEN([l0].[Name])) = [l0].[Name])))");
+WHERE ([l0].[Name] = N'') OR ([l0].[Name] IS NOT NULL AND (LEFT([l0].[Name], LEN([l0].[Name])) = [l0].[Name]))");
         }
 
         public override async Task Optional_navigation_inside_method_call_translated_to_join_keeps_original_nullability(bool async)
@@ -3305,9 +3305,10 @@ WHERE [l0].[Id] IS NOT NULL");
             await base.Accessing_optional_property_inside_result_operator_subquery(async);
 
             AssertSql(
-                @"SELECT [l1].[Id], [l1].[Date], [l1].[Name], [l1].[OneToMany_Optional_Self_Inverse1Id], [l1].[OneToMany_Required_Self_Inverse1Id], [l1].[OneToOne_Optional_Self1Id], [l1.OneToOne_Optional_FK1].[Name]
-FROM [LevelOne] AS [l1]
-LEFT JOIN [LevelTwo] AS [l1.OneToOne_Optional_FK1] ON [l1].[Id] = [l1.OneToOne_Optional_FK1].[Level1_Optional_Id]");
+                @"SELECT [l].[Id], [l].[Date], [l].[Name], [l].[OneToMany_Optional_Self_Inverse1Id], [l].[OneToMany_Required_Self_Inverse1Id], [l].[OneToOne_Optional_Self1Id]
+FROM [LevelOne] AS [l]
+LEFT JOIN [LevelTwo] AS [l0] ON [l].[Id] = [l0].[Level1_Optional_Id]
+WHERE [l0].[Name] NOT IN (N'Name1', N'Name2') OR [l0].[Name] IS NULL");
         }
 
         public override async Task Include_after_SelectMany_and_reference_navigation(bool async)

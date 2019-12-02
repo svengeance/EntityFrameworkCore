@@ -2,7 +2,6 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Data.Common;
 using System.Linq.Expressions;
@@ -38,17 +37,19 @@ namespace Microsoft.EntityFrameworkCore.Query
             SelectExpression selectExpression, IReadOnlyDictionary<string, object> parametersValues)
         {
             var canCache = true;
+            var nullSemanticsRewritingExpressionVisitor = new NullSemanticsRewritingExpressionVisitor(
+                UseRelationalNulls,
+                Dependencies.SqlExpressionFactory,
+                parametersValues);
 
-            var inExpressionOptimized = new InExpressionValuesExpandingExpressionVisitor(
-                Dependencies.SqlExpressionFactory, parametersValues).Visit(selectExpression);
-
-            if (!ReferenceEquals(selectExpression, inExpressionOptimized))
+            var nullSemanticsOptimized = nullSemanticsRewritingExpressionVisitor.Visit(selectExpression);
+            if (!nullSemanticsRewritingExpressionVisitor.CanCache)
             {
                 canCache = false;
             }
 
-            var nullParametersOptimized = new ParameterNullabilityBasedSqlExpressionOptimizingExpressionVisitor(
-                Dependencies.SqlExpressionFactory, UseRelationalNulls, parametersValues).Visit(inExpressionOptimized);
+            var nullParametersOptimized = new SqlExpressionOptimizingExpressionVisitor(
+                Dependencies.SqlExpressionFactory, UseRelationalNulls, parametersValues).Visit(nullSemanticsOptimized);
 
             var fromSqlParameterOptimized = new FromSqlParameterApplyingExpressionVisitor(
                 Dependencies.SqlExpressionFactory,
@@ -61,163 +62,6 @@ namespace Microsoft.EntityFrameworkCore.Query
             }
 
             return (selectExpression: (SelectExpression)fromSqlParameterOptimized, canCache);
-        }
-
-        private sealed class ParameterNullabilityBasedSqlExpressionOptimizingExpressionVisitor : SqlExpressionOptimizingExpressionVisitor
-        {
-            private readonly IReadOnlyDictionary<string, object> _parametersValues;
-
-            public ParameterNullabilityBasedSqlExpressionOptimizingExpressionVisitor(
-                ISqlExpressionFactory sqlExpressionFactory,
-                bool useRelationalNulls,
-                IReadOnlyDictionary<string, object> parametersValues)
-                : base(sqlExpressionFactory, useRelationalNulls)
-            {
-                _parametersValues = parametersValues;
-            }
-
-            protected override Expression VisitSqlUnaryExpression(SqlUnaryExpression sqlUnaryExpression)
-            {
-                var result = base.VisitSqlUnaryExpression(sqlUnaryExpression);
-                if (result is SqlUnaryExpression newUnaryExpression
-                    && newUnaryExpression.Operand is SqlParameterExpression parameterOperand)
-                {
-                    var parameterValue = _parametersValues[parameterOperand.Name];
-                    if (sqlUnaryExpression.OperatorType == ExpressionType.Equal)
-                    {
-                        return SqlExpressionFactory.Constant(parameterValue == null, sqlUnaryExpression.TypeMapping);
-                    }
-
-                    if (sqlUnaryExpression.OperatorType == ExpressionType.NotEqual)
-                    {
-                        return SqlExpressionFactory.Constant(parameterValue != null, sqlUnaryExpression.TypeMapping);
-                    }
-                }
-
-                return result;
-            }
-
-            protected override Expression VisitSqlBinaryExpression(SqlBinaryExpression sqlBinaryExpression)
-            {
-                var result = base.VisitSqlBinaryExpression(sqlBinaryExpression);
-                if (result is SqlBinaryExpression sqlBinaryResult)
-                {
-                    var leftNullParameter = sqlBinaryResult.Left is SqlParameterExpression leftParameter
-                        && _parametersValues[leftParameter.Name] == null;
-
-                    var rightNullParameter = sqlBinaryResult.Right is SqlParameterExpression rightParameter
-                        && _parametersValues[rightParameter.Name] == null;
-
-                    if ((sqlBinaryResult.OperatorType == ExpressionType.Equal || sqlBinaryResult.OperatorType == ExpressionType.NotEqual)
-                        && (leftNullParameter || rightNullParameter))
-                    {
-                        return SimplifyNullComparisonExpression(
-                            sqlBinaryResult.OperatorType,
-                            sqlBinaryResult.Left,
-                            sqlBinaryResult.Right,
-                            leftNullParameter,
-                            rightNullParameter,
-                            sqlBinaryResult.TypeMapping);
-                    }
-                }
-
-                return result;
-            }
-        }
-
-        private sealed class InExpressionValuesExpandingExpressionVisitor : ExpressionVisitor
-        {
-            private readonly ISqlExpressionFactory _sqlExpressionFactory;
-            private readonly IReadOnlyDictionary<string, object> _parametersValues;
-
-            public InExpressionValuesExpandingExpressionVisitor(
-                ISqlExpressionFactory sqlExpressionFactory, IReadOnlyDictionary<string, object> parametersValues)
-            {
-                _sqlExpressionFactory = sqlExpressionFactory;
-                _parametersValues = parametersValues;
-            }
-
-            public override Expression Visit(Expression expression)
-            {
-                if (expression is InExpression inExpression
-                    && inExpression.Values != null)
-                {
-                    var inValues = new List<object>();
-                    var hasNullValue = false;
-                    RelationalTypeMapping typeMapping = null;
-
-                    switch (inExpression.Values)
-                    {
-                        case SqlConstantExpression sqlConstant:
-                        {
-                            typeMapping = sqlConstant.TypeMapping;
-                            var values = (IEnumerable)sqlConstant.Value;
-                            foreach (var value in values)
-                            {
-                                if (value == null)
-                                {
-                                    hasNullValue = true;
-                                    continue;
-                                }
-
-                                inValues.Add(value);
-                            }
-
-                            break;
-                        }
-
-                        case SqlParameterExpression sqlParameter:
-                        {
-                            typeMapping = sqlParameter.TypeMapping;
-                            var values = (IEnumerable)_parametersValues[sqlParameter.Name];
-                            foreach (var value in values)
-                            {
-                                if (value == null)
-                                {
-                                    hasNullValue = true;
-                                    continue;
-                                }
-
-                                inValues.Add(value);
-                            }
-
-                            break;
-                        }
-                    }
-
-                    var updatedInExpression = inValues.Count > 0
-                        ? _sqlExpressionFactory.In(
-                            (SqlExpression)Visit(inExpression.Item),
-                            _sqlExpressionFactory.Constant(inValues, typeMapping),
-                            inExpression.IsNegated)
-                        : null;
-
-                    var nullCheckExpression = hasNullValue
-                        ? inExpression.IsNegated
-                            ? _sqlExpressionFactory.IsNotNull(inExpression.Item)
-                            : _sqlExpressionFactory.IsNull(inExpression.Item)
-                        : null;
-
-                    if (updatedInExpression != null
-                        && nullCheckExpression != null)
-                    {
-                        return inExpression.IsNegated
-                            ? _sqlExpressionFactory.AndAlso(updatedInExpression, nullCheckExpression)
-                            : _sqlExpressionFactory.OrElse(updatedInExpression, nullCheckExpression);
-                    }
-
-                    if (updatedInExpression == null
-                        && nullCheckExpression == null)
-                    {
-                        return _sqlExpressionFactory.Equal(
-                            _sqlExpressionFactory.Constant(true), _sqlExpressionFactory.Constant(inExpression.IsNegated));
-                    }
-
-                    return (SqlExpression)updatedInExpression ?? nullCheckExpression;
-                }
-
-                return base.Visit(expression);
-            }
         }
 
         private sealed class FromSqlParameterApplyingExpressionVisitor : ExpressionVisitor

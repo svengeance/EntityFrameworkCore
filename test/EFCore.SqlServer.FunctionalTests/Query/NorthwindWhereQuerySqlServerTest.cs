@@ -1111,10 +1111,10 @@ FROM [Products] AS [p]");
                 @"SELECT [p].[ProductID], [p].[Discontinued], [p].[ProductName], [p].[SupplierID], [p].[UnitPrice], [p].[UnitsInStock]
 FROM [Products] AS [p]
 WHERE CASE
-    WHEN [p].[ProductID] > 50 THEN CAST(1 AS bit)
+    WHEN [p].[ProductID] <= 50 THEN CAST(1 AS bit)
     ELSE CAST(0 AS bit)
 END = CASE
-    WHEN [p].[ProductID] > 20 THEN CAST(1 AS bit)
+    WHEN [p].[ProductID] <= 20 THEN CAST(1 AS bit)
     ELSE CAST(0 AS bit)
 END");
         }
