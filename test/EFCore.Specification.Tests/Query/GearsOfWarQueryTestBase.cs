@@ -1140,6 +1140,17 @@ namespace Microsoft.EntityFrameworkCore.Query
 
         [ConditionalTheory]
         [MemberData(nameof(IsAsyncData))]
+        public virtual Task Select_null_propagation_negative9(bool async)
+        {
+            return AssertQueryScalar(
+                async,
+                ss => ss.Set<Gear>().Select(g => g.LeaderNickname != null
+                        ? (bool?)(g.Nickname.Length == 5) ?? default(bool)
+                        : (bool?)null));
+        }
+
+        [ConditionalTheory]
+        [MemberData(nameof(IsAsyncData))]
         public virtual Task Select_null_propagation_works_for_navigations_with_composite_keys(bool async)
         {
             return AssertQuery(
@@ -5884,6 +5895,18 @@ namespace Microsoft.EntityFrameworkCore.Query
                 ss => ss.Set<Weapon>().Select(w => w.SynergyWith).OrderBy(w => string.Concat(w.Name, "Marcus' Lancer")),
                 ss => ss.Set<Weapon>().Select(w => w.SynergyWith).OrderBy(w => w != null ? string.Concat(w.Name, "Marcus' Lancer") : null),
                 assertOrder: true);
+        }
+
+        [ConditionalTheory]
+        [MemberData(nameof(IsAsyncData))]
+        public virtual Task String_concat_nullable_expressions_are_coalesced(bool async)
+        {
+            object nullableParam = null;
+
+            return AssertQuery(
+                async,
+                ss => ss.Set<Gear>().Select(w => w.FullName + null + w.LeaderNickname + nullableParam),
+                ss => ss.Set<Gear>().Select(w => w.FullName + string.Empty + w.LeaderNickname ?? string.Empty + nullableParam ?? string.Empty));
         }
 
         [ConditionalTheory(Skip = "issue #14205")]
