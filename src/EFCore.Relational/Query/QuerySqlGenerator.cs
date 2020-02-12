@@ -579,6 +579,15 @@ namespace Microsoft.EntityFrameworkCore.Query
                     break;
                 }
 
+                case ExpressionType.Negate
+                    when !(sqlUnaryExpression.Operand is SqlConstantExpression || sqlUnaryExpression.Operand is ColumnExpression || sqlUnaryExpression.Operand is SqlParameterExpression):
+                {
+                    _relationalCommandBuilder.Append("-(");
+                    Visit(sqlUnaryExpression.Operand);
+                    _relationalCommandBuilder.Append(")");
+                    break;
+                }
+
                 case ExpressionType.Negate:
                 {
                     _relationalCommandBuilder.Append("-");

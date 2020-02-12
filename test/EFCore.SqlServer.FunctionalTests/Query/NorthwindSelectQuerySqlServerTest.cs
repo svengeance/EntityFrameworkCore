@@ -520,7 +520,7 @@ ORDER BY [o].[OrderID]");
             await base.Select_non_matching_value_types_from_unary_expression_introduces_explicit_cast2(async);
 
             AssertSql(
-                @"SELECT -CAST([o].[OrderID] AS bigint)
+                @"SELECT -(CAST([o].[OrderID] AS bigint))
 FROM [Orders] AS [o]
 WHERE [o].[CustomerID] = N'ALFKI'
 ORDER BY [o].[OrderID]");

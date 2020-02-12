@@ -7495,6 +7495,16 @@ FROM [LocustLeaders] AS [l]
 WHERE [l].[Discriminator] IN (N'LocustLeader', N'LocustCommander') AND (CAST([l].[ThreatLevel] AS bigint) >= (CAST(5 AS bigint) + CAST([l].[ThreatLevel] AS bigint)))");
         }
 
+        public override async Task Negating_parenthetical_arithmetic_negates_entire_expression(bool async)
+        {
+            await base.Negating_parenthetical_arithmetic_negates_entire_expression(async);
+
+            AssertSql(
+                @"SELECT -(-(CAST(5 AS smallint) + (CAST(10 AS smallint) * [l].[ThreatLevel])))
+FROM [LocustLeaders] AS [l]
+WHERE [l].[Discriminator] IN (N'LocustLeader', N'LocustCommander')");
+        }
+
         private void AssertSql(params string[] expected)
             => Fixture.TestSqlLoggerFactory.AssertBaseline(expected);
     }

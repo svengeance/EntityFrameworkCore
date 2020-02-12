@@ -7533,6 +7533,15 @@ namespace Microsoft.EntityFrameworkCore.Query
 
         private int GetThreatLevel() => 256;
 
+        [ConditionalTheory]
+        [MemberData(nameof(IsAsyncData))]
+        public virtual Task Negating_parenthetical_arithmetic_negates_entire_expression(bool async)
+        {
+            return AssertQueryScalar(
+                async,
+                ss => ss.Set<LocustLeader>().Select(ll => -(-(5 + 10 * ll.ThreatLevel))));
+        }
+
         protected GearsOfWarContext CreateContext() => Fixture.CreateContext();
 
         protected virtual void ClearLog()
