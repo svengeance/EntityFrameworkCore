@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.Linq.Expressions;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Xunit;
@@ -19,7 +20,7 @@ namespace Microsoft.EntityFrameworkCore.Query
         #region Bug9849
 
         [ConditionalFact]
-        public void Include_throw_when_empty_9849()
+        public virtual void Include_throw_when_empty_9849()
         {
             using (CreateScratch<DatabaseContext>(_ => { }, "9849"))
             {
@@ -31,43 +32,49 @@ namespace Microsoft.EntityFrameworkCore.Query
         }
 
         [ConditionalFact]
-        public void Include_throw_when_empty_9849_2()
+        public virtual void Include_throw_when_empty_9849_2()
         {
             using (CreateScratch<DatabaseContext>(_ => { }, "9849"))
             {
                 using var context = new DatabaseContext();
+#pragma warning disable IDE1006 // Naming Styles
                 var results = context.VehicleInspections.Include(_foo => _foo.Motors).ToList();
+#pragma warning restore IDE1006 // Naming Styles
 
                 Assert.Empty(results);
             }
         }
 
         [ConditionalFact]
-        public void Include_throw_when_empty_9849_3()
+        public virtual void Include_throw_when_empty_9849_3()
         {
             using (CreateScratch<DatabaseContext>(_ => { }, "9849"))
             {
                 using var context = new DatabaseContext();
+#pragma warning disable IDE1006 // Naming Styles
                 var results = context.VehicleInspections.Include(__ => __.Motors).ToList();
+#pragma warning restore IDE1006 // Naming Styles
 
                 Assert.Empty(results);
             }
         }
 
         [ConditionalFact]
-        public void Include_throw_when_empty_9849_4()
+        public virtual void Include_throw_when_empty_9849_4()
         {
             using (CreateScratch<DatabaseContext>(_ => { }, "9849"))
             {
                 using var context = new DatabaseContext();
+#pragma warning disable IDE1006 // Naming Styles
                 var results = context.VehicleInspections.Include(___ => ___.Motors).ToList();
+#pragma warning restore IDE1006 // Naming Styles
 
                 Assert.Empty(results);
             }
         }
 
         [ConditionalFact]
-        public void Include_throw_when_empty_9849_5()
+        public virtual void Include_throw_when_empty_9849_5()
         {
             using (CreateScratch<DatabaseContext>(_ => { }, "9849"))
             {
@@ -83,14 +90,17 @@ namespace Microsoft.EntityFrameworkCore.Query
         }
 
         [ConditionalFact]
-        public void Include_throw_when_empty_9849_6()
+        public virtual void Include_throw_when_empty_9849_6()
         {
             using (CreateScratch<DatabaseContext>(_ => { }, "9849"))
             {
                 using var context = new DatabaseContext();
+#pragma warning disable IDE1006 // Naming Styles
+                // Explicitly named variables these way. They verify parameter names generated in EF Core.
                 var _ = 0L;
                 var __ = 0L;
                 var _f = 0L;
+#pragma warning restore IDE1006 // Naming Styles
 
                 var results
                     = (from v in context.VehicleInspections
@@ -101,7 +111,7 @@ namespace Microsoft.EntityFrameworkCore.Query
             }
         }
 
-        public class DatabaseContext : DbContext
+        private class DatabaseContext : DbContext
         {
             protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
             {
@@ -121,13 +131,13 @@ namespace Microsoft.EntityFrameworkCore.Query
             public DbSet<Motor> Motors { get; set; }
         }
 
-        public class VehicleInspection
+        private class VehicleInspection
         {
             public long Id { get; set; }
             public ICollection<Motor> Motors { get; set; } = new HashSet<Motor>();
         }
 
-        public class Motor
+        private class Motor
         {
             public long Id { get; set; }
             public long VehicleInspectionId { get; set; }
@@ -139,7 +149,7 @@ namespace Microsoft.EntityFrameworkCore.Query
         #region Bug3595
 
         [ConditionalFact]
-        public void GroupBy_with_uninitialized_datetime_projection_3595()
+        public virtual void GroupBy_with_uninitialized_datetime_projection_3595()
         {
             using (CreateScratch<Context3595>(Seed3595, "3595"))
             {
@@ -170,22 +180,22 @@ namespace Microsoft.EntityFrameworkCore.Query
             context.SaveChanges();
         }
 
-        public abstract class Base3595
+        private abstract class Base3595
         {
             public DateTime Modified { get; set; }
         }
 
-        public class Question3595 : Base3595
+        private class Question3595 : Base3595
         {
             public int Id { get; set; }
         }
 
-        public class Exam3595 : Base3595
+        private class Exam3595 : Base3595
         {
             public int Id { get; set; }
         }
 
-        public class ExamQuestion3595 : Base3595
+        private class ExamQuestion3595 : Base3595
         {
             public int Id { get; set; }
 
@@ -196,7 +206,7 @@ namespace Microsoft.EntityFrameworkCore.Query
             public Exam3595 Exam { get; set; }
         }
 
-        public class Context3595 : DbContext
+        private class Context3595 : DbContext
         {
             public DbSet<Exam3595> Exams { get; set; }
             public DbSet<Question3595> Questions { get; set; }
@@ -411,7 +421,7 @@ namespace Microsoft.EntityFrameworkCore.Query
             context.SaveChanges();
         }
 
-        public class MyContext3101 : DbContext
+        private class MyContext3101 : DbContext
         {
             public DbSet<Entity3101> Entities { get; set; }
 
@@ -430,7 +440,7 @@ namespace Microsoft.EntityFrameworkCore.Query
             }
         }
 
-        public class Entity3101
+        private class Entity3101
         {
             public Entity3101()
             {
@@ -446,7 +456,7 @@ namespace Microsoft.EntityFrameworkCore.Query
             public ICollection<Child3101> Children { get; set; }
         }
 
-        public class Child3101
+        private class Child3101
         {
             public int Id { get; set; }
             public string Name { get; set; }
@@ -574,7 +584,7 @@ namespace Microsoft.EntityFrameworkCore.Query
             context.SaveChanges();
         }
 
-        public class MyContext5456 : DbContext
+        private class MyContext5456 : DbContext
         {
             public DbSet<Blog5456> Blogs { get; set; }
             public DbSet<Post5456> Posts { get; set; }
@@ -594,27 +604,27 @@ namespace Microsoft.EntityFrameworkCore.Query
             }
         }
 
-        public class Blog5456
+        private class Blog5456
         {
             public int Id { get; set; }
             public List<Post5456> Posts { get; set; }
             public Author5456 Author { get; set; }
         }
 
-        public class Author5456
+        private class Author5456
         {
             public int Id { get; set; }
             public List<Blog5456> Blogs { get; set; }
         }
 
-        public class Post5456
+        private class Post5456
         {
             public int Id { get; set; }
             public Blog5456 Blog { get; set; }
             public List<Comment5456> Comments { get; set; }
         }
 
-        public class Comment5456
+        private class Comment5456
         {
             public int Id { get; set; }
             public Post5456 Blog { get; set; }
@@ -649,12 +659,12 @@ namespace Microsoft.EntityFrameworkCore.Query
             }
         }
 
-        public class Entity8282
+        private class Entity8282
         {
             public int Id { get; set; }
         }
 
-        public class EntityDto8282
+        private class EntityDto8282
         {
             public EntityDto8282(Entity8282 entity)
             {
@@ -662,6 +672,367 @@ namespace Microsoft.EntityFrameworkCore.Query
             }
 
             public int Id { get; set; }
+        }
+
+        #endregion
+
+        #region Bug19708
+
+        [ConditionalFact]
+        public virtual void GroupJoin_SelectMany_in_defining_query_is_flattened()
+        {
+            using (CreateScratch<MyContext19708>(Seed19708, "19708"))
+            {
+                using var context = new MyContext19708();
+
+                var query = context.Set<CustomerView19708>().ToList();
+
+                Assert.Collection(
+                    query,
+                    t => AssertCustomerView(t, 1, "First", 1, "FirstChild"),
+                    t => AssertCustomerView(t, 2, "Second", 2, "SecondChild1"),
+                    t => AssertCustomerView(t, 2, "Second", 3, "SecondChild2"),
+                    t => AssertCustomerView(t, 3, "Third", null, ""));
+            }
+
+            static void AssertCustomerView(
+                CustomerView19708 actual,
+                int id,
+                string name,
+                int? customerMembershipId,
+                string customerMembershipName)
+            {
+                Assert.Equal(id, actual.Id);
+                Assert.Equal(name, actual.Name);
+                Assert.Equal(customerMembershipId, actual.CustomerMembershipId);
+                Assert.Equal(customerMembershipName, actual.CustomerMembershipName);
+            }
+        }
+
+        private class MyContext19708 : DbContext
+        {
+            public DbSet<Customer19708> Customers { get; set; }
+            public DbSet<CustomerMembership19708> CustomerMemberships { get; set; }
+
+            protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            {
+                optionsBuilder
+                    .UseInternalServiceProvider(InMemoryFixture.DefaultServiceProvider)
+                    .UseInMemoryDatabase("19708");
+            }
+
+            protected override void OnModelCreating(ModelBuilder modelBuilder)
+            {
+                modelBuilder.Entity<CustomerView19708>().HasNoKey().ToInMemoryQuery(Build_Customers_Sql_View_InMemory());
+            }
+
+            private Expression<Func<IQueryable<CustomerView19708>>> Build_Customers_Sql_View_InMemory()
+            {
+                Expression<Func<IQueryable<CustomerView19708>>> query = () =>
+                    from customer in Customers
+                    join customerMembership in CustomerMemberships on customer.Id equals customerMembership.CustomerId into
+                        nullableCustomerMemberships
+                    from customerMembership in nullableCustomerMemberships.DefaultIfEmpty()
+                    select new CustomerView19708
+                    {
+                        Id = customer.Id,
+                        Name = customer.Name,
+                        CustomerMembershipId = customerMembership != null ? customerMembership.Id : default(int?),
+                        CustomerMembershipName = customerMembership != null ? customerMembership.Name : ""
+                    };
+                return query;
+            }
+        }
+
+        private static void Seed19708(MyContext19708 context)
+        {
+            var customer1 = new Customer19708 { Name = "First" };
+            var customer2 = new Customer19708 { Name = "Second" };
+            var customer3 = new Customer19708 { Name = "Third" };
+
+            var customerMembership1 = new CustomerMembership19708 { Name = "FirstChild", Customer = customer1 };
+            var customerMembership2 = new CustomerMembership19708 { Name = "SecondChild1", Customer = customer2 };
+            var customerMembership3 = new CustomerMembership19708 { Name = "SecondChild2", Customer = customer2 };
+
+            context.AddRange(customer1, customer2, customer3);
+            context.AddRange(customerMembership1, customerMembership2, customerMembership3);
+
+            context.SaveChanges();
+        }
+
+        private class Customer19708
+        {
+            public int Id { get; set; }
+            public string Name { get; set; }
+        }
+
+        private class CustomerMembership19708
+        {
+            public int Id { get; set; }
+            public string Name { get; set; }
+            public int CustomerId { get; set; }
+            public Customer19708 Customer { get; set; }
+        }
+
+        private class CustomerView19708
+        {
+            public int Id { get; set; }
+            public string Name { get; set; }
+            public int? CustomerMembershipId { get; set; }
+            public string CustomerMembershipName { get; set; }
+        }
+
+        #endregion
+
+        #region Issue21768
+
+        [ConditionalFact]
+        public virtual void Using_explicit_interface_implementation_as_navigation_works()
+        {
+            using (CreateScratch<MyContext21768>(t => { }, "21768"))
+            {
+                using var context = new MyContext21768();
+                Expression<Func<IBook21768, BookViewModel21768>> projection = b => new BookViewModel21768
+                {
+                    FirstPage = b.FrontCover.Illustrations.FirstOrDefault(i => i.State >= IllustrationState21768.Approved) != null
+                        ? new PageViewModel21768
+                        {
+                            Uri = b.FrontCover.Illustrations.FirstOrDefault(i => i.State >= IllustrationState21768.Approved).Uri
+                        }
+                        : null,
+                };
+
+                var result = context.Books.Where(b => b.Id == 1).Select(projection).SingleOrDefault();
+            }
+        }
+
+        private class BookViewModel21768
+        {
+            public PageViewModel21768 FirstPage { get; set; }
+        }
+
+        private class PageViewModel21768
+        {
+            public string Uri { get; set; }
+        }
+
+        private interface IBook21768
+        {
+            public int Id { get; set; }
+
+            public IBookCover21768 FrontCover { get; }
+            public int FrontCoverId { get; set; }
+
+            public IBookCover21768 BackCover { get; }
+            public int BackCoverId { get; set; }
+        }
+
+        private interface IBookCover21768
+        {
+            public int Id { get; set; }
+            public IEnumerable<ICoverIllustration21768> Illustrations { get; }
+        }
+
+        private interface ICoverIllustration21768
+        {
+            public int Id { get; set; }
+            public IBookCover21768 Cover { get; }
+            public int CoverId { get; set; }
+            public string Uri { get; set; }
+            public IllustrationState21768 State { get; set; }
+        }
+
+        private class Book21768 : IBook21768
+        {
+            public int Id { get; set; }
+
+            public BookCover21768 FrontCover { get; set; }
+            public int FrontCoverId { get; set; }
+
+            public BookCover21768 BackCover { get; set; }
+            public int BackCoverId { get; set; }
+
+            IBookCover21768 IBook21768.FrontCover
+                => FrontCover;
+
+            IBookCover21768 IBook21768.BackCover
+                => BackCover;
+        }
+
+        private class BookCover21768 : IBookCover21768
+        {
+            public int Id { get; set; }
+            public ICollection<CoverIllustration21768> Illustrations { get; set; }
+
+            IEnumerable<ICoverIllustration21768> IBookCover21768.Illustrations
+                => Illustrations;
+        }
+
+        private class CoverIllustration21768 : ICoverIllustration21768
+        {
+            public int Id { get; set; }
+            public BookCover21768 Cover { get; set; }
+            public int CoverId { get; set; }
+            public string Uri { get; set; }
+            public IllustrationState21768 State { get; set; }
+
+            IBookCover21768 ICoverIllustration21768.Cover
+                => Cover;
+        }
+
+        private enum IllustrationState21768
+        {
+            New,
+            PendingApproval,
+            Approved,
+            Printed
+        }
+
+        private class MyContext21768 : DbContext
+        {
+            public DbSet<Book21768> Books { get; set; }
+            public DbSet<BookCover21768> BookCovers { get; set; }
+            public DbSet<CoverIllustration21768> CoverIllustrations { get; set; }
+
+            protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            {
+                optionsBuilder
+                    .UseInternalServiceProvider(InMemoryFixture.DefaultServiceProvider)
+                    .UseInMemoryDatabase("21768");
+            }
+        }
+
+        #endregion
+
+        #region Issue21803
+
+        [ConditionalFact]
+        public virtual void Select_enumerable_navigation_backed_by_collection()
+        {
+            using (CreateScratch<MyContext21803>(Seed21803, "21803"))
+            {
+                using var context = new MyContext21803();
+
+                var query = context.Set<AppEntity21803>().Select(appEntity => appEntity.OtherEntities);
+
+                query.ToList();
+            }
+        }
+
+        private static void Seed21803(MyContext21803 context)
+        {
+            var appEntity = new AppEntity21803();
+            context.AddRange(
+                new OtherEntity21803 { AppEntity = appEntity },
+                new OtherEntity21803 { AppEntity = appEntity },
+                new OtherEntity21803 { AppEntity = appEntity },
+                new OtherEntity21803 { AppEntity = appEntity });
+
+            context.SaveChanges();
+        }
+
+        private class AppEntity21803
+        {
+            private readonly List<OtherEntity21803> _otherEntities = new List<OtherEntity21803>();
+
+            public int Id { get; private set; }
+
+            public IEnumerable<OtherEntity21803> OtherEntities
+                => _otherEntities;
+        }
+
+        private class OtherEntity21803
+        {
+            public int Id { get; private set; }
+            public AppEntity21803 AppEntity { get; set; }
+        }
+
+        private class MyContext21803 : DbContext
+        {
+            public DbSet<AppEntity21803> Entities { get; set; }
+
+            protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            {
+                optionsBuilder
+                    .UseInternalServiceProvider(InMemoryFixture.DefaultServiceProvider)
+                    .UseInMemoryDatabase("21803");
+            }
+        }
+
+        #endregion
+
+        #region Issue20729
+
+        [ConditionalFact]
+        public virtual void Multiple_owned_references_at_same_level_maintains_valueBuffer_positions()
+        {
+            using (CreateScratch<MyContext20729>(Seed20729, "20729"))
+            {
+                using var context = new MyContext20729();
+
+                var query = context.Set<Owner20729>()
+                    .Select(dtoOwner => new
+                    {
+                        dtoOwner.Id,
+                        Owned2 = dtoOwner.Owned2 == null ? null : new
+                        {
+                            Other = dtoOwner.Owned2.Other == null ? null : new { dtoOwner.Owned2.Other.Id }
+                        }
+                        ,
+                        Owned1 = dtoOwner.Owned1 == null ? null : new { dtoOwner.Owned1.Value }
+
+                    }
+                    ).ToList();
+
+                var owner = Assert.Single(query);
+                Assert.NotNull(owner.Owned1);
+                Assert.NotNull(owner.Owned2);
+            }
+        }
+
+        private static void Seed20729(MyContext20729 context)
+        {
+            context.Owners.Add(new Owner20729
+            {
+                Owned1 = new Owned120729(),
+                Owned2 = new Owned220729(),
+            });
+
+            context.SaveChanges();
+        }
+
+        private class Owner20729
+        {
+            public int Id { get; set; }
+            public Owned120729 Owned1 { get; set; }
+            public Owned220729 Owned2 { get; set; }
+        }
+
+        [Owned]
+        private class Owned120729
+        {
+            public int Value { get; set; }
+        }
+        [Owned]
+        private class Owned220729
+        {
+            public Other20729 Other { get; set; }
+        }
+        private class Other20729
+        {
+            public int Id { get; set; }
+        }
+
+        private class MyContext20729 : DbContext
+        {
+            public DbSet<Owner20729> Owners { get; set; }
+
+            protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            {
+                optionsBuilder
+                    .UseInternalServiceProvider(InMemoryFixture.DefaultServiceProvider)
+                    .UseInMemoryDatabase("20729");
+            }
         }
 
         #endregion

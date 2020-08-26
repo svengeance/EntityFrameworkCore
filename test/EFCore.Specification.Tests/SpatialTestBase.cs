@@ -102,6 +102,7 @@ namespace Microsoft.EntityFrameworkCore
         {
             using var db = Fixture.CreateContext();
             (from e in db.Set<PointEntity>()
+             orderby e.Id
              select new
              {
                  e.Id,
@@ -110,6 +111,25 @@ namespace Microsoft.EntityFrameworkCore
                  DateTime.UtcNow,
                  Guid = Guid.NewGuid()
              }).FirstOrDefault();
+        }
+
+        [ConditionalFact]
+        public virtual void Can_roundtrip_Z_and_M()
+        {
+            using var db = Fixture.CreateContext();
+            var entity = db.Set<PointEntity>()
+                .FirstOrDefault(e => e.Id == PointEntity.WellKnownId);
+
+            Assert.NotNull(entity);
+            Assert.NotNull(entity.Point);
+            Assert.True(double.IsNaN(entity.Point.Z));
+            Assert.True(double.IsNaN(entity.Point.M));
+            Assert.Equal(0, entity.PointZ.Z);
+            Assert.True(double.IsNaN(entity.PointZ.M));
+            Assert.True(double.IsNaN(entity.PointM.Z));
+            Assert.Equal(0, entity.PointM.M);
+            Assert.Equal(0, entity.PointZM.Z);
+            Assert.Equal(0, entity.PointZM.M);
         }
 
         protected virtual void ExecuteWithStrategyInTransaction(
@@ -122,6 +142,7 @@ namespace Microsoft.EntityFrameworkCore
 
         protected abstract void UseTransaction(DatabaseFacade facade, IDbContextTransaction transaction);
 
-        protected SpatialContext CreateContext() => Fixture.CreateContext();
+        protected SpatialContext CreateContext()
+            => Fixture.CreateContext();
     }
 }

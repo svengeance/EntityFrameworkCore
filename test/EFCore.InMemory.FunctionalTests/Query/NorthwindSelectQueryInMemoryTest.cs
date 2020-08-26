@@ -1,7 +1,6 @@
 ﻿// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
-using System;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Xunit;
@@ -37,6 +36,12 @@ namespace Microsoft.EntityFrameworkCore.Query
         public override Task SelectMany_correlated_with_outer_3(bool async)
         {
             return base.SelectMany_correlated_with_outer_3(async);
+        }
+
+        [ConditionalTheory(Skip = "Issue#17386")]
+        public override Task Reverse_without_explicit_ordering_throws(bool async)
+        {
+            return base.Reverse_without_explicit_ordering_throws(async);
         }
     }
 }

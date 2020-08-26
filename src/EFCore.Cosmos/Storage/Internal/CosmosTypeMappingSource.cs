@@ -7,6 +7,7 @@ using JetBrains.Annotations;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.EntityFrameworkCore.Utilities;
+using Newtonsoft.Json.Linq;
 
 namespace Microsoft.EntityFrameworkCore.Cosmos.Storage.Internal
 {
@@ -32,7 +33,8 @@ namespace Microsoft.EntityFrameworkCore.Cosmos.Storage.Internal
             _clrTypeMappings
                 = new Dictionary<Type, CosmosTypeMapping>
                 {
-                    { typeof(byte[]), new CosmosTypeMapping(typeof(byte[]), structuralComparer: new ArrayStructuralComparer<byte>()) }
+                    { typeof(byte[]), new CosmosTypeMapping(typeof(byte[]), keyComparer: new ArrayStructuralComparer<byte>()) },
+                    { typeof(JObject), new CosmosTypeMapping(typeof(JObject)) }
                 };
         }
 
@@ -53,7 +55,7 @@ namespace Microsoft.EntityFrameworkCore.Cosmos.Storage.Internal
             }
 
             if ((clrType.IsValueType
-                 && !clrType.IsEnum)
+                    && !clrType.IsEnum)
                 || clrType == typeof(string))
             {
                 return new CosmosTypeMapping(clrType);

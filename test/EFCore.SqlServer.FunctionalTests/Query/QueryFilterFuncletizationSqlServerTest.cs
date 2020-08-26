@@ -86,11 +86,11 @@ WHERE [m].[Tenant] = @__ef_filter__p_0");
             AssertSql(
                 @"SELECT [l].[Id], [l].[Tenant]
 FROM [ListFilter] AS [l]
-WHERE CAST(0 AS bit) = CAST(1 AS bit)",
+WHERE 0 = 1",
                 //
                 @"SELECT [l].[Id], [l].[Tenant]
 FROM [ListFilter] AS [l]
-WHERE [l].[Tenant] IN (1)",
+WHERE [l].[Tenant] = 1",
                 //
                 @"SELECT [l].[Id], [l].[Tenant]
 FROM [ListFilter] AS [l]
@@ -438,7 +438,8 @@ WHERE ([m].[IsEnabled] = @__ef_filter__Property_0) AND ([m].[BossId] = 1)");
 
         public class QueryFilterFuncletizationSqlServerFixture : QueryFilterFuncletizationRelationalFixture
         {
-            protected override ITestStoreFactory TestStoreFactory => SqlServerTestStoreFactory.Instance;
+            protected override ITestStoreFactory TestStoreFactory
+                => SqlServerTestStoreFactory.Instance;
         }
     }
 }

@@ -22,8 +22,10 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Conventions
         IEntityTypeAddedConvention,
         IEntityTypeIgnoredConvention,
         IEntityTypeBaseTypeChangedConvention,
+        IEntityTypeMemberIgnoredConvention,
         INavigationAddedConvention,
-        IEntityTypeMemberIgnoredConvention
+        ISkipNavigationAddedConvention,
+        IForeignKeyPrincipalEndChangedConvention
         where TAttribute : Attribute
     {
         /// <summary>
@@ -83,7 +85,10 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Conventions
         /// <param name="type"> The ignored entity type. </param>
         /// <param name="context"> Additional information associated with convention execution. </param>
         public virtual void ProcessEntityTypeIgnored(
-            IConventionModelBuilder modelBuilder, string name, Type type, IConventionContext<string> context)
+            IConventionModelBuilder modelBuilder,
+            string name,
+            Type type,
+            IConventionContext<string> context)
         {
             if (type == null)
             {
@@ -153,24 +158,16 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Conventions
             }
         }
 
-        /// <summary>
-        ///     Called after a navigation is added to the entity type.
-        /// </summary>
-        /// <param name="relationshipBuilder"> The builder for the foreign key. </param>
-        /// <param name="navigation"> The navigation. </param>
-        /// <param name="context"> Additional information associated with convention execution. </param>
+        /// <inheritdoc />
         public virtual void ProcessNavigationAdded(
-            IConventionRelationshipBuilder relationshipBuilder,
-            IConventionNavigation navigation,
-            IConventionContext<IConventionNavigation> context)
+            IConventionNavigationBuilder navigationBuilder,
+            IConventionContext<IConventionNavigationBuilder> context)
         {
-            Check.NotNull(relationshipBuilder, nameof(relationshipBuilder));
-            Check.NotNull(navigation, nameof(navigation));
-
+            var navigation = navigationBuilder.Metadata;
             var attributes = GetAttributes<TAttribute>(navigation.DeclaringEntityType, navigation);
             foreach (var attribute in attributes)
             {
-                ProcessNavigationAdded(relationshipBuilder, navigation, attribute, context);
+                ProcessNavigationAdded(navigationBuilder, attribute, context);
                 if (((IReadableConventionContext)context).ShouldStopProcessing())
                 {
                     break;
@@ -178,14 +175,44 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Conventions
             }
         }
 
-        /// <summary>
-        ///     Called after an entity type member is ignored.
-        /// </summary>
-        /// <param name="entityTypeBuilder"> The builder for the entity type. </param>
-        /// <param name="name"> The name of the ignored member. </param>
-        /// <param name="context"> Additional information associated with convention execution. </param>
+        /// <inheritdoc />
+        public virtual void ProcessSkipNavigationAdded(
+            IConventionSkipNavigationBuilder skipNavigationBuilder,
+            IConventionContext<IConventionSkipNavigationBuilder> context)
+        {
+            var skipNavigation = skipNavigationBuilder.Metadata;
+            var attributes = GetAttributes<TAttribute>(skipNavigation.DeclaringEntityType, skipNavigation);
+            foreach (var attribute in attributes)
+            {
+                ProcessSkipNavigationAdded(skipNavigationBuilder, attribute, context);
+                if (((IReadableConventionContext)context).ShouldStopProcessing())
+                {
+                    break;
+                }
+            }
+        }
+
+        /// <inheritdoc />
+        public virtual void ProcessForeignKeyPrincipalEndChanged(
+            IConventionForeignKeyBuilder relationshipBuilder,
+            IConventionContext<IConventionForeignKeyBuilder> context)
+        {
+            var fk = relationshipBuilder.Metadata;
+            var dependentToPrincipalAttributes = fk.DependentToPrincipal == null
+                ? null
+                : GetAttributes<TAttribute>(fk.DeclaringEntityType, fk.DependentToPrincipal);
+            var principalToDependentAttributes = fk.PrincipalToDependent == null
+                ? null
+                : GetAttributes<TAttribute>(fk.PrincipalEntityType, fk.PrincipalToDependent);
+            ProcessForeignKeyPrincipalEndChanged(
+                relationshipBuilder, dependentToPrincipalAttributes, principalToDependentAttributes, context);
+        }
+
+        /// <inheritdoc />
         public virtual void ProcessEntityTypeMemberIgnored(
-            IConventionEntityTypeBuilder entityTypeBuilder, string name, IConventionContext<string> context)
+            IConventionEntityTypeBuilder entityTypeBuilder,
+            string name,
+            IConventionContext<string> context)
         {
             var navigationPropertyInfo =
                 entityTypeBuilder.Metadata.GetRuntimeProperties()?.Find(name);
@@ -228,13 +255,29 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Conventions
         /// <typeparam name="TCustomAttribute"> The attribute type to look for. </typeparam>
         /// <returns> The attributes applied to the given navigation. </returns>
         protected static IEnumerable<TCustomAttribute> GetAttributes<TCustomAttribute>(
-            [NotNull] IConventionEntityType entityType, [NotNull] IConventionNavigation navigation)
+            [NotNull] IConventionEntityType entityType,
+            [NotNull] IConventionNavigation navigation)
+            where TCustomAttribute : Attribute
+            => GetAttributes<TCustomAttribute>(entityType, navigation.GetIdentifyingMemberInfo());
+
+        /// <summary>
+        ///     Returns the attributes applied to the given skip navigation.
+        /// </summary>
+        /// <param name="entityType"> The entity type. </param>
+        /// <param name="skipNavigation"> The skip navigation. </param>
+        /// <typeparam name="TCustomAttribute"> The attribute type to look for. </typeparam>
+        /// <returns> The attributes applied to the given skip navigation. </returns>
+        protected static IEnumerable<TCustomAttribute> GetAttributes<TCustomAttribute>(
+            [NotNull] IConventionEntityType entityType,
+            [NotNull] IConventionSkipNavigation skipNavigation)
+            where TCustomAttribute : Attribute
+            => GetAttributes<TCustomAttribute>(entityType, skipNavigation.GetIdentifyingMemberInfo());
+
+        private static IEnumerable<TCustomAttribute> GetAttributes<TCustomAttribute>(
+            [NotNull] IConventionEntityType entityType,
+            [NotNull] MemberInfo memberInfo)
             where TCustomAttribute : Attribute
         {
-            Check.NotNull(entityType, nameof(entityType));
-            Check.NotNull(navigation, nameof(navigation));
-
-            var memberInfo = navigation.GetIdentifyingMemberInfo();
             if (!entityType.HasClrType()
                 || memberInfo == null)
             {
@@ -303,15 +346,25 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Conventions
         /// <summary>
         ///     Called after a navigation property that has an attribute is added to an entity type.
         /// </summary>
-        /// <param name="relationshipBuilder"> The builder for the relationship. </param>
-        /// <param name="navigation"> The navigation. </param>
+        /// <param name="navigationBuilder"> The builder for the navigation. </param>
         /// <param name="attribute"> The attribute. </param>
         /// <param name="context"> Additional information associated with convention execution. </param>
         public virtual void ProcessNavigationAdded(
-            [NotNull] IConventionRelationshipBuilder relationshipBuilder,
-            [NotNull] IConventionNavigation navigation,
+            [NotNull] IConventionNavigationBuilder navigationBuilder,
             [NotNull] TAttribute attribute,
-            [NotNull] IConventionContext<IConventionNavigation> context)
+            [NotNull] IConventionContext<IConventionNavigationBuilder> context)
+            => throw new NotImplementedException();
+
+        /// <summary>
+        ///     Called after a skip navigation property that has an attribute is added to an entity type.
+        /// </summary>
+        /// <param name="skipNavigationBuilder"> The builder for the navigation. </param>
+        /// <param name="attribute"> The attribute. </param>
+        /// <param name="context"> Additional information associated with convention execution. </param>
+        public virtual void ProcessSkipNavigationAdded(
+            [NotNull] IConventionSkipNavigationBuilder skipNavigationBuilder,
+            [NotNull] TAttribute attribute,
+            [NotNull] IConventionContext<IConventionSkipNavigationBuilder> context)
             => throw new NotImplementedException();
 
         /// <summary>
@@ -328,6 +381,20 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Conventions
             [NotNull] Type targetClrType,
             [NotNull] TAttribute attribute,
             [NotNull] IConventionContext<string> context)
+            => throw new NotImplementedException();
+
+        /// <summary>
+        ///     Called after the principal end of a foreign key is changed.
+        /// </summary>
+        /// <param name="relationshipBuilder"> The builder for the foreign key. </param>
+        /// <param name="dependentToPrincipalAttributes"> The attributes on the dependent to principal navigation. </param>
+        /// <param name="principalToDependentAttributes"> The attributes on the principal to dependent navigation. </param>
+        /// <param name="context"> Additional information associated with convention execution. </param>
+        public virtual void ProcessForeignKeyPrincipalEndChanged(
+            [NotNull] IConventionForeignKeyBuilder relationshipBuilder,
+            [CanBeNull] IEnumerable<TAttribute> dependentToPrincipalAttributes,
+            [CanBeNull] IEnumerable<TAttribute> principalToDependentAttributes,
+            [NotNull] IConventionContext<IConventionForeignKeyBuilder> context)
             => throw new NotImplementedException();
     }
 }

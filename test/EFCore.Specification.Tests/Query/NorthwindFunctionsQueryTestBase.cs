@@ -31,7 +31,8 @@ namespace Microsoft.EntityFrameworkCore.Query
         {
         }
 
-        protected NorthwindContext CreateContext() => Fixture.CreateContext();
+        protected NorthwindContext CreateContext()
+            => Fixture.CreateContext();
 
         protected virtual void ClearLog()
         {
@@ -145,6 +146,45 @@ namespace Microsoft.EntityFrameworkCore.Query
                 async,
                 ss => ss.Set<Customer>().Where(c => c.ContactName.Contains(c.ContactName)),
                 entryCount: 91);
+        }
+
+        [ConditionalTheory]
+        [MemberData(nameof(IsAsyncData))]
+        public virtual Task String_FirstOrDefault_MethodCall(bool async)
+        {
+            return AssertQuery(
+                async,
+                ss => ss.Set<Customer>().Where(c => c.ContactName.FirstOrDefault() == 'A'),
+                entryCount: 10);
+        }
+
+        [ConditionalTheory]
+        [MemberData(nameof(IsAsyncData))]
+        public virtual Task String_Contains_constant_with_whitespace(bool async)
+        {
+            return AssertQuery(
+                async,
+                ss => ss.Set<Customer>().Where(c => c.ContactName.Contains("     ")));
+        }
+
+        [ConditionalTheory]
+        [MemberData(nameof(IsAsyncData))]
+        public virtual Task String_Contains_parameter_with_whitespace(bool async)
+        {
+            var pattern = "     ";
+            return AssertQuery(
+                async,
+                ss => ss.Set<Customer>().Where(c => c.ContactName.Contains(pattern)));
+        }
+
+        [ConditionalTheory]
+        [MemberData(nameof(IsAsyncData))]
+        public virtual Task String_LastOrDefault_MethodCall(bool async)
+        {
+            return AssertQuery(
+                async,
+                ss => ss.Set<Customer>().Where(c => c.ContactName.LastOrDefault() == 's'),
+                entryCount: 9);
         }
 
         [ConditionalTheory]
@@ -696,8 +736,11 @@ namespace Microsoft.EntityFrameworkCore.Query
                 entryCount: 3);
         }
 
-        protected static string LocalMethod1() => "M";
-        protected static string LocalMethod2() => "m";
+        protected static string LocalMethod1()
+            => "M";
+
+        protected static string LocalMethod2()
+            => "m";
 
         [ConditionalTheory]
         [MemberData(nameof(IsAsyncData))]
@@ -1026,10 +1069,37 @@ namespace Microsoft.EntityFrameworkCore.Query
 
         [ConditionalTheory]
         [MemberData(nameof(IsAsyncData))]
+        public virtual async Task Convert_ToBoolean(bool async)
+        {
+            var convertMethods = new List<Expression<Func<Order, bool>>>
+            {
+                o => Convert.ToBoolean(Convert.ToBoolean(o.OrderID % 3)),
+                o => Convert.ToBoolean(Convert.ToByte(o.OrderID % 3)),
+                o => Convert.ToBoolean(Convert.ToDecimal(o.OrderID % 3)),
+                o => Convert.ToBoolean(Convert.ToDouble(o.OrderID % 3)),
+                o => Convert.ToBoolean((float)Convert.ToDouble(o.OrderID % 3)),
+                o => Convert.ToBoolean(Convert.ToInt16(o.OrderID % 3)),
+                o => Convert.ToBoolean(Convert.ToInt32(o.OrderID % 3)),
+                o => Convert.ToBoolean(Convert.ToInt64(o.OrderID % 3)),
+            };
+
+            foreach (var convertMethod in convertMethods)
+            {
+                await AssertQuery(
+                    async,
+                    ss => ss.Set<Order>().Where(o => o.CustomerID == "ALFKI")
+                        .Where(convertMethod),
+                    entryCount: 5);
+            }
+        }
+
+        [ConditionalTheory]
+        [MemberData(nameof(IsAsyncData))]
         public virtual async Task Convert_ToByte(bool async)
         {
             var convertMethods = new List<Expression<Func<Order, bool>>>
             {
+                o => Convert.ToByte(Convert.ToBoolean(o.OrderID % 1)) >= 0,
                 o => Convert.ToByte(Convert.ToByte(o.OrderID % 1)) >= 0,
                 o => Convert.ToByte(Convert.ToDecimal(o.OrderID % 1)) >= 0,
                 o => Convert.ToByte(Convert.ToDouble(o.OrderID % 1)) >= 0,
@@ -1056,6 +1126,7 @@ namespace Microsoft.EntityFrameworkCore.Query
         {
             var convertMethods = new List<Expression<Func<Order, bool>>>
             {
+                o => Convert.ToDecimal(Convert.ToBoolean(o.OrderID % 1)) >= 0,
                 o => Convert.ToDecimal(Convert.ToByte(o.OrderID % 1)) >= 0,
                 o => Convert.ToDecimal(Convert.ToDecimal(o.OrderID % 1)) >= 0,
                 o => Convert.ToDecimal(Convert.ToDouble(o.OrderID % 1)) >= 0,
@@ -1082,6 +1153,7 @@ namespace Microsoft.EntityFrameworkCore.Query
         {
             var convertMethods = new List<Expression<Func<Order, bool>>>
             {
+                o => Convert.ToDouble(Convert.ToBoolean(o.OrderID % 1)) >= 0,
                 o => Convert.ToDouble(Convert.ToByte(o.OrderID % 1)) >= 0,
                 o => Convert.ToDouble(Convert.ToDecimal(o.OrderID % 1)) >= 0,
                 o => Convert.ToDouble(Convert.ToDouble(o.OrderID % 1)) >= 0,
@@ -1108,6 +1180,7 @@ namespace Microsoft.EntityFrameworkCore.Query
         {
             var convertMethods = new List<Expression<Func<Order, bool>>>
             {
+                o => Convert.ToInt16(Convert.ToBoolean(o.OrderID % 1)) >= 0,
                 o => Convert.ToInt16(Convert.ToByte(o.OrderID % 1)) >= 0,
                 o => Convert.ToInt16(Convert.ToDecimal(o.OrderID % 1)) >= 0,
                 o => Convert.ToInt16(Convert.ToDouble(o.OrderID % 1)) >= 0,
@@ -1134,6 +1207,7 @@ namespace Microsoft.EntityFrameworkCore.Query
         {
             var convertMethods = new List<Expression<Func<Order, bool>>>
             {
+                o => Convert.ToInt32(Convert.ToBoolean(o.OrderID % 1)) >= 0,
                 o => Convert.ToInt32(Convert.ToByte(o.OrderID % 1)) >= 0,
                 o => Convert.ToInt32(Convert.ToDecimal(o.OrderID % 1)) >= 0,
                 o => Convert.ToInt32(Convert.ToDouble(o.OrderID % 1)) >= 0,
@@ -1160,6 +1234,7 @@ namespace Microsoft.EntityFrameworkCore.Query
         {
             var convertMethods = new List<Expression<Func<Order, bool>>>
             {
+                o => Convert.ToInt64(Convert.ToBoolean(o.OrderID % 1)) >= 0,
                 o => Convert.ToInt64(Convert.ToByte(o.OrderID % 1)) >= 0,
                 o => Convert.ToInt64(Convert.ToDecimal(o.OrderID % 1)) >= 0,
                 o => Convert.ToInt64(Convert.ToDouble(o.OrderID % 1)) >= 0,
@@ -1186,6 +1261,7 @@ namespace Microsoft.EntityFrameworkCore.Query
         {
             var convertMethods = new List<Expression<Func<Order, bool>>>
             {
+                o => Convert.ToString(Convert.ToBoolean(o.OrderID % 1)) != "10",
                 o => Convert.ToString(Convert.ToByte(o.OrderID % 1)) != "10",
                 o => Convert.ToString(Convert.ToDecimal(o.OrderID % 1)) != "10",
                 o => Convert.ToString(Convert.ToDouble(o.OrderID % 1)) != "10",

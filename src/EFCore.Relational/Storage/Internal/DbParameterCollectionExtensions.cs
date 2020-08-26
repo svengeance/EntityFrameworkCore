@@ -2,7 +2,6 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
-using System.Collections.Generic;
 using System.Data;
 using System.Data.Common;
 using System.Globalization;
@@ -10,7 +9,7 @@ using System.Linq;
 using System.Reflection;
 using System.Text;
 using JetBrains.Annotations;
-using Microsoft.EntityFrameworkCore.Internal;
+using Microsoft.EntityFrameworkCore.Utilities;
 
 namespace Microsoft.EntityFrameworkCore.Storage.Internal
 {
@@ -31,7 +30,9 @@ namespace Microsoft.EntityFrameworkCore.Storage.Internal
         public static string FormatParameters(
             [NotNull] this DbParameterCollection parameters,
             bool logParameterValues)
-            => FormatParameterList(parameters, logParameterValues).Join();
+            => parameters
+                .Cast<DbParameter>()
+                .Select(p => FormatParameter(p, logParameterValues)).Join();
 
         /// <summary>
         ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
@@ -39,24 +40,17 @@ namespace Microsoft.EntityFrameworkCore.Storage.Internal
         ///     any release. You should only use it directly in your code with extreme caution and knowing that
         ///     doing so can result in application failures when updating to a new Entity Framework Core release.
         /// </summary>
-        public static IEnumerable<string> FormatParameterList(
-            [NotNull] this DbParameterCollection parameters,
-            bool logParameterValues)
-        {
-            return parameters
-                .Cast<DbParameter>()
-                .Select(
-                    p => FormatParameter(
-                        p.ParameterName,
-                        logParameterValues ? p.Value : "?",
-                        logParameterValues,
-                        p.Direction,
-                        p.DbType,
-                        p.IsNullable,
-                        p.Size,
-                        p.Precision,
-                        p.Scale));
-        }
+        public static string FormatParameter([NotNull] this DbParameter parameter, bool logParameterValues)
+            => FormatParameter(
+                parameter.ParameterName,
+                logParameterValues ? parameter.Value : "?",
+                logParameterValues,
+                parameter.Direction,
+                parameter.DbType,
+                parameter.IsNullable,
+                parameter.Size,
+                parameter.Precision,
+                parameter.Scale);
 
         /// <summary>
         ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
@@ -156,7 +150,7 @@ namespace Microsoft.EntityFrameworkCore.Storage.Internal
             {
                 builder
                     .Append('\'')
-                    .Append(((DateTime)parameterValue).ToString("s"))
+                    .Append(((DateTime)parameterValue).ToString("o"))
                     .Append('\'');
             }
             else if (parameterValue.GetType() == typeof(DateTimeOffset))
@@ -197,57 +191,57 @@ namespace Microsoft.EntityFrameworkCore.Storage.Internal
             }
         }
 
-        private static bool ShouldShowDbType(bool hasValue, DbType dbType, Type clrType)
+        private static bool ShouldShowDbType(bool hasValue, DbType dbType, Type type)
         {
             if (!hasValue
-                || clrType == null
-                || clrType == typeof(DBNull))
+                || type == null
+                || type == typeof(DBNull))
             {
                 return dbType != DbType.String;
             }
 
-            clrType = clrType.UnwrapNullableType().UnwrapEnumType();
+            type = type.UnwrapNullableType().UnwrapEnumType();
 
             switch (dbType)
             {
                 case DbType.Binary:
-                    return clrType != typeof(byte[]);
+                    return type != typeof(byte[]);
                 case DbType.Byte:
-                    return clrType != typeof(byte);
+                    return type != typeof(byte);
                 case DbType.Boolean:
-                    return clrType != typeof(bool);
+                    return type != typeof(bool);
                 case DbType.Decimal:
-                    return clrType != typeof(decimal);
+                    return type != typeof(decimal);
                 case DbType.Double:
-                    return clrType != typeof(double);
+                    return type != typeof(double);
                 case DbType.Guid:
-                    return clrType != typeof(Guid);
+                    return type != typeof(Guid);
                 case DbType.Int16:
-                    return clrType != typeof(short);
+                    return type != typeof(short);
                 case DbType.Int32:
-                    return clrType != typeof(int);
+                    return type != typeof(int);
                 case DbType.Int64:
-                    return clrType != typeof(long);
+                    return type != typeof(long);
                 case DbType.Object:
-                    return clrType != typeof(object);
+                    return type != typeof(object);
                 case DbType.SByte:
-                    return clrType != typeof(sbyte);
+                    return type != typeof(sbyte);
                 case DbType.Single:
-                    return clrType != typeof(float);
+                    return type != typeof(float);
                 case DbType.String:
-                    return clrType != typeof(string);
+                    return type != typeof(string);
                 case DbType.Time:
-                    return clrType != typeof(TimeSpan);
+                    return type != typeof(TimeSpan);
                 case DbType.UInt16:
-                    return clrType != typeof(ushort);
+                    return type != typeof(ushort);
                 case DbType.UInt32:
-                    return clrType != typeof(uint);
+                    return type != typeof(uint);
                 case DbType.UInt64:
-                    return clrType != typeof(ulong);
+                    return type != typeof(ulong);
                 case DbType.DateTime2:
-                    return clrType != typeof(DateTime);
+                    return type != typeof(DateTime);
                 case DbType.DateTimeOffset:
-                    return clrType != typeof(DateTimeOffset);
+                    return type != typeof(DateTimeOffset);
                 //case DbType.AnsiString:
                 //case DbType.VarNumeric:
                 //case DbType.AnsiStringFixedLength:

@@ -20,12 +20,11 @@ Microsoft.Data.Sqlite.SqliteTransaction</Description>
     <PackageTags>SQLite;Data;ADO.NET</PackageTags>
     <IncludeSymbols>false</IncludeSymbols>
     <DisableImplicitFrameworkReferences>true</DisableImplicitFrameworkReferences>
+    <PackageProjectUrl>https://docs.microsoft.com/dotnet/standard/data/sqlite/</PackageProjectUrl>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="$(SQLitePCLRawBundleESqlite3PackageVersion)">
-      <PrivateAssets>None</PrivateAssets>
-    </PackageReference>
+    <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="2.0.3" PrivateAssets="None" />
   </ItemGroup>
 
   <ItemGroup>

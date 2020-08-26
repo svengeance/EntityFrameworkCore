@@ -5,7 +5,6 @@ using System;
 using System.Linq.Expressions;
 using JetBrains.Annotations;
 using Microsoft.EntityFrameworkCore.Metadata;
-using Microsoft.EntityFrameworkCore.Query.Internal;
 using Microsoft.EntityFrameworkCore.Utilities;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -77,7 +76,7 @@ namespace Microsoft.EntityFrameworkCore.Query
         ///         not used in application code.
         ///     </para>
         /// </summary>
-        protected readonly struct CompiledQueryCacheKey
+        protected readonly struct CompiledQueryCacheKey : IEquatable<CompiledQueryCacheKey>
         {
             private readonly Expression _query;
             private readonly IModel _model;
@@ -110,18 +109,23 @@ namespace Microsoft.EntityFrameworkCore.Query
             ///     The object to compare this key to.
             /// </param>
             /// <returns>
-            ///     True if the object is a <see cref="CompiledQueryCacheKey" /> and is for the same query, otherwise false.
+            ///     <see langword="true" /> if the object is a <see cref="CompiledQueryCacheKey" /> and is for the same query, otherwise
+            ///     <see langword="false" />.
             /// </returns>
             public override bool Equals(object obj)
+                => obj is CompiledQueryCacheKey other && Equals(other);
+
+            /// <summary>
+            ///     Indicates whether the current object is equal to another object of the same type.
+            /// </summary>
+            /// <param name="other">
+            ///     An object to compare with this object.
+            /// </param>
+            /// <returns>
+            ///     <see langword="true" /> if the current object is equal to the <paramref name="other" /> parameter; otherwise, <see langword="false" />.
+            /// </returns>
+            public bool Equals(CompiledQueryCacheKey other)
             {
-                if (obj is null
-                    || !(obj is CompiledQueryCacheKey))
-                {
-                    return false;
-                }
-
-                var other = (CompiledQueryCacheKey)obj;
-
                 return ReferenceEquals(_model, other._model)
                     && _queryTrackingBehavior == other._queryTrackingBehavior
                     && _async == other._async

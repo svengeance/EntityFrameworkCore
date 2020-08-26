@@ -3,7 +3,6 @@
 
 using System.Linq.Expressions;
 using JetBrains.Annotations;
-using Microsoft.EntityFrameworkCore.Metadata.Internal;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.EntityFrameworkCore.Utilities;
 
@@ -21,10 +20,9 @@ namespace Microsoft.EntityFrameworkCore.Metadata
         /// <param name="materializationContextExpression"> The expression tree from which the parameter value will come. </param>
         public ParameterBindingInfo(
             [NotNull] IEntityType entityType,
-            [NotNull] Expression materializationContextExpression)
+            [CanBeNull] Expression materializationContextExpression)
         {
             Check.NotNull(entityType, nameof(entityType));
-            Check.NotNull(materializationContextExpression, nameof(materializationContextExpression));
 
             EntityType = entityType;
             MaterializationContextExpression = materializationContextExpression;
@@ -45,6 +43,7 @@ namespace Microsoft.EntityFrameworkCore.Metadata
         /// </summary>
         /// <param name="property"> The property. </param>
         /// <returns> The index where its value can be found. </returns>
-        public int GetValueBufferIndex([NotNull] IPropertyBase property) => property.GetIndex();
+        public int GetValueBufferIndex([NotNull] IPropertyBase property)
+            => property.GetIndex();
     }
 }

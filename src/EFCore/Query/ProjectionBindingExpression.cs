@@ -11,8 +11,24 @@ using Microsoft.EntityFrameworkCore.Utilities;
 
 namespace Microsoft.EntityFrameworkCore.Query
 {
+    /// <summary>
+    ///     <para>
+    ///         An expression that gets values from <see cref="ShapedQueryExpression.QueryExpression" /> to be used in
+    ///         <see cref="ShapedQueryExpression.ShaperExpression" /> while creating results.
+    ///     </para>
+    ///     <para>
+    ///         This type is typically used by database providers (and other extensions). It is generally
+    ///         not used in application code.
+    ///     </para>
+    /// </summary>
     public class ProjectionBindingExpression : Expression, IPrintableExpression
     {
+        /// <summary>
+        ///     Creates a new instance of the <see cref="ProjectionBindingExpression" /> class.
+        /// </summary>
+        /// <param name="queryExpression"> The query expression to get the value from. </param>
+        /// <param name="projectionMember"> The projection member to bind with query expression. </param>
+        /// <param name="type"> The clr type of value being read. </param>
         public ProjectionBindingExpression(
             [NotNull] Expression queryExpression,
             [NotNull] ProjectionMember projectionMember,
@@ -27,6 +43,12 @@ namespace Microsoft.EntityFrameworkCore.Query
             Type = type;
         }
 
+        /// <summary>
+        ///     Creates a new instance of the <see cref="ProjectionBindingExpression" /> class.
+        /// </summary>
+        /// <param name="queryExpression"> The query expression to get the value from. </param>
+        /// <param name="index"> The index to bind with query expression projection. </param>
+        /// <param name="type"> The clr type of value being read. </param>
         public ProjectionBindingExpression(
             [NotNull] Expression queryExpression,
             int index,
@@ -40,6 +62,11 @@ namespace Microsoft.EntityFrameworkCore.Query
             Type = type;
         }
 
+        /// <summary>
+        ///     Creates a new instance of the <see cref="ProjectionBindingExpression" /> class.
+        /// </summary>
+        /// <param name="queryExpression"> The query expression to get the value from. </param>
+        /// <param name="indexMap"> The index map to bind with query expression projection for ValueBuffer. </param>
         public ProjectionBindingExpression(
             [NotNull] Expression queryExpression,
             [NotNull] IDictionary<IProperty, int> indexMap)
@@ -52,13 +79,34 @@ namespace Microsoft.EntityFrameworkCore.Query
             Type = typeof(ValueBuffer);
         }
 
+        /// <summary>
+        ///     The query expression to bind with.
+        /// </summary>
         public virtual Expression QueryExpression { get; }
-        public virtual ProjectionMember ProjectionMember { get; }
-        public virtual int? Index { get; }
-        public virtual IDictionary<IProperty, int> IndexMap { get; }
-        public override Type Type { get; }
-        public sealed override ExpressionType NodeType => ExpressionType.Extension;
 
+        /// <summary>
+        ///     The projection member to bind if binding is via projection member.
+        /// </summary>
+        public virtual ProjectionMember ProjectionMember { get; }
+
+        /// <summary>
+        ///     The projection member to bind if binding is via projection index.
+        /// </summary>
+        public virtual int? Index { get; }
+
+        /// <summary>
+        ///     The projection member to bind if binding is via index map for a value buffer.
+        /// </summary>
+        public virtual IDictionary<IProperty, int> IndexMap { get; }
+
+        /// <inheritdoc />
+        public override Type Type { get; }
+
+        /// <inheritdoc />
+        public sealed override ExpressionType NodeType
+            => ExpressionType.Extension;
+
+        /// <inheritdoc />
         protected override Expression VisitChildren(ExpressionVisitor visitor)
         {
             Check.NotNull(visitor, nameof(visitor));
@@ -66,18 +114,19 @@ namespace Microsoft.EntityFrameworkCore.Query
             return this;
         }
 
-        public virtual void Print(ExpressionPrinter expressionPrinter)
+        /// <inheritdoc />
+        void IPrintableExpression.Print(ExpressionPrinter expressionPrinter)
         {
             Check.NotNull(expressionPrinter, nameof(expressionPrinter));
 
             expressionPrinter.Append(nameof(ProjectionBindingExpression) + ": ");
             if (ProjectionMember != null)
             {
-                expressionPrinter.Append(ProjectionMember);
+                expressionPrinter.Append(ProjectionMember.ToString());
             }
             else if (Index != null)
             {
-                expressionPrinter.Append(Index);
+                expressionPrinter.Append(Index.ToString());
             }
             else
             {
@@ -91,6 +140,7 @@ namespace Microsoft.EntityFrameworkCore.Query
             }
         }
 
+        /// <inheritdoc />
         public override bool Equals(object obj)
             => obj != null
                 && (ReferenceEquals(this, obj)
@@ -106,6 +156,8 @@ namespace Microsoft.EntityFrameworkCore.Query
                 // Using reference equality here since if we are this far, we don't need to compare this.
                 && IndexMap == projectionBindingExpression.IndexMap;
 
-        public override int GetHashCode() => HashCode.Combine(QueryExpression, ProjectionMember, Index, IndexMap);
+        /// <inheritdoc />
+        public override int GetHashCode()
+            => HashCode.Combine(QueryExpression, ProjectionMember, Index, IndexMap);
     }
 }

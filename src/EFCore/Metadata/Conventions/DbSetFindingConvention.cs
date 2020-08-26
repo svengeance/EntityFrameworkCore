@@ -33,18 +33,12 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Conventions
         /// <param name="modelBuilder"> The builder for the model. </param>
         /// <param name="context"> Additional information associated with convention execution. </param>
         public virtual void ProcessModelInitialized(
-            IConventionModelBuilder modelBuilder, IConventionContext<IConventionModelBuilder> context)
+            IConventionModelBuilder modelBuilder,
+            IConventionContext<IConventionModelBuilder> context)
         {
             foreach (var setInfo in Dependencies.SetFinder.FindSets(Dependencies.ContextType))
             {
-                if (setInfo.IsKeyless)
-                {
-                    modelBuilder.Entity(setInfo.ClrType, fromDataAnnotation: true).HasNoKey(fromDataAnnotation: true);
-                }
-                else
-                {
-                    modelBuilder.Entity(setInfo.ClrType, fromDataAnnotation: true);
-                }
+                modelBuilder.Entity(setInfo.Type, fromDataAnnotation: true);
             }
         }
     }

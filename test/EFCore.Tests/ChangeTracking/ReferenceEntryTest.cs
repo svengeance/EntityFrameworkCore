@@ -352,6 +352,37 @@ namespace Microsoft.EntityFrameworkCore.ChangeTracking
         }
 
         [ConditionalFact]
+        public void IsModified_can_reject_changes_to_an_fk()
+        {
+            using var context = new FreezerContext();
+            var cherry = new Cherry();
+            var chunky = new Chunky { Garcia = cherry };
+            cherry.Monkeys = new List<Chunky> { chunky };
+            context.AttachRange(cherry, chunky);
+
+            var entityEntry = context.Entry(chunky);
+            var reference = entityEntry.Reference(e => e.Garcia);
+            var originalValue = entityEntry.Property(e => e.GarciaId).CurrentValue;
+
+            Assert.False(reference.IsModified);
+
+            entityEntry.Property(e => e.GarciaId).CurrentValue = 77;
+
+            Assert.True(reference.IsModified);
+            Assert.True(entityEntry.Property(e => e.GarciaId).IsModified);
+            Assert.Equal(77, entityEntry.Property(e => e.GarciaId).CurrentValue);
+            Assert.Equal(originalValue, entityEntry.Property(e => e.GarciaId).OriginalValue);
+
+            reference.IsModified = false;
+
+            Assert.False(reference.IsModified);
+            Assert.False(entityEntry.Property(e => e.GarciaId).IsModified);
+            Assert.Equal(originalValue, entityEntry.Property(e => e.GarciaId).CurrentValue);
+            Assert.Equal(originalValue, entityEntry.Property(e => e.GarciaId).OriginalValue);
+            Assert.Equal(EntityState.Unchanged, entityEntry.State);
+        }
+
+        [ConditionalFact]
         public void IsModified_tracks_state_of_FK_property_principal()
         {
             using var context = new FreezerContext();
@@ -385,7 +416,8 @@ namespace Microsoft.EntityFrameworkCore.ChangeTracking
         [InlineData(EntityState.Deleted, EntityState.Deleted)]
         [InlineData(EntityState.Unchanged, EntityState.Deleted)]
         public void IsModified_can_set_fk_to_modified_principal_with_Added_or_Deleted_dependent(
-            EntityState principalState, EntityState dependentState)
+            EntityState principalState,
+            EntityState dependentState)
         {
             using var context = new FreezerContext();
             var half = new Half();
@@ -397,16 +429,16 @@ namespace Microsoft.EntityFrameworkCore.ChangeTracking
 
             var reference = context.Entry(chunky).Reference(e => e.Baked);
 
-            Assert.False(reference.IsModified);
+            Assert.True(reference.IsModified);
 
             reference.IsModified = true;
 
-            Assert.False(reference.IsModified);
+            Assert.True(reference.IsModified);
             Assert.False(context.Entry(half).Property(e => e.MonkeyId).IsModified);
 
             reference.IsModified = false;
 
-            Assert.False(reference.IsModified);
+            Assert.True(reference.IsModified);
             Assert.False(context.Entry(half).Property(e => e.MonkeyId).IsModified);
             Assert.Equal(dependentState, context.Entry(half).State);
         }
@@ -418,7 +450,8 @@ namespace Microsoft.EntityFrameworkCore.ChangeTracking
         [InlineData(EntityState.Deleted, EntityState.Unchanged)]
         [InlineData(EntityState.Unchanged, EntityState.Unchanged)]
         public void IsModified_can_set_fk_to_modified_principal_with_Unchanged_dependent(
-            EntityState principalState, EntityState dependentState)
+            EntityState principalState,
+            EntityState dependentState)
         {
             using var context = new FreezerContext();
             var half = new Half();
@@ -451,12 +484,15 @@ namespace Microsoft.EntityFrameworkCore.ChangeTracking
         [InlineData(EntityState.Deleted, EntityState.Modified)]
         [InlineData(EntityState.Unchanged, EntityState.Modified)]
         public void IsModified_can_set_fk_to_modified_principal_with_Modified_dependent(
-            EntityState principalState, EntityState dependentState)
+            EntityState principalState,
+            EntityState dependentState)
         {
             using var context = new FreezerContext();
-            var half = new Half();
+            var half = new Half { Id = 7 };
             var chunky = new Chunky { Id = 1, Baked = half };
             half.Monkey = chunky;
+
+            context.Attach(half);
 
             context.Entry(chunky).State = principalState;
             context.Entry(half).State = dependentState;

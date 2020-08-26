@@ -6,7 +6,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using Microsoft.EntityFrameworkCore.Diagnostics;
-using Microsoft.EntityFrameworkCore.Internal;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Microsoft.Extensions.Logging;
 using Xunit;
@@ -34,7 +33,8 @@ namespace Microsoft.EntityFrameworkCore.Infrastructure
                 .ToList();
 
             var loggerMethods = declaredMethods
-                .ToDictionary(m => m.Name);
+                .GroupBy(e => e.Name)
+                .ToDictionary(m => m.Key, e => e.First());
 
             foreach (var eventIdField in eventIdFields)
             {
@@ -91,7 +91,13 @@ namespace Microsoft.EntityFrameworkCore.Infrastructure
                             }
                             catch (Exception)
                             {
-                                Assert.True(false, "Need to add factory for type " + type.DisplayName());
+                                Assert.True(
+                                    false,
+                                    "Need to add fake test factory for type "
+                                    + type.DisplayName()
+                                    + " in class "
+                                    + eventIdType.Name
+                                    + "Test");
                             }
                         }
                     }

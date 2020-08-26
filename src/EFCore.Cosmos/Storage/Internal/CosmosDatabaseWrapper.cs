@@ -3,9 +3,12 @@
 
 using System;
 using System.Collections.Generic;
+using System.Net;
+using System.Runtime.ExceptionServices;
 using System.Threading;
 using System.Threading.Tasks;
 using JetBrains.Annotations;
+using Microsoft.Azure.Cosmos;
 using Microsoft.EntityFrameworkCore.ChangeTracking.Internal;
 using Microsoft.EntityFrameworkCore.Cosmos.Internal;
 using Microsoft.EntityFrameworkCore.Cosmos.Metadata.Internal;
@@ -34,7 +37,7 @@ namespace Microsoft.EntityFrameworkCore.Cosmos.Storage.Internal
     ///         The implementation does not need to be thread-safe.
     ///     </para>
     /// </summary>
-    public class CosmosDatabaseWrapper : Database
+    public class CosmosDatabaseWrapper : EntityFrameworkCore.Storage.Database
     {
         private readonly Dictionary<IEntityType, DocumentSource> _documentCollections
             = new Dictionary<IEntityType, DocumentSource>();
@@ -84,21 +87,35 @@ namespace Microsoft.EntityFrameworkCore.Cosmos.Storage.Internal
 
                 if (!entityType.IsDocumentRoot())
                 {
+#pragma warning disable EF1001 // Internal EF Core API usage.
+                    // #16707
                     var root = GetRootDocument((InternalEntityEntry)entry);
+#pragma warning restore EF1001 // Internal EF Core API usage.
                     if (!entriesSaved.Contains(root)
                         && rootEntriesToSave.Add(root)
                         && root.EntityState == EntityState.Unchanged)
                     {
+#pragma warning disable EF1001 // Internal EF Core API usage.
+                        // #16707
                         ((InternalEntityEntry)root).SetEntityState(EntityState.Modified);
+#pragma warning restore EF1001 // Internal EF Core API usage.
                     }
 
                     continue;
                 }
 
                 entriesSaved.Add(entry);
-                if (Save(entry))
+
+                try
                 {
-                    rowsAffected++;
+                    if (Save(entry))
+                    {
+                        rowsAffected++;
+                    }
+                }
+                catch (CosmosException ex)
+                {
+                    throw ThrowUpdateException(ex, entry);
                 }
             }
 
@@ -121,7 +138,8 @@ namespace Microsoft.EntityFrameworkCore.Cosmos.Storage.Internal
         ///     doing so can result in application failures when updating to a new Entity Framework Core release.
         /// </summary>
         public override async Task<int> SaveChangesAsync(
-            IList<IUpdateEntry> entries, CancellationToken cancellationToken = default)
+            IList<IUpdateEntry> entries,
+            CancellationToken cancellationToken = default)
         {
             var rowsAffected = 0;
             var entriesSaved = new HashSet<IUpdateEntry>();
@@ -142,23 +160,33 @@ namespace Microsoft.EntityFrameworkCore.Cosmos.Storage.Internal
                         && rootEntriesToSave.Add(root)
                         && root.EntityState == EntityState.Unchanged)
                     {
+#pragma warning disable EF1001 // Internal EF Core API usage.
+                        // #16707
                         ((InternalEntityEntry)root).SetEntityState(EntityState.Modified);
+#pragma warning restore EF1001 // Internal EF Core API usage.
                     }
 
                     continue;
                 }
 
                 entriesSaved.Add(entry);
-                if (await SaveAsync(entry, cancellationToken))
+                try
                 {
-                    rowsAffected++;
+                    if (await SaveAsync(entry, cancellationToken).ConfigureAwait(false))
+                    {
+                        rowsAffected++;
+                    }
+                }
+                catch (CosmosException ex)
+                {
+                    throw ThrowUpdateException(ex, entry);
                 }
             }
 
             foreach (var rootEntry in rootEntriesToSave)
             {
                 if (!entriesSaved.Contains(rootEntry)
-                    && await SaveAsync(rootEntry, cancellationToken))
+                    && await SaveAsync(rootEntry, cancellationToken).ConfigureAwait(false))
                 {
                     rowsAffected++;
                 }
@@ -190,9 +218,18 @@ namespace Microsoft.EntityFrameworkCore.Cosmos.Storage.Internal
             switch (state)
             {
                 case EntityState.Added:
-                    var newDocument = documentSource.CreateDocument(entry);
+                    var newDocument = documentSource.GetCurrentDocument(entry);
+                    if (newDocument != null)
+                    {
+                        documentSource.UpdateDocument(newDocument, entry);
+                    }
+                    else
+                    {
+                        newDocument = documentSource.CreateDocument(entry);
+                    }
 
-                    return _cosmosClient.CreateItem(collectionId, newDocument, GetPartitionKey(entry));
+                    return _cosmosClient.CreateItem(collectionId, newDocument, entry);
+
                 case EntityState.Modified:
                     var document = documentSource.GetCurrentDocument(entry);
                     if (document != null)
@@ -215,9 +252,11 @@ namespace Microsoft.EntityFrameworkCore.Cosmos.Storage.Internal
                     }
 
                     return _cosmosClient.ReplaceItem(
-                        collectionId, documentSource.GetId(entry.SharedIdentityEntry ?? entry), document, GetPartitionKey(entry));
+                        collectionId, documentSource.GetId(entry.SharedIdentityEntry ?? entry), document, entry);
+
                 case EntityState.Deleted:
-                    return _cosmosClient.DeleteItem(collectionId, documentSource.GetId(entry), GetPartitionKey(entry));
+                    return _cosmosClient.DeleteItem(collectionId, documentSource.GetId(entry), entry);
+
                 default:
                     return false;
             }
@@ -246,8 +285,19 @@ namespace Microsoft.EntityFrameworkCore.Cosmos.Storage.Internal
             switch (state)
             {
                 case EntityState.Added:
-                    var newDocument = documentSource.CreateDocument(entry);
-                    return _cosmosClient.CreateItemAsync(collectionId, newDocument, GetPartitionKey(entry), cancellationToken);
+                    var newDocument = documentSource.GetCurrentDocument(entry);
+                    if (newDocument != null)
+                    {
+                        documentSource.UpdateDocument(newDocument, entry);
+                    }
+                    else
+                    {
+                        newDocument = documentSource.CreateDocument(entry);
+                    }
+
+                    return _cosmosClient.CreateItemAsync(
+                        collectionId, newDocument, entry, cancellationToken);
+
                 case EntityState.Modified:
                     var document = documentSource.GetCurrentDocument(entry);
                     if (document != null)
@@ -270,11 +320,16 @@ namespace Microsoft.EntityFrameworkCore.Cosmos.Storage.Internal
                     }
 
                     return _cosmosClient.ReplaceItemAsync(
-                        collectionId, documentSource.GetId(entry.SharedIdentityEntry ?? entry), document, GetPartitionKey(entry),
+                        collectionId,
+                        documentSource.GetId(entry.SharedIdentityEntry ?? entry),
+                        document,
+                        entry,
                         cancellationToken);
+
                 case EntityState.Deleted:
                     return _cosmosClient.DeleteItemAsync(
-                        collectionId, documentSource.GetId(entry), GetPartitionKey(entry), cancellationToken);
+                        collectionId, documentSource.GetId(entry), entry, cancellationToken);
+
                 default:
                     return Task.FromResult(false);
             }
@@ -297,6 +352,8 @@ namespace Microsoft.EntityFrameworkCore.Cosmos.Storage.Internal
             return documentSource;
         }
 
+#pragma warning disable EF1001 // Internal EF Core API usage.
+        // Issue #16707
         private IUpdateEntry GetRootDocument(InternalEntityEntry entry)
         {
             var stateManager = entry.StateManager;
@@ -321,24 +378,27 @@ namespace Microsoft.EntityFrameworkCore.Cosmos.Storage.Internal
 
             return principal.EntityType.IsDocumentRoot() ? principal : GetRootDocument(principal);
         }
+#pragma warning restore EF1001 // Internal EF Core API usage.
 
-        private static string GetPartitionKey(IUpdateEntry entry)
+        private Exception ThrowUpdateException(CosmosException exception, IUpdateEntry entry)
         {
-            object partitionKey = null;
-            var partitionKeyPropertyName = entry.EntityType.GetPartitionKeyPropertyName();
-            if (partitionKeyPropertyName != null)
+            var documentSource = GetDocumentSource(entry.EntityType);
+            var id = documentSource.GetId(entry.SharedIdentityEntry ?? entry);
+            throw exception.StatusCode switch
             {
-                var partitionKeyProperty = entry.EntityType.FindProperty(partitionKeyPropertyName);
-                partitionKey = entry.GetCurrentValue(partitionKeyProperty);
+                HttpStatusCode.PreconditionFailed =>
+                    new DbUpdateConcurrencyException(CosmosStrings.UpdateConflict(id), exception, new[] { entry }),
+                HttpStatusCode.Conflict =>
+                    new DbUpdateException(CosmosStrings.UpdateConflict(id), exception, new[] { entry }),
+                _ => Rethrow(exception),
+            };
+        }
 
-                var converter = partitionKeyProperty.GetTypeMapping().Converter;
-                if (converter != null)
-                {
-                    partitionKey = converter.ConvertToProvider(partitionKey);
-                }
-            }
-
-            return (string)partitionKey;
+        private static Exception Rethrow(Exception ex)
+        {
+            // Re-throw an exception, preserving the original stack and details, without being in the original "catch" block.
+            ExceptionDispatchInfo.Capture(ex).Throw();
+            return ex;
         }
     }
 }

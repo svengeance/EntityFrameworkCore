@@ -20,6 +20,12 @@ namespace Microsoft.EntityFrameworkCore.Cosmos.Query.Internal
     /// </summary>
     public class SqlFunctionExpression : SqlExpression
     {
+        /// <summary>
+        ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+        ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+        ///     any release. You should only use it directly in your code with extreme caution and knowing that
+        ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+        /// </summary>
         public SqlFunctionExpression(
             [NotNull] string name,
             [CanBeNull] IEnumerable<SqlExpression> arguments,
@@ -104,13 +110,13 @@ namespace Microsoft.EntityFrameworkCore.Cosmos.Query.Internal
         ///     any release. You should only use it directly in your code with extreme caution and knowing that
         ///     doing so can result in application failures when updating to a new Entity Framework Core release.
         /// </summary>
-        public override void Print(ExpressionPrinter expressionPrinter)
+        protected override void Print(ExpressionPrinter expressionPrinter)
         {
             Check.NotNull(expressionPrinter, nameof(expressionPrinter));
 
             expressionPrinter.Append(Name);
             expressionPrinter.Append("(");
-            expressionPrinter.VisitList(Arguments);
+            expressionPrinter.VisitCollection(Arguments);
             expressionPrinter.Append(")");
         }
 
@@ -122,14 +128,14 @@ namespace Microsoft.EntityFrameworkCore.Cosmos.Query.Internal
         /// </summary>
         public override bool Equals(object obj)
             => obj != null
-               && (ReferenceEquals(this, obj)
-                   || obj is SqlFunctionExpression sqlFunctionExpression
-                   && Equals(sqlFunctionExpression));
+                && (ReferenceEquals(this, obj)
+                    || obj is SqlFunctionExpression sqlFunctionExpression
+                    && Equals(sqlFunctionExpression));
 
         private bool Equals(SqlFunctionExpression sqlFunctionExpression)
             => base.Equals(sqlFunctionExpression)
-               && string.Equals(Name, sqlFunctionExpression.Name)
-               && Arguments.SequenceEqual(sqlFunctionExpression.Arguments);
+                && string.Equals(Name, sqlFunctionExpression.Name)
+                && Arguments.SequenceEqual(sqlFunctionExpression.Arguments);
 
         /// <summary>
         ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to

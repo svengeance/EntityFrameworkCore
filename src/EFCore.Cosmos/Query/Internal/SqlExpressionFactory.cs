@@ -6,7 +6,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
 using JetBrains.Annotations;
-using Microsoft.EntityFrameworkCore.Diagnostics;
+using Microsoft.EntityFrameworkCore.Cosmos.Internal;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Internal;
 using Microsoft.EntityFrameworkCore.Metadata;
@@ -48,8 +48,8 @@ namespace Microsoft.EntityFrameworkCore.Cosmos.Query.Internal
         {
             return sqlExpression == null
                 || sqlExpression.TypeMapping != null
-                ? sqlExpression
-                : ApplyTypeMapping(sqlExpression, _typeMappingSource.FindMapping(sqlExpression.Type));
+                    ? sqlExpression
+                    : ApplyTypeMapping(sqlExpression, _typeMappingSource.FindMapping(sqlExpression.Type));
         }
 
         /// <summary>
@@ -85,13 +85,17 @@ namespace Microsoft.EntityFrameworkCore.Cosmos.Query.Internal
                 case SqlParameterExpression sqlParameterExpression:
                     return sqlParameterExpression.ApplyTypeMapping(typeMapping);
 
+                case SqlFunctionExpression sqlFunctionExpression:
+                    return sqlFunctionExpression.ApplyTypeMapping(typeMapping);
+
                 default:
                     return sqlExpression;
             }
         }
 
         private SqlExpression ApplyTypeMappingOnSqlConditional(
-            SqlConditionalExpression sqlConditionalExpression, CoreTypeMapping typeMapping)
+            SqlConditionalExpression sqlConditionalExpression,
+            CoreTypeMapping typeMapping)
         {
             return sqlConditionalExpression.Update(
                 sqlConditionalExpression.Test,
@@ -100,9 +104,11 @@ namespace Microsoft.EntityFrameworkCore.Cosmos.Query.Internal
         }
 
         private SqlExpression ApplyTypeMappingOnSqlUnary(
-            SqlUnaryExpression sqlUnaryExpression, CoreTypeMapping typeMapping)
+            SqlUnaryExpression sqlUnaryExpression,
+            CoreTypeMapping typeMapping)
         {
             SqlExpression operand;
+            Type resultType;
             CoreTypeMapping resultTypeMapping;
             switch (sqlUnaryExpression.OperatorType)
             {
@@ -112,34 +118,39 @@ namespace Microsoft.EntityFrameworkCore.Cosmos.Query.Internal
                     when sqlUnaryExpression.IsLogicalNot():
                 {
                     resultTypeMapping = _boolTypeMapping;
+                    resultType = typeof(bool);
                     operand = ApplyDefaultTypeMapping(sqlUnaryExpression.Operand);
                     break;
                 }
 
                 case ExpressionType.Convert:
                     resultTypeMapping = typeMapping;
+                    // Since we are applying convert, resultTypeMapping decides the clrType
+                    resultType = resultTypeMapping?.ClrType ?? sqlUnaryExpression.Type;
                     operand = ApplyDefaultTypeMapping(sqlUnaryExpression.Operand);
                     break;
 
                 case ExpressionType.Not:
                 case ExpressionType.Negate:
                     resultTypeMapping = typeMapping;
+                    // While Not is logical, negate is numeric hence we use clrType from TypeMapping
+                    resultType = resultTypeMapping?.ClrType ?? sqlUnaryExpression.Type;
                     operand = ApplyTypeMapping(sqlUnaryExpression.Operand, typeMapping);
                     break;
 
                 default:
-                    throw new InvalidOperationException(CoreStrings.TranslationFailed(sqlUnaryExpression.Print()));
+                    throw new InvalidOperationException(
+                        CosmosStrings.UnsupportedOperatorForSqlExpression(
+                            sqlUnaryExpression.OperatorType, typeof(SqlUnaryExpression).ShortDisplayName()));
+                    ;
             }
 
-            return new SqlUnaryExpression(
-                sqlUnaryExpression.OperatorType,
-                operand,
-                sqlUnaryExpression.Type,
-                resultTypeMapping);
+            return new SqlUnaryExpression(sqlUnaryExpression.OperatorType, operand, resultType, resultTypeMapping);
         }
 
         private SqlExpression ApplyTypeMappingOnSqlBinary(
-            SqlBinaryExpression sqlBinaryExpression, CoreTypeMapping typeMapping)
+            SqlBinaryExpression sqlBinaryExpression,
+            CoreTypeMapping typeMapping)
         {
             var left = sqlBinaryExpression.Left;
             var right = sqlBinaryExpression.Right;
@@ -157,7 +168,10 @@ namespace Microsoft.EntityFrameworkCore.Cosmos.Query.Internal
                 case ExpressionType.NotEqual:
                 {
                     inferredTypeMapping = ExpressionExtensions.InferTypeMapping(left, right)
-                                          ?? _typeMappingSource.FindMapping(left.Type);
+                        // We avoid object here since the result does not get typeMapping from outside.
+                        ?? (left.Type != typeof(object)
+                            ? _typeMappingSource.FindMapping(left.Type)
+                            : _typeMappingSource.FindMapping(right.Type));
                     resultType = typeof(bool);
                     resultTypeMapping = _boolTypeMapping;
                 }
@@ -179,18 +193,19 @@ namespace Microsoft.EntityFrameworkCore.Cosmos.Query.Internal
                 case ExpressionType.Modulo:
                 case ExpressionType.LeftShift:
                 case ExpressionType.RightShift:
-                case ExpressionType.Coalesce:
                 case ExpressionType.And:
                 case ExpressionType.Or:
                 {
                     inferredTypeMapping = typeMapping ?? ExpressionExtensions.InferTypeMapping(left, right);
-                    resultType = left.Type;
+                    resultType = inferredTypeMapping?.ClrType ?? left.Type;
                     resultTypeMapping = inferredTypeMapping;
                 }
                     break;
 
                 default:
-                    throw new InvalidOperationException("Incorrect operatorType for SqlBinaryExpression");
+                    throw new InvalidOperationException(
+                        CosmosStrings.UnsupportedOperatorForSqlExpression(
+                            sqlBinaryExpression.OperatorType, typeof(SqlBinaryExpression).ShortDisplayName()));
             }
 
             return new SqlBinaryExpression(
@@ -217,7 +232,10 @@ namespace Microsoft.EntityFrameworkCore.Cosmos.Query.Internal
         ///     doing so can result in application failures when updating to a new Entity Framework Core release.
         /// </summary>
         public virtual SqlBinaryExpression MakeBinary(
-            ExpressionType operatorType, SqlExpression left, SqlExpression right, CoreTypeMapping typeMapping)
+            ExpressionType operatorType,
+            SqlExpression left,
+            SqlExpression right,
+            CoreTypeMapping typeMapping)
         {
             var returnType = left.Type;
             switch (operatorType)
@@ -373,17 +391,11 @@ namespace Microsoft.EntityFrameworkCore.Cosmos.Query.Internal
         public virtual SqlBinaryExpression Or(SqlExpression left, SqlExpression right, CoreTypeMapping typeMapping = null)
             => MakeBinary(ExpressionType.Or, left, right, typeMapping);
 
-        /// <summary>
-        ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
-        ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
-        ///     any release. You should only use it directly in your code with extreme caution and knowing that
-        ///     doing so can result in application failures when updating to a new Entity Framework Core release.
-        /// </summary>
-        public virtual SqlBinaryExpression Coalesce(SqlExpression left, SqlExpression right, CoreTypeMapping typeMapping = null)
-            => MakeBinary(ExpressionType.Coalesce, left, right, typeMapping);
-
         private SqlUnaryExpression MakeUnary(
-            ExpressionType operatorType, SqlExpression operand, Type type, CoreTypeMapping typeMapping = null)
+            ExpressionType operatorType,
+            SqlExpression operand,
+            Type type,
+            CoreTypeMapping typeMapping = null)
         {
             return (SqlUnaryExpression)ApplyTypeMapping(new SqlUnaryExpression(operatorType, operand, type, null), typeMapping);
         }
@@ -440,7 +452,10 @@ namespace Microsoft.EntityFrameworkCore.Cosmos.Query.Internal
         ///     doing so can result in application failures when updating to a new Entity Framework Core release.
         /// </summary>
         public virtual SqlFunctionExpression Function(
-            string functionName, IEnumerable<SqlExpression> arguments, Type returnType, CoreTypeMapping typeMapping = null)
+            string functionName,
+            IEnumerable<SqlExpression> arguments,
+            Type returnType,
+            CoreTypeMapping typeMapping = null)
         {
             var typeMappedArguments = new List<SqlExpression>();
 

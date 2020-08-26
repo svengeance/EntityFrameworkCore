@@ -24,10 +24,18 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Internal
 
         private class FakeProperty : IProperty, IClrPropertySetter
         {
-            public void SetClrValue(object instance, object value) => throw new NotImplementedException();
-            public object this[string name] => throw new NotImplementedException();
-            public IAnnotation FindAnnotation(string name) => throw new NotImplementedException();
-            public IEnumerable<IAnnotation> GetAnnotations() => throw new NotImplementedException();
+            public void SetClrValue(object instance, object value)
+                => throw new NotImplementedException();
+
+            public object this[string name]
+                => throw new NotImplementedException();
+
+            public IAnnotation FindAnnotation(string name)
+                => throw new NotImplementedException();
+
+            public IEnumerable<IAnnotation> GetAnnotations()
+                => throw new NotImplementedException();
+
             public string Name { get; }
             public ITypeBase DeclaringType { get; }
             public Type ClrType { get; }
@@ -229,6 +237,25 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Internal
                 () => new ClrPropertySetterFactory().Create(property));
         }
 
+        [ConditionalFact]
+        public void Delegate_setter_can_set_index_properties()
+        {
+            var entityType = CreateModel().AddEntityType(typeof(IndexedClass));
+            var propertyA = entityType.AddIndexerProperty("PropertyA", typeof(string));
+            var propertyB = entityType.AddIndexerProperty("PropertyB", typeof(int));
+
+            var indexedClass = new IndexedClass { Id = 7 };
+
+            Assert.Equal("ValueA", indexedClass["PropertyA"]);
+            Assert.Equal(123, indexedClass["PropertyB"]);
+
+            new ClrPropertySetterFactory().Create(propertyA).SetClrValue(indexedClass, "UpdatedValue");
+            new ClrPropertySetterFactory().Create(propertyB).SetClrValue(indexedClass, 42);
+
+            Assert.Equal("UpdatedValue", indexedClass["PropertyA"]);
+            Assert.Equal(42, indexedClass["PropertyB"]);
+        }
+
         private IMutableModel CreateModel()
             => new Model();
 
@@ -258,13 +285,15 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Internal
         private class ConcreteEntity2 : ConcreteEntity1
         {
             // ReSharper disable once RedundantOverriddenMember
-            public override int VirtualPrivateProperty_Override => base.VirtualPrivateProperty_Override;
+            public override int VirtualPrivateProperty_Override
+                => base.VirtualPrivateProperty_Override;
         }
 
         private class ConcreteEntity1 : BaseEntity
         {
             // ReSharper disable once RedundantOverriddenMember
-            public override int VirtualPrivateProperty_Override => base.VirtualPrivateProperty_Override;
+            public override int VirtualPrivateProperty_Override
+                => base.VirtualPrivateProperty_Override;
         }
 
         private class BaseEntity
@@ -273,6 +302,17 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Internal
             public virtual int VirtualPrivateProperty_NoOverride { get; private set; }
             public int PrivateProperty { get; private set; }
             public int NoSetterProperty { get; }
+        }
+
+        private class IndexedClass
+        {
+            private readonly Dictionary<string, object> _internalValues = new Dictionary<string, object>
+            {
+                { "PropertyA", "ValueA" }, { "PropertyB", 123 }
+            };
+
+            internal int Id { get; set; }
+            internal object this[string name] { get => _internalValues[name]; set => _internalValues[name] = value; }
         }
 
         #endregion

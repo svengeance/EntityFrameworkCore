@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using JetBrains.Annotations;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Utilities;
 
@@ -37,7 +38,7 @@ namespace Microsoft.EntityFrameworkCore.Cosmos.Query.Internal
                 new IMethodCallTranslator[]
                 {
                     new EqualsTranslator(sqlExpressionFactory),
-                    //new StringMethodTranslator(sqlExpressionFactory),
+                    new StringMethodTranslator(sqlExpressionFactory),
                     new ContainsTranslator(sqlExpressionFactory)
                     //new LikeTranslator(sqlExpressionFactory),
                     //new EnumHasFlagTranslator(sqlExpressionFactory),
@@ -53,14 +54,19 @@ namespace Microsoft.EntityFrameworkCore.Cosmos.Query.Internal
         ///     doing so can result in application failures when updating to a new Entity Framework Core release.
         /// </summary>
         public virtual SqlExpression Translate(
-            IModel model, SqlExpression instance, MethodInfo method, IReadOnlyList<SqlExpression> arguments)
+            IModel model,
+            SqlExpression instance,
+            MethodInfo method,
+            IReadOnlyList<SqlExpression> arguments,
+            IDiagnosticsLogger<DbLoggerCategory.Query> logger)
         {
             Check.NotNull(model, nameof(model));
             Check.NotNull(method, nameof(method));
             Check.NotNull(arguments, nameof(arguments));
+            Check.NotNull(logger, nameof(logger));
 
             return _plugins.Concat(_translators)
-                .Select(t => t.Translate(instance, method, arguments))
+                .Select(t => t.Translate(instance, method, arguments, logger))
                 .FirstOrDefault(t => t != null);
         }
 

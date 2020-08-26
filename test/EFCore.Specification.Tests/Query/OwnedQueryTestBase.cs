@@ -373,15 +373,25 @@ namespace Microsoft.EntityFrameworkCore.Query
             Assert.Equal(4, result.Count);
             Assert.Empty(context.ChangeTracker.Entries());
 
-            if (async)
-            {
-                await Assert.ThrowsAsync<InvalidOperationException>(() => asTrackingQuery.ToListAsync());
-            }
-            else
-            {
-                Assert.Throws<InvalidOperationException>(() => asTrackingQuery.ToList());
-            }
+            var message = async
+                ? (await Assert.ThrowsAsync<InvalidOperationException>(() => asTrackingQuery.ToListAsync())).Message
+                : Assert.Throws<InvalidOperationException>(() => asTrackingQuery.ToList()).Message;
+            Assert.Empty(context.ChangeTracker.Entries());
+            Assert.Equal(CoreStrings.OwnedEntitiesCannotBeTrackedWithoutTheirOwner, message);
+        }
 
+        [ConditionalTheory]
+        [MemberData(nameof(IsAsyncData))]
+        public virtual async Task Owned_entity_without_owner_does_not_throw_for_identity_resolution(bool async)
+        {
+            using var context = CreateContext();
+            var query = context.Set<OwnedPerson>().Select(e => e.PersonAddress).AsNoTrackingWithIdentityResolution();
+
+            var result = async
+                ? await query.ToListAsync()
+                : query.ToList();
+
+            Assert.Equal(4, result.Count);
             Assert.Empty(context.ChangeTracker.Entries());
         }
 
@@ -390,7 +400,7 @@ namespace Microsoft.EntityFrameworkCore.Query
         public virtual async Task Preserve_includes_when_applying_skip_take_after_anonymous_type_select(bool async)
         {
             using var context = CreateContext();
-            var expectedQuery = Fixture.QueryAsserter.ExpectedData.Set<OwnedPerson>().OrderBy(p => p.Id);
+            var expectedQuery = QueryAsserter.ExpectedData.Set<OwnedPerson>().OrderBy(p => p.Id);
             var expectedResult = expectedQuery.Select(q => new { Query = q, Count = expectedQuery.Count() }).Skip(0).Take(100).ToList();
 
             var baseQuery = context.Set<OwnedPerson>().OrderBy(p => p.Id);
@@ -418,12 +428,449 @@ namespace Microsoft.EntityFrameworkCore.Query
                 entryCount: 5);
         }
 
-        protected virtual DbContext CreateContext() => Fixture.CreateContext();
+        // Issue#18140
+        [ConditionalTheory]
+        [MemberData(nameof(IsAsyncData))]
+        public virtual Task Client_method_skip_loads_owned_navigations(bool async)
+        {
+            return AssertQuery(
+                async,
+                ss => ss.Set<OwnedPerson>().OrderBy(e => e.Id).Select(e => Map(e)).Skip(1));
+        }
+
+        [ConditionalTheory]
+        [MemberData(nameof(IsAsyncData))]
+        public virtual Task Client_method_take_loads_owned_navigations(bool async)
+        {
+            return AssertQuery(
+                async,
+                ss => ss.Set<OwnedPerson>().OrderBy(e => e.Id).Select(e => Map(e)).Take(2));
+        }
+
+        [ConditionalTheory]
+        [MemberData(nameof(IsAsyncData))]
+        public virtual Task Client_method_skip_take_loads_owned_navigations(bool async)
+        {
+            return AssertQuery(
+                async,
+                ss => ss.Set<OwnedPerson>().OrderBy(e => e.Id).Select(e => Map(e)).Skip(1).Take(2));
+        }
+
+        private static string Map(OwnedPerson person)
+            => person.PersonAddress.Country.Name;
+
+        // Issue#18734
+        [ConditionalTheory]
+        [MemberData(nameof(IsAsyncData))]
+        public virtual Task Client_method_skip_loads_owned_navigations_variation_2(bool async)
+        {
+            return AssertQuery(
+                async,
+                ss => ss.Set<OwnedPerson>().OrderBy(e => e.Id).Select(e => Identity(e)).Skip(1));
+        }
+
+        [ConditionalTheory]
+        [MemberData(nameof(IsAsyncData))]
+        public virtual Task Client_method_take_loads_owned_navigations_variation_2(bool async)
+        {
+            return AssertQuery(
+                async,
+                ss => ss.Set<OwnedPerson>().OrderBy(e => e.Id).Select(e => Identity(e)).Take(2));
+        }
+
+        [ConditionalTheory]
+        [MemberData(nameof(IsAsyncData))]
+        public virtual Task Client_method_skip_take_loads_owned_navigations_variation_2(bool async)
+        {
+            return AssertQuery(
+                async,
+                ss => ss.Set<OwnedPerson>().OrderBy(e => e.Id).Select(e => Identity(e)).Skip(1).Take(2));
+        }
+
+        private static OwnedPerson Identity(OwnedPerson person)
+            => person;
+
+        [ConditionalTheory]
+        [MemberData(nameof(IsAsyncData))]
+        public virtual Task Where_owned_collection_navigation_ToList_Count(bool async)
+        {
+            return AssertQuery(
+                async,
+                ss => ss.Set<OwnedPerson>()
+                    .OrderBy(p => p.Id)
+                    .Select(p => p.Orders.ToList())
+                    .Where(e => e.Count() == 0),
+                assertOrder: true,
+                elementAsserter: (e, a) => AssertCollection(e, a));
+        }
+
+        [ConditionalTheory]
+        [MemberData(nameof(IsAsyncData))]
+        public virtual Task Where_collection_navigation_ToArray_Count(bool async)
+        {
+            return AssertQuery(
+                async,
+                ss => ss.Set<OwnedPerson>()
+                    .OrderBy(p => p.Id)
+                    .Select(p => p.Orders.ToArray())
+                    .Where(e => e.Count() == 0),
+                assertOrder: true,
+                elementAsserter: (e, a) => AssertCollection(e, a));
+        }
+
+        [ConditionalTheory]
+        [MemberData(nameof(IsAsyncData))]
+        public virtual Task Where_collection_navigation_AsEnumerable_Count(bool async)
+        {
+            return AssertQuery(
+                async,
+                ss => ss.Set<OwnedPerson>()
+                    .OrderBy(p => p.Id)
+                    .Select(p => p.Orders.AsEnumerable())
+                    .Where(e => e.Count() == 0),
+                assertOrder: true,
+                elementAsserter: (e, a) => AssertCollection(e, a));
+        }
+
+        [ConditionalTheory]
+        [MemberData(nameof(IsAsyncData))]
+        public virtual Task Where_collection_navigation_ToList_Count_member(bool async)
+        {
+            return AssertQuery(
+                async,
+                ss => ss.Set<OwnedPerson>()
+                    .OrderBy(p => p.Id)
+                    .Select(p => p.Orders.ToList())
+                    .Where(e => e.Count == 0),
+                assertOrder: true,
+                elementAsserter: (e, a) => AssertCollection(e, a));
+        }
+
+        [ConditionalTheory]
+        [MemberData(nameof(IsAsyncData))]
+        public virtual Task Where_collection_navigation_ToArray_Length_member(bool async)
+        {
+            return AssertQuery(
+                async,
+                ss => ss.Set<OwnedPerson>()
+                    .OrderBy(p => p.Id)
+                    .Select(p => p.Orders.ToArray())
+                    .Where(e => e.Length == 0),
+                assertOrder: true,
+                elementAsserter: (e, a) => AssertCollection(e, a));
+        }
+
+        [ConditionalTheory]
+        [MemberData(nameof(IsAsyncData))]
+        public virtual Task Can_query_on_indexer_properties(bool async)
+        {
+            return AssertQuery(
+                async,
+                ss => ss.Set<OwnedPerson>().Where(c => (string)c["Name"] == "Mona Cy"));
+        }
+
+        [ConditionalTheory]
+        [MemberData(nameof(IsAsyncData))]
+        public virtual Task Can_query_on_owned_indexer_properties(bool async)
+        {
+            return AssertQuery(
+                async,
+                ss => ss.Set<OwnedPerson>().Where(c => (int)c.PersonAddress["ZipCode"] == 38654).Select(c => (string)c["Name"]));
+        }
+
+        [ConditionalTheory]
+        [MemberData(nameof(IsAsyncData))]
+        public virtual Task Can_query_on_indexer_property_when_property_name_from_closure(bool async)
+        {
+            var propertyName = "Name";
+            return AssertQuery(
+                async,
+                ss => ss.Set<OwnedPerson>().Where(c => (string)c[propertyName] == "Mona Cy").Select(c => (string)c["Name"]));
+        }
+
+        [ConditionalTheory]
+        [MemberData(nameof(IsAsyncData))]
+        public virtual Task Can_project_indexer_properties(bool async)
+        {
+            return AssertQuery(
+                async,
+                ss => ss.Set<OwnedPerson>().Select(c => c["Name"]));
+        }
+
+        [ConditionalTheory]
+        [MemberData(nameof(IsAsyncData))]
+        public virtual Task Can_project_owned_indexer_properties(bool async)
+        {
+            return AssertQuery(
+                async,
+                ss => ss.Set<OwnedPerson>().Select(c => c.PersonAddress["AddressLine"]));
+        }
+
+        [ConditionalTheory]
+        [MemberData(nameof(IsAsyncData))]
+        public virtual Task Can_project_indexer_properties_converted(bool async)
+        {
+            return AssertQuery(
+                async,
+                ss => ss.Set<OwnedPerson>().Select(c => (string)c["Name"]));
+        }
+
+        [ConditionalTheory]
+        [MemberData(nameof(IsAsyncData))]
+        public virtual Task Can_project_owned_indexer_properties_converted(bool async)
+        {
+            return AssertQuery(
+                async,
+                ss => ss.Set<OwnedPerson>().Select(c => (string)c.PersonAddress["AddressLine"]));
+        }
+
+        [ConditionalTheory]
+        [MemberData(nameof(IsAsyncData))]
+        public virtual Task Can_OrderBy_indexer_properties(bool async)
+        {
+            return AssertQuery(
+                async,
+                ss => ss.Set<OwnedPerson>().OrderBy(c => c["Name"]).ThenBy(c => c.Id),
+                assertOrder: true);
+        }
+
+        [ConditionalTheory]
+        [MemberData(nameof(IsAsyncData))]
+        public virtual Task Can_OrderBy_indexer_properties_converted(bool async)
+        {
+            return AssertQuery(
+                async,
+                ss => ss.Set<OwnedPerson>().OrderBy(c => (string)c["Name"]).ThenBy(c => c.Id).Select(c => (string)c["Name"]),
+                assertOrder: true);
+        }
+
+        [ConditionalTheory]
+        [MemberData(nameof(IsAsyncData))]
+        public virtual Task Can_OrderBy_owned_indexer_properties(bool async)
+        {
+            return AssertQuery(
+                async,
+                ss => ss.Set<OwnedPerson>().OrderBy(c => c.PersonAddress["ZipCode"]).ThenBy(c => c.Id).Select(c => (string)c["Name"]),
+                assertOrder: true);
+        }
+
+        [ConditionalTheory]
+        [MemberData(nameof(IsAsyncData))]
+        public virtual Task Can_OrderBy_owened_indexer_properties_converted(bool async)
+        {
+            return AssertQuery(
+                async,
+                ss => ss.Set<OwnedPerson>().OrderBy(c => (int)c.PersonAddress["ZipCode"]).ThenBy(c => c.Id).Select(c => (string)c["Name"]),
+                assertOrder: true);
+        }
+
+        [ConditionalTheory]
+        [MemberData(nameof(IsAsyncData))]
+        public virtual Task Can_group_by_indexer_property(bool async)
+        {
+            return AssertQueryScalar(
+                async,
+                ss => ss.Set<OwnedPerson>().GroupBy(c => c["Name"]).Select(g => g.Count()));
+        }
+
+        [ConditionalTheory]
+        [MemberData(nameof(IsAsyncData))]
+        public virtual Task Can_group_by_converted_indexer_property(bool async)
+        {
+            return AssertQueryScalar(
+                async,
+                ss => ss.Set<OwnedPerson>().GroupBy(c => (string)c["Name"]).Select(g => g.Count()));
+        }
+
+        [ConditionalTheory]
+        [MemberData(nameof(IsAsyncData))]
+        public virtual Task Can_group_by_owned_indexer_property(bool async)
+        {
+            return AssertQueryScalar(
+                async,
+                ss => ss.Set<OwnedPerson>().GroupBy(c => c.PersonAddress["ZipCode"]).Select(g => g.Count()));
+        }
+
+        [ConditionalTheory]
+        [MemberData(nameof(IsAsyncData))]
+        public virtual Task Can_group_by_converted_owned_indexer_property(bool async)
+        {
+            return AssertQueryScalar(
+                async,
+                ss => ss.Set<OwnedPerson>().GroupBy(c => (int)c.PersonAddress["ZipCode"]).Select(g => g.Count()));
+        }
+
+        [ConditionalTheory]
+        [MemberData(nameof(IsAsyncData))]
+        public virtual Task Can_join_on_indexer_property_on_query(bool async)
+        {
+            return AssertQuery(
+                async,
+                ss =>
+                    (from c1 in ss.Set<OwnedPerson>()
+                     join c2 in ss.Set<OwnedPerson>()
+                         on c1.PersonAddress["ZipCode"] equals c2.PersonAddress["ZipCode"]
+                     select new { c1.Id, c2.PersonAddress.Country.Name }));
+        }
+
+        [ConditionalTheory]
+        [MemberData(nameof(IsAsyncData))]
+        public virtual Task Projecting_indexer_property_ignores_include(bool async)
+        {
+            return AssertQuery(
+                async,
+                ss => from c in ss.Set<OwnedPerson>().AsTracking()
+                      select new { Nation = c.PersonAddress["ZipCode"] });
+        }
+
+        [ConditionalTheory]
+        [MemberData(nameof(IsAsyncData))]
+        public virtual Task Projecting_indexer_property_ignores_include_converted(bool async)
+        {
+            return AssertQuery(
+                async,
+                ss => from c in ss.Set<OwnedPerson>().AsTracking()
+                      select new { Nation = (int)c.PersonAddress["ZipCode"] });
+        }
+
+        [ConditionalTheory]
+        [MemberData(nameof(IsAsyncData))]
+        public virtual Task Indexer_property_is_pushdown_into_subquery(bool async)
+        {
+            return AssertQuery(
+                async,
+                ss => ss.Set<OwnedPerson>()
+                    .Where(g => (string)ss.Set<OwnedPerson>().Where(c => c.Id == g.Id).FirstOrDefault()["Name"] == "Mona Cy")
+                    .Select(c => (string)c["Name"]));
+        }
+
+        [ConditionalTheory]
+        [MemberData(nameof(IsAsyncData))]
+        public virtual Task Can_query_indexer_property_on_owned_collection(bool async)
+        {
+            return AssertQuery(
+                async,
+                ss => ss.Set<OwnedPerson>().Where(ow => ow.Orders.Where(o => ((DateTime)o["OrderDate"]).Year == 2018).Count() == 1)
+                    .Select(c => (string)c["Name"]));
+        }
+
+        [ConditionalTheory]
+        [MemberData(nameof(IsAsyncData))]
+        public virtual async Task NoTracking_Include_with_cycles_throws(bool async)
+        {
+            using var context = CreateContext();
+            var query = context.Set<OwnedPerson>().SelectMany(op => op.Orders).Include(o => o.Client).AsNoTracking();
+
+            Assert.Equal(
+                CoreStrings.IncludeWithCycle("Client", "Orders"),
+                async
+                    ? (await Assert.ThrowsAsync<InvalidOperationException>(() => query.ToListAsync())).Message
+                    : Assert.Throws<InvalidOperationException>(() => query.ToList()).Message);
+        }
+
+        [ConditionalTheory]
+        [MemberData(nameof(IsAsyncData))]
+        public virtual async Task NoTracking_Include_with_cycles_does_not_throw_when_performing_identity_resolution(bool async)
+        {
+            using var context = CreateContext();
+            var query = context.Set<OwnedPerson>().SelectMany(op => op.Orders).Include(o => o.Client).AsNoTrackingWithIdentityResolution();
+
+            var result = async
+                ? await query.ToListAsync()
+                : query.ToList();
+
+            Assert.Empty(context.ChangeTracker.Entries());
+            foreach (var order in result)
+            {
+                Assert.NotNull(order.Client);
+                Assert.Same(order, order.Client.Orders.First(o => o.Id == order.Id));
+            }
+        }
+
+        [ConditionalTheory]
+        [MemberData(nameof(IsAsyncData))]
+        public virtual Task Trying_to_access_non_existent_indexer_property_throws_meaningful_exception(bool async)
+        {
+            return AssertTranslationFailedWithDetails(
+                () => AssertQuery(
+                    async,
+                    ss => ss.Set<OwnedPerson>().Where(op => (bool)op["Foo"])),
+                CoreStrings.QueryUnableToTranslateMember("Foo", nameof(OwnedPerson)));
+        }
+
+        [ConditionalTheory]
+        [MemberData(nameof(IsAsyncData))]
+        public virtual Task GroupBy_with_multiple_aggregates_on_owned_navigation_properties(bool async)
+        {
+            return AssertQuery(
+                async,
+                ss => ss.Set<OwnedPerson>().GroupBy(e => 1, x => x.PersonAddress.Country.Planet.Star).Select(
+                    e => new
+                    {
+                        p1 = e.Average(x => x.Id),
+                        p2 = e.Sum(x => x.Id),
+                        p3 = e.Max(x => x.Name.Length),
+                    }));
+        }
+
+        [ConditionalTheory]
+        [MemberData(nameof(IsAsyncData))]
+        public virtual async Task Non_nullable_property_through_optional_navigation(bool async)
+        {
+            Assert.Equal(
+                "Nullable object must have a value.",
+                (await Assert.ThrowsAsync<InvalidOperationException>(
+                    () => AssertQuery(
+                        async,
+                        ss => ss.Set<Barton>().Select(e => new { e.Throned.Value })))).Message);
+        }
+
+        [ConditionalTheory]
+        [MemberData(nameof(IsAsyncData))]
+        public virtual Task Ordering_by_identifying_projection(bool async)
+        {
+            return AssertQuery(
+                async,
+                ss => ss.Set<OwnedPerson>().OrderBy(p => p.PersonAddress.PlaceType).ThenBy(e => e.Id),
+                assertOrder: true);
+        }
+
+        [ConditionalTheory]
+        [MemberData(nameof(IsAsyncData))]
+        public virtual async Task Query_on_collection_entry_works_for_owned_collection(bool async)
+        {
+            using var context = CreateContext();
+
+            var ownedPerson = context.Set<OwnedPerson>().AsTracking().Single(e => e.Id == 1);
+            var collectionQuery = context.Entry(ownedPerson).Collection(e => e.Orders).Query().AsNoTracking();
+
+            var actualOrders = async
+                ? await collectionQuery.ToListAsync()
+                : collectionQuery.ToList();
+
+            var expectedOrders = Fixture.GetExpectedData().Set<OwnedPerson>().Single(e => e.Id == 1).Orders;
+
+            Assert.Equal(expectedOrders.Count, actualOrders.Count);
+            foreach (var element in expectedOrders.OrderBy(ee => ee.Id).Zip(actualOrders.OrderBy(aa => aa.Id), (e, a) => new { e, a }))
+            {
+                Assert.Equal(element.e.Id, element.a.Id);
+                Assert.Equal(element.e["OrderDate"], element.a["OrderDate"]);
+            }
+        }
+
+        protected virtual DbContext CreateContext()
+            => Fixture.CreateContext();
 
         public abstract class OwnedQueryFixtureBase : SharedStoreFixtureBase<PoolableDbContext>, IQueryFixtureBase
         {
             private static void AssertAddress(OwnedAddress expectedAddress, OwnedAddress actualAddress)
             {
+                Assert.Equal(expectedAddress["AddressLine"], actualAddress["AddressLine"]);
+                Assert.Equal(expectedAddress["ZipCode"], actualAddress["ZipCode"]);
+                Assert.Equal(expectedAddress["BranchName"], actualAddress["BranchName"]);
+                Assert.Equal(expectedAddress["LeafType"], actualAddress["LeafType"]);
+                Assert.Equal(expectedAddress["LeafBType"], actualAddress["LeafBType"]);
+                Assert.Equal(expectedAddress.PlaceType, actualAddress.PlaceType);
                 Assert.Equal(expectedAddress.Country.PlanetId, actualAddress.Country.PlanetId);
                 Assert.Equal(expectedAddress.Country.Name, actualAddress.Country.Name);
             }
@@ -434,34 +881,40 @@ namespace Microsoft.EntityFrameworkCore.Query
                 foreach (var element in expectedOrders.OrderBy(ee => ee.Id).Zip(actualOrders.OrderBy(aa => aa.Id), (e, a) => new { e, a }))
                 {
                     Assert.Equal(element.e.Id, element.a.Id);
+                    Assert.Equal(element.e["OrderDate"], element.a["OrderDate"]);
                     Assert.Equal(element.e.Client.Id, element.a.Client.Id);
                 }
             }
 
-            public OwnedQueryFixtureBase()
-            {
-                var entitySorters = new Dictionary<Type, Func<dynamic, object>>
+            public Func<DbContext> GetContextCreator()
+                => () => CreateContext();
+
+            public ISetSource GetExpectedData()
+                => new OwnedQueryData();
+
+            public IReadOnlyDictionary<Type, object> GetEntitySorters()
+                => new Dictionary<Type, Func<object, object>>
                 {
-                    { typeof(OwnedPerson), e => e?.Id },
-                    { typeof(Branch), e => e?.Id },
-                    { typeof(LeafA), e => e?.Id },
-                    { typeof(LeafB), e => e?.Id },
-                    { typeof(Planet), e => e?.Id },
-                    { typeof(Star), e => e?.Id },
-                    { typeof(Moon), e => e?.Id },
-                    { typeof(Fink), e => e?.Id },
-                    { typeof(Barton), e => e?.Id },
+                    { typeof(OwnedPerson), e => ((OwnedPerson)e)?.Id },
+                    { typeof(Branch), e => ((Branch)e)?.Id },
+                    { typeof(LeafA), e => ((LeafA)e)?.Id },
+                    { typeof(LeafB), e => ((LeafB)e)?.Id },
+                    { typeof(Planet), e => ((Planet)e)?.Id },
+                    { typeof(Star), e => ((Star)e)?.Id },
+                    { typeof(Moon), e => ((Moon)e)?.Id },
+                    { typeof(Fink), e => ((Fink)e)?.Id },
+                    { typeof(Barton), e => ((Barton)e)?.Id },
 
                     // owned entities - still need comparers in case they are projected directly
-                    { typeof(Order), e => e?.Id },
-                    { typeof(OwnedAddress), e => e?.Country.Name },
-                    { typeof(OwnedCountry), e => e?.Name },
-                    { typeof(Element), e => e?.Id },
-                    { typeof(Throned), e => e?.Property }
+                    { typeof(Order), e => ((Order)e)?.Id },
+                    { typeof(OwnedAddress), e => ((OwnedAddress)e)?.Country.Name },
+                    { typeof(OwnedCountry), e => ((OwnedCountry)e)?.Name },
+                    { typeof(Element), e => ((Element)e)?.Id },
+                    { typeof(Throned), e => ((Throned)e)?.Property }
                 }.ToDictionary(e => e.Key, e => (object)e.Value);
-                ;
 
-                var entityAsserters = new Dictionary<Type, Action<dynamic, dynamic>>
+            public IReadOnlyDictionary<Type, object> GetEntityAsserters()
+                => new Dictionary<Type, Action<object, object>>
                 {
                     {
                         typeof(OwnedPerson), (e, a) =>
@@ -469,9 +922,13 @@ namespace Microsoft.EntityFrameworkCore.Query
                             Assert.Equal(e == null, a == null);
                             if (a != null)
                             {
-                                Assert.Equal(e.Id, a.Id);
-                                AssertAddress(e.PersonAddress, a.PersonAddress);
-                                AssertOrders(e.Orders, a.Orders);
+                                var ee = (OwnedPerson)e;
+                                var aa = (OwnedPerson)a;
+
+                                Assert.Equal(ee.Id, aa.Id);
+                                Assert.Equal(ee["Name"], aa["Name"]);
+                                AssertAddress(ee.PersonAddress, aa.PersonAddress);
+                                AssertOrders(ee.Orders, aa.Orders);
                             }
 
                             if (e is Branch branch)
@@ -496,10 +953,13 @@ namespace Microsoft.EntityFrameworkCore.Query
                             Assert.Equal(e == null, a == null);
                             if (a != null)
                             {
-                                Assert.Equal(e.Id, a.Id);
-                                AssertAddress(e.PersonAddress, a.PersonAddress);
-                                AssertAddress(e.BranchAddress, a.BranchAddress);
-                                AssertOrders(e.Orders, a.Orders);
+                                var ee = (Branch)e;
+                                var aa = (Branch)a;
+
+                                Assert.Equal(ee.Id, aa.Id);
+                                AssertAddress(ee.PersonAddress, aa.PersonAddress);
+                                AssertAddress(ee.BranchAddress, aa.BranchAddress);
+                                AssertOrders(ee.Orders, aa.Orders);
                             }
 
                             if (e is LeafA leafA)
@@ -514,11 +974,14 @@ namespace Microsoft.EntityFrameworkCore.Query
                             Assert.Equal(e == null, a == null);
                             if (a != null)
                             {
-                                Assert.Equal(e.Id, a.Id);
-                                AssertAddress(e.PersonAddress, a.PersonAddress);
-                                AssertAddress(e.BranchAddress, a.BranchAddress);
-                                AssertAddress(e.LeafAAddress, a.LeafAAddress);
-                                AssertOrders(e.Orders, a.Orders);
+                                var ee = (LeafA)e;
+                                var aa = (LeafA)a;
+
+                                Assert.Equal(ee.Id, aa.Id);
+                                AssertAddress(ee.PersonAddress, aa.PersonAddress);
+                                AssertAddress(ee.BranchAddress, aa.BranchAddress);
+                                AssertAddress(ee.LeafAAddress, aa.LeafAAddress);
+                                AssertOrders(ee.Orders, aa.Orders);
                             }
                         }
                     },
@@ -528,10 +991,13 @@ namespace Microsoft.EntityFrameworkCore.Query
                             Assert.Equal(e == null, a == null);
                             if (a != null)
                             {
-                                Assert.Equal(e.Id, a.Id);
-                                AssertAddress(e.PersonAddress, a.PersonAddress);
-                                AssertAddress(e.LeafBAddress, a.LeafBAddress);
-                                AssertOrders(e.Orders, a.Orders);
+                                var ee = (LeafB)e;
+                                var aa = (LeafB)a;
+
+                                Assert.Equal(ee.Id, aa.Id);
+                                AssertAddress(ee.PersonAddress, aa.PersonAddress);
+                                AssertAddress(ee.LeafBAddress, aa.LeafBAddress);
+                                AssertOrders(ee.Orders, aa.Orders);
                             }
                         }
                     },
@@ -541,8 +1007,11 @@ namespace Microsoft.EntityFrameworkCore.Query
                             Assert.Equal(e == null, a == null);
                             if (a != null)
                             {
-                                Assert.Equal(e.Id, a.Id);
-                                Assert.Equal(e.StarId, a.StarId);
+                                var ee = (Planet)e;
+                                var aa = (Planet)a;
+
+                                Assert.Equal(ee.Id, aa.Id);
+                                Assert.Equal(ee.StarId, aa.StarId);
                             }
                         }
                     },
@@ -552,14 +1021,17 @@ namespace Microsoft.EntityFrameworkCore.Query
                             Assert.Equal(e == null, a == null);
                             if (a != null)
                             {
-                                Assert.Equal(e.Id, a.Id);
-                                Assert.Equal(e.Name, a.Name);
-                                Assert.Equal(e.Composition.Count, a.Composition.Count);
-                                for (var i = 0; i < e.Composition.Count; i++)
+                                var ee = (Star)e;
+                                var aa = (Star)a;
+
+                                Assert.Equal(ee.Id, aa.Id);
+                                Assert.Equal(ee.Name, aa.Name);
+                                Assert.Equal(ee.Composition.Count, aa.Composition.Count);
+                                for (var i = 0; i < ee.Composition.Count; i++)
                                 {
-                                    Assert.Equal(e.Composition[i].Id, a.Composition[i].Id);
-                                    Assert.Equal(e.Composition[i].Name, a.Composition[i].Name);
-                                    Assert.Equal(e.Composition[i].StarId, a.Composition[i].StarId);
+                                    Assert.Equal(ee.Composition[i].Id, aa.Composition[i].Id);
+                                    Assert.Equal(ee.Composition[i].Name, aa.Composition[i].Name);
+                                    Assert.Equal(ee.Composition[i].StarId, aa.Composition[i].StarId);
                                 }
                             }
                         }
@@ -570,9 +1042,12 @@ namespace Microsoft.EntityFrameworkCore.Query
                             Assert.Equal(e == null, a == null);
                             if (a != null)
                             {
-                                Assert.Equal(e.Id, a.Id);
-                                Assert.Equal(e.PlanetId, a.PlanetId);
-                                Assert.Equal(e.Diameter, a.Diameter);
+                                var ee = (Moon)e;
+                                var aa = (Moon)a;
+
+                                Assert.Equal(ee.Id, aa.Id);
+                                Assert.Equal(ee.PlanetId, aa.PlanetId);
+                                Assert.Equal(ee.Diameter, aa.Diameter);
                             }
                         }
                     },
@@ -582,7 +1057,7 @@ namespace Microsoft.EntityFrameworkCore.Query
                             Assert.Equal(e == null, a == null);
                             if (a != null)
                             {
-                                Assert.Equal(e.Id, a.Id);
+                                Assert.Equal(((Fink)e).Id, ((Fink)a).Id);
                             }
                         }
                     },
@@ -592,9 +1067,12 @@ namespace Microsoft.EntityFrameworkCore.Query
                             Assert.Equal(e == null, a == null);
                             if (a != null)
                             {
-                                Assert.Equal(e.Id, a.Id);
-                                Assert.Equal(e.Simple, a.Simple);
-                                Assert.Equal(e.Throned.Property, a.Throned.Property);
+                                var ee = (Barton)e;
+                                var aa = (Barton)a;
+
+                                Assert.Equal(ee.Id, aa.Id);
+                                Assert.Equal(ee.Simple, aa.Simple);
+                                Assert.Equal(ee.Throned.Property, aa.Throned.Property);
                             }
                         }
                     },
@@ -606,14 +1084,14 @@ namespace Microsoft.EntityFrameworkCore.Query
                             Assert.Equal(e == null, a == null);
                             if (a != null)
                             {
-                                Assert.Equal(e.Id, a.Id);
+                                Assert.Equal(((Order)e).Id, ((Order)a).Id);
                             }
                         }
                     },
                     {
                         typeof(OwnedAddress), (e, a) =>
                         {
-                            AssertAddress(e, a);
+                            AssertAddress(((OwnedAddress)e), ((OwnedAddress)a));
                         }
                     },
                     {
@@ -622,8 +1100,11 @@ namespace Microsoft.EntityFrameworkCore.Query
                             Assert.Equal(e == null, a == null);
                             if (a != null)
                             {
-                                Assert.Equal(e.Name, a.Name);
-                                Assert.Equal(e.PlanetId, a.PlanetId);
+                                var ee = (OwnedCountry)e;
+                                var aa = (OwnedCountry)a;
+
+                                Assert.Equal(ee.Name, aa.Name);
+                                Assert.Equal(ee.PlanetId, aa.PlanetId);
                             }
                         }
                     },
@@ -633,9 +1114,12 @@ namespace Microsoft.EntityFrameworkCore.Query
                             Assert.Equal(e == null, a == null);
                             if (a != null)
                             {
-                                Assert.Equal(e.Id, a.Id);
-                                Assert.Equal(e.Name, a.Name);
-                                Assert.Equal(e.StarId, a.StarId);
+                                var ee = (Element)e;
+                                var aa = (Element)a;
+
+                                Assert.Equal(ee.Id, aa.Id);
+                                Assert.Equal(ee.Name, aa.Name);
+                                Assert.Equal(ee.StarId, aa.StarId);
                             }
                         }
                     },
@@ -645,38 +1129,59 @@ namespace Microsoft.EntityFrameworkCore.Query
                             Assert.Equal(e == null, a == null);
                             if (a != null)
                             {
-                                Assert.Equal(e.Property, a.Property);
+                                Assert.Equal(((Throned)e).Value, ((Throned)a).Value);
+                                Assert.Equal(((Throned)e).Property, ((Throned)a).Property);
                             }
                         }
                     }
                 }.ToDictionary(e => e.Key, e => (object)e.Value);
-                ;
-
-                QueryAsserter = new QueryAsserter<PoolableDbContext>(
-                    CreateContext,
-                    new OwnedQueryData(),
-                    entitySorters,
-                    entityAsserters);
-            }
 
             protected override string StoreName { get; } = "OwnedQueryTest";
-
-            public QueryAsserterBase QueryAsserter { get; set; }
 
             protected override void OnModelCreating(ModelBuilder modelBuilder, DbContext context)
             {
                 modelBuilder.Entity<OwnedPerson>(
                     eb =>
                     {
-                        eb.HasData(
-                            new OwnedPerson { Id = 1 });
+                        eb.IndexerProperty<string>("Name");
+                        var ownedPerson = new OwnedPerson { Id = 1 };
+                        ownedPerson["Name"] = "Mona Cy";
+                        eb.HasData(ownedPerson);
 
                         eb.OwnsOne(
                             p => p.PersonAddress, ab =>
                             {
+                                ab.IndexerProperty<string>("AddressLine");
+                                ab.IndexerProperty(typeof(int), "ZipCode");
                                 ab.HasData(
-                                    new { OwnedPersonId = 1 }, new { OwnedPersonId = 2 }, new { OwnedPersonId = 3 },
-                                    new { OwnedPersonId = 4 });
+                                    new
+                                    {
+                                        OwnedPersonId = 1,
+                                        PlaceType = "Land",
+                                        AddressLine = "804 S. Lakeshore Road",
+                                        ZipCode = 38654
+                                    },
+                                    new
+                                    {
+                                        OwnedPersonId = 2,
+                                        PlaceType = "Land",
+                                        AddressLine = "7 Church Dr.",
+                                        ZipCode = 28655
+                                    },
+                                    new
+                                    {
+                                        OwnedPersonId = 3,
+                                        PlaceType = "Land",
+                                        AddressLine = "72 Hickory Rd.",
+                                        ZipCode = 07728
+                                    },
+                                    new
+                                    {
+                                        OwnedPersonId = 4,
+                                        PlaceType = "Land",
+                                        AddressLine = "28 Strawberry St.",
+                                        ZipCode = 19053
+                                    });
 
                                 ab.OwnsOne(
                                     a => a.Country, cb =>
@@ -715,12 +1220,38 @@ namespace Microsoft.EntityFrameworkCore.Query
                         eb.OwnsMany(
                             p => p.Orders, ob =>
                             {
+                                ob.IndexerProperty<DateTime>("OrderDate");
                                 ob.HasData(
-                                    new { Id = -10, ClientId = 1 },
-                                    new { Id = -11, ClientId = 1 },
-                                    new { Id = -20, ClientId = 2 },
-                                    new { Id = -30, ClientId = 3 },
-                                    new { Id = -40, ClientId = 4 }
+                                    new
+                                    {
+                                        Id = -10,
+                                        ClientId = 1,
+                                        OrderDate = Convert.ToDateTime("2018-07-11 10:01:41")
+                                    },
+                                    new
+                                    {
+                                        Id = -11,
+                                        ClientId = 1,
+                                        OrderDate = Convert.ToDateTime("2015-03-03 04:37:59")
+                                    },
+                                    new
+                                    {
+                                        Id = -20,
+                                        ClientId = 2,
+                                        OrderDate = Convert.ToDateTime("2015-05-25 20:35:48")
+                                    },
+                                    new
+                                    {
+                                        Id = -30,
+                                        ClientId = 3,
+                                        OrderDate = Convert.ToDateTime("2014-11-10 04:32:42")
+                                    },
+                                    new
+                                    {
+                                        Id = -40,
+                                        ClientId = 4,
+                                        OrderDate = Convert.ToDateTime("2016-04-25 19:23:56")
+                                    }
                                 );
                             });
                     });
@@ -728,14 +1259,25 @@ namespace Microsoft.EntityFrameworkCore.Query
                 modelBuilder.Entity<Branch>(
                     eb =>
                     {
-                        eb.HasData(
-                            new Branch { Id = 2 });
+                        eb.HasData(new { Id = 2, Name = "Antigonus Mitul" });
 
                         eb.OwnsOne(
                             p => p.BranchAddress, ab =>
                             {
+                                ab.IndexerProperty<string>("BranchName");
                                 ab.HasData(
-                                    new { BranchId = 2 }, new { BranchId = 3 });
+                                    new
+                                    {
+                                        BranchId = 2,
+                                        PlaceType = "Land",
+                                        BranchName = "BranchA"
+                                    },
+                                    new
+                                    {
+                                        BranchId = 3,
+                                        PlaceType = "Land",
+                                        BranchName = "BranchB"
+                                    });
 
                                 ab.OwnsOne(
                                     a => a.Country, cb =>
@@ -760,14 +1302,22 @@ namespace Microsoft.EntityFrameworkCore.Query
                 modelBuilder.Entity<LeafA>(
                     eb =>
                     {
-                        eb.HasData(
-                            new LeafA { Id = 3 });
+                        var leafA = new LeafA { Id = 3 };
+                        leafA["Name"] = "Madalena Morana";
+                        eb.HasData(leafA);
 
                         eb.OwnsOne(
                             p => p.LeafAAddress, ab =>
                             {
+                                ab.IndexerProperty<int>("LeafType");
+
                                 ab.HasData(
-                                    new { LeafAId = 3 });
+                                    new
+                                    {
+                                        LeafAId = 3,
+                                        PlaceType = "Land",
+                                        LeafType = 1
+                                    });
 
                                 ab.OwnsOne(
                                     a => a.Country, cb =>
@@ -789,14 +1339,21 @@ namespace Microsoft.EntityFrameworkCore.Query
                 modelBuilder.Entity<LeafB>(
                     eb =>
                     {
-                        eb.HasData(
-                            new LeafB { Id = 4 });
+                        var leafB = new LeafB { Id = 4 };
+                        leafB["Name"] = "Vanda Waldemar";
+                        eb.HasData(leafB);
 
                         eb.OwnsOne(
                             p => p.LeafBAddress, ab =>
                             {
+                                ab.IndexerProperty<string>("LeafBType");
                                 ab.HasData(
-                                    new { LeafBId = 4 });
+                                    new
+                                    {
+                                        LeafBId = 4,
+                                        PlaceType = "Land",
+                                        LeafBType = "Green"
+                                    });
 
                                 ab.OwnsOne(
                                     a => a.Country, cb =>
@@ -855,9 +1412,15 @@ namespace Microsoft.EntityFrameworkCore.Query
                     {
                         b.OwnsOne(
                             e => e.Throned, b => b.HasData(
-                                new { BartonId = 1, Property = "Property" }));
+                                new
+                                {
+                                    BartonId = 1,
+                                    Property = "Property",
+                                    Value = 42
+                                }));
                         b.HasData(
-                            new Barton { Id = 1, Simple = "Simple" });
+                            new Barton { Id = 1, Simple = "Simple" },
+                            new Barton { Id = 2, Simple = "Not" });
                     });
 
                 modelBuilder.Entity<Fink>().HasData(
@@ -875,7 +1438,7 @@ namespace Microsoft.EntityFrameworkCore.Query
             }
         }
 
-        public class OwnedQueryData : ISetSource
+        protected class OwnedQueryData : ISetSource
         {
             private readonly IReadOnlyList<OwnedPerson> _ownedPeople;
             private readonly IReadOnlyList<Planet> _planets;
@@ -983,40 +1546,72 @@ namespace Microsoft.EntityFrameworkCore.Query
 
             private static IReadOnlyList<OwnedPerson> CreateOwnedPeople()
             {
-                var ownedPerson1 = new OwnedPerson
-                {
-                    Id = 1, PersonAddress = new OwnedAddress { Country = new OwnedCountry { Name = "USA", PlanetId = 1 } }
-                };
+                var personAddress1 = new OwnedAddress { PlaceType = "Land", Country = new OwnedCountry { Name = "USA", PlanetId = 1 } };
+                personAddress1["AddressLine"] = "804 S. Lakeshore Road";
+                personAddress1["ZipCode"] = 38654;
+                var ownedPerson1 = new OwnedPerson { Id = 1, PersonAddress = personAddress1 };
+                ownedPerson1["Name"] = "Mona Cy";
+
+                var personAddress2 = new OwnedAddress { PlaceType = "Land", Country = new OwnedCountry { Name = "USA", PlanetId = 1 } };
+                personAddress2["AddressLine"] = "7 Church Dr.";
+                personAddress2["ZipCode"] = 28655;
+                var branchAddress2 = new OwnedAddress { PlaceType = "Land", Country = new OwnedCountry { Name = "Canada", PlanetId = 1 } };
+                branchAddress2["BranchName"] = "BranchA";
 
                 var ownedPerson2 = new Branch
                 {
                     Id = 2,
-                    PersonAddress = new OwnedAddress { Country = new OwnedCountry { Name = "USA", PlanetId = 1 } },
-                    BranchAddress = new OwnedAddress { Country = new OwnedCountry { Name = "Canada", PlanetId = 1 } }
+                    PersonAddress = personAddress2,
+                    BranchAddress = branchAddress2
                 };
+                ownedPerson2["Name"] = "Antigonus Mitul";
 
+                var personAddress3 = new OwnedAddress { PlaceType = "Land", Country = new OwnedCountry { Name = "USA", PlanetId = 1 } };
+                personAddress3["AddressLine"] = "72 Hickory Rd.";
+                personAddress3["ZipCode"] = 07728;
+                var branchAddress3 = new OwnedAddress { PlaceType = "Land", Country = new OwnedCountry { Name = "Canada", PlanetId = 1 } };
+                branchAddress3["BranchName"] = "BranchB";
+                var leafAAddress3 = new OwnedAddress { PlaceType = "Land", Country = new OwnedCountry { Name = "Mexico", PlanetId = 1 } };
+                leafAAddress3["LeafType"] = 1;
                 var ownedPerson3 = new LeafA
                 {
                     Id = 3,
-                    PersonAddress = new OwnedAddress { Country = new OwnedCountry { Name = "USA", PlanetId = 1 } },
-                    BranchAddress = new OwnedAddress { Country = new OwnedCountry { Name = "Canada", PlanetId = 1 } },
-                    LeafAAddress = new OwnedAddress { Country = new OwnedCountry { Name = "Mexico", PlanetId = 1 } }
+                    PersonAddress = personAddress3,
+                    BranchAddress = branchAddress3,
+                    LeafAAddress = leafAAddress3
                 };
+                ownedPerson3["Name"] = "Madalena Morana";
 
+                var personAddress4 = new OwnedAddress { PlaceType = "Land", Country = new OwnedCountry { Name = "USA", PlanetId = 1 } };
+                personAddress4["AddressLine"] = "28 Strawberry St.";
+                personAddress4["ZipCode"] = 19053;
+                var leafBAddress4 = new OwnedAddress { PlaceType = "Land", Country = new OwnedCountry { Name = "Panama", PlanetId = 1 } };
+                leafBAddress4["LeafBType"] = "Green";
                 var ownedPerson4 = new LeafB
                 {
                     Id = 4,
-                    PersonAddress = new OwnedAddress { Country = new OwnedCountry { Name = "USA", PlanetId = 1 } },
-                    LeafBAddress = new OwnedAddress { Country = new OwnedCountry { Name = "Panama", PlanetId = 1 } }
+                    PersonAddress = personAddress4,
+                    LeafBAddress = leafBAddress4
                 };
+                ownedPerson4["Name"] = "Vanda Waldemar";
 
-                ownedPerson1.Orders = new List<Order>
-                {
-                    new Order { Id = -11, Client = ownedPerson1 }, new Order { Id = -10, Client = ownedPerson1 }
-                };
-                ownedPerson2.Orders = new List<Order> { new Order { Id = -20, Client = ownedPerson2 } };
-                ownedPerson3.Orders = new List<Order> { new Order { Id = -30, Client = ownedPerson3 } };
-                ownedPerson4.Orders = new List<Order> { new Order { Id = -40, Client = ownedPerson4 } };
+                var order1 = new Order { Id = -10, Client = ownedPerson1 };
+                order1["OrderDate"] = Convert.ToDateTime("2018-07-11 10:01:41");
+                var order2 = new Order { Id = -11, Client = ownedPerson1 };
+                order2["OrderDate"] = Convert.ToDateTime("2015-03-03 04:37:59");
+                ownedPerson1.Orders = new List<Order> { order1, order2 };
+
+                var order3 = new Order { Id = -20, Client = ownedPerson2 };
+                order3["OrderDate"] = Convert.ToDateTime("2015-05-25 20:35:48");
+                ownedPerson2.Orders = new List<Order> { order3 };
+
+                var order4 = new Order { Id = -30, Client = ownedPerson3 };
+                order4["OrderDate"] = Convert.ToDateTime("2014-11-10 04:32:42");
+                ownedPerson3.Orders = new List<Order> { order4 };
+
+                var order5 = new Order { Id = -40, Client = ownedPerson4 };
+                order5["OrderDate"] = Convert.ToDateTime("2016-04-25 19:23:56");
+                ownedPerson4.Orders = new List<Order> { order5 };
 
                 return new List<OwnedPerson>
                 {
@@ -1037,7 +1632,11 @@ namespace Microsoft.EntityFrameworkCore.Query
                     {
                         Id = 1,
                         Simple = "Simple",
-                        Throned = new Throned { Property = "Property" }
+                        Throned = new Throned { Property = "Property", Value = 42 }
+                    },
+                    new Barton
+                    {
+                        Id = 2, Simple = "Not",
                     }
                 };
 
@@ -1074,7 +1673,59 @@ namespace Microsoft.EntityFrameworkCore.Query
 
         protected class OwnedAddress
         {
+            private string _addressLine;
+            private int _zipCode;
+            private string _branchName;
+            private int _leafAType;
+            private string _leafBType;
+
+            public string PlaceType { get; set; }
             public OwnedCountry Country { get; set; }
+
+            public object this[string name]
+            {
+                get
+                    => name switch
+                    {
+                        "AddressLine" => _addressLine,
+                        "ZipCode" => _zipCode,
+                        "BranchName" => _branchName,
+                        "LeafType" => _leafAType,
+                        "LeafBType" => _leafBType,
+                        _ => throw new InvalidOperationException(
+                            $"Indexer property with key {name} is not defined on {nameof(OwnedPerson)}."),
+                    };
+
+                set
+                {
+                    switch (name)
+                    {
+                        case "AddressLine":
+                            _addressLine = (string)value;
+                            break;
+
+                        case "ZipCode":
+                            _zipCode = (int)value;
+                            break;
+
+                        case "BranchName":
+                            _branchName = (string)value;
+                            break;
+
+                        case "LeafType":
+                            _leafAType = (int)value;
+                            break;
+
+                        case "LeafBType":
+                            _leafBType = (string)value;
+                            break;
+
+                        default:
+                            throw new InvalidOperationException(
+                                $"Indexer property with key {name} is not defined on {nameof(OwnedPerson)}.");
+                    }
+                }
+            }
         }
 
         protected class OwnedCountry
@@ -1087,16 +1738,73 @@ namespace Microsoft.EntityFrameworkCore.Query
 
         protected class OwnedPerson
         {
+            private string _name;
+
             public int Id { get; set; }
+
+            public object this[string name]
+            {
+                get
+                {
+                    if (string.Equals(name, "Name", StringComparison.Ordinal))
+                    {
+                        return _name;
+                    }
+
+                    throw new InvalidOperationException($"Indexer property with key {name} is not defined on {nameof(OwnedPerson)}.");
+                }
+
+                set
+                {
+                    if (string.Equals(name, "Name", StringComparison.Ordinal))
+                    {
+                        _name = (string)value;
+                    }
+                    else
+                    {
+                        throw new InvalidOperationException($"Indexer property with key {name} is not defined on {nameof(OwnedPerson)}.");
+                    }
+                }
+            }
+
             public OwnedAddress PersonAddress { get; set; }
-            public int ReadOnlyProperty => 10;
+
+            public int ReadOnlyProperty
+                => 10;
 
             public ICollection<Order> Orders { get; set; }
         }
 
         protected class Order
         {
+            private DateTime _orderDate;
             public int Id { get; set; }
+
+            public object this[string name]
+            {
+                get
+                {
+                    if (string.Equals(name, "OrderDate", StringComparison.Ordinal))
+                    {
+                        return _orderDate;
+                    }
+
+                    throw new InvalidOperationException($"Indexer property with key {name} is not defined on {nameof(OwnedPerson)}.");
+                }
+
+                set
+                {
+                    if (string.Equals(name, "OrderDate", StringComparison.Ordinal))
+                    {
+                        _orderDate = (DateTime)value;
+                    }
+                    else
+                    {
+                        throw new InvalidOperationException($"Indexer property with key {name} is not defined on {nameof(OwnedPerson)}.");
+                    }
+                }
+            }
+
             public OwnedPerson Client { get; set; }
         }
 
@@ -1169,6 +1877,7 @@ namespace Microsoft.EntityFrameworkCore.Query
 
         protected class Throned
         {
+            public int Value { get; set; }
             public string Property { get; set; }
         }
     }

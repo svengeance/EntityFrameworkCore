@@ -12,16 +12,17 @@ namespace Microsoft.Data.Sqlite
     /// <summary>
     ///     Represents a transaction made against a SQLite database.
     /// </summary>
+    /// <seealso href="https://docs.microsoft.com/dotnet/standard/data/sqlite/transactions">Transactions</seealso>
     public class SqliteTransaction : DbTransaction
     {
         private SqliteConnection _connection;
         private readonly IsolationLevel _isolationLevel;
         private bool _completed;
 
-        internal SqliteTransaction(SqliteConnection connection, IsolationLevel isolationLevel)
+        internal SqliteTransaction(SqliteConnection connection, IsolationLevel isolationLevel, bool deferred)
         {
             if ((isolationLevel == IsolationLevel.ReadUncommitted
-                    && connection.ConnectionOptions.Cache != SqliteCacheMode.Shared)
+                    && ((connection.ConnectionOptions.Cache != SqliteCacheMode.Shared) || !deferred))
                 || isolationLevel == IsolationLevel.ReadCommitted
                 || isolationLevel == IsolationLevel.RepeatableRead)
             {
@@ -45,7 +46,7 @@ namespace Microsoft.Data.Sqlite
             }
 
             connection.ExecuteNonQuery(
-                IsolationLevel == IsolationLevel.Serializable
+                IsolationLevel == IsolationLevel.Serializable && !deferred
                     ? "BEGIN IMMEDIATE;"
                     : "BEGIN;");
             sqlite3_rollback_hook(connection.Handle, RollbackExternal, null);
@@ -116,7 +117,8 @@ namespace Microsoft.Data.Sqlite
         ///     Releases any resources used by the transaction and rolls it back.
         /// </summary>
         /// <param name="disposing">
-        ///     true to release managed and unmanaged resources; false to release only unmanaged resources.
+        ///     <see langword="true" /> to release managed and unmanaged resources;
+        ///     <see langword="false" /> to release only unmanaged resources.
         /// </param>
         protected override void Dispose(bool disposing)
         {

@@ -46,7 +46,7 @@ namespace Microsoft.EntityFrameworkCore.Sqlite.Storage.Internal
         private static readonly LongTypeMapping _integer = new LongTypeMapping(IntegerTypeName);
         private static readonly DoubleTypeMapping _real = new DoubleTypeMapping(RealTypeName);
         private static readonly ByteArrayTypeMapping _blob = new ByteArrayTypeMapping(BlobTypeName);
-        private static readonly StringTypeMapping _text = new StringTypeMapping(TextTypeName);
+        private static readonly SqliteStringTypeMapping _text = new SqliteStringTypeMapping(TextTypeName);
 
         private readonly Dictionary<Type, RelationalTypeMapping> _clrTypeMappings
             = new Dictionary<Type, RelationalTypeMapping>
@@ -110,6 +110,16 @@ namespace Microsoft.EntityFrameworkCore.Sqlite.Storage.Internal
         ///     doing so can result in application failures when updating to a new Entity Framework Core release.
         /// </summary>
         protected override RelationalTypeMapping FindMapping(in RelationalTypeMappingInfo mappingInfo)
+        {
+            var mapping = FindRawMapping(mappingInfo);
+
+            return mapping != null
+                && mappingInfo.StoreTypeName != null
+                    ? mapping.Clone(mappingInfo.StoreTypeName, null)
+                    : mapping;
+        }
+
+        private RelationalTypeMapping FindRawMapping(RelationalTypeMappingInfo mappingInfo)
         {
             var clrType = mappingInfo.ClrType;
             if (clrType != null

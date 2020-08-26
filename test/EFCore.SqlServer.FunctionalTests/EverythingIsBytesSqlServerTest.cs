@@ -29,13 +29,11 @@ namespace Microsoft.EntityFrameworkCore
                 nameof(ObjectBackedDataTypes),
                 nameof(NullableBackedDataTypes),
                 nameof(NonNullableBackedDataTypes),
-                nameof(AnimalDetails));
+                nameof(Animal),
+                nameof(AnimalDetails),
+                nameof(AnimalIdentification));
 
-            const string expected = @"Animal.Id ---> [varbinary] [MaxLength = 4]
-AnimalIdentification.AnimalId ---> [varbinary] [MaxLength = 4]
-AnimalIdentification.Id ---> [varbinary] [MaxLength = 4]
-AnimalIdentification.Method ---> [varbinary] [MaxLength = 4]
-BinaryForeignKeyDataType.BinaryKeyDataTypeId ---> [nullable varbinary] [MaxLength = 900]
+            const string expected = @"BinaryForeignKeyDataType.BinaryKeyDataTypeId ---> [nullable varbinary] [MaxLength = 900]
 BinaryForeignKeyDataType.Id ---> [varbinary] [MaxLength = 4]
 BinaryKeyDataType.Ex ---> [nullable varbinary] [MaxLength = -1]
 BinaryKeyDataType.Id ---> [varbinary] [MaxLength = 900]
@@ -147,6 +145,8 @@ BuiltInNullableDataTypesShadow.TestNullableUnsignedInt16 ---> [nullable varbinar
 BuiltInNullableDataTypesShadow.TestNullableUnsignedInt32 ---> [nullable varbinary] [MaxLength = 4]
 BuiltInNullableDataTypesShadow.TestNullableUnsignedInt64 ---> [nullable varbinary] [MaxLength = 8]
 BuiltInNullableDataTypesShadow.TestString ---> [nullable varbinary] [MaxLength = -1]
+DateTimeEnclosure.DateTimeOffset ---> [nullable varbinary] [MaxLength = 12]
+DateTimeEnclosure.Id ---> [varbinary] [MaxLength = 4]
 EmailTemplate.Id ---> [varbinary] [MaxLength = 16]
 EmailTemplate.TemplateType ---> [varbinary] [MaxLength = 4]
 MaxLengthDataTypes.ByteArray5 ---> [nullable varbinary] [MaxLength = 5]
@@ -178,31 +178,63 @@ UnicodeDataTypes.StringUnicode ---> [nullable varbinary] [MaxLength = -1]
             // Column is mapped as int rather than byte[]
         }
 
+        public override void Object_to_string_conversion()
+        {
+            // Return values are string which byte[] cannot read
+        }
+
+        public override void Can_compare_enum_to_constant()
+        {
+            // Column is mapped as int rather than byte[]
+        }
+
+        public override void Can_compare_enum_to_parameter()
+        {
+            // Column is mapped as int rather than byte[]
+        }
+
         public class EverythingIsBytesSqlServerFixture : BuiltInDataTypesFixtureBase
         {
-            public override bool StrictEquality => true;
+            public override bool StrictEquality
+                => true;
 
-            public override bool SupportsAnsi => true;
+            public override bool SupportsAnsi
+                => true;
 
-            public override bool SupportsUnicodeToAnsiConversion => false;
+            public override bool SupportsUnicodeToAnsiConversion
+                => false;
 
-            public override bool SupportsLargeStringComparisons => true;
+            public override bool SupportsLargeStringComparisons
+                => true;
 
             protected override string StoreName { get; } = "EverythingIsBytes";
 
-            protected override ITestStoreFactory TestStoreFactory => SqlServerBytesTestStoreFactory.Instance;
+            protected override ITestStoreFactory TestStoreFactory
+                => SqlServerBytesTestStoreFactory.Instance;
 
-            public override bool SupportsBinaryKeys => true;
+            public override bool SupportsBinaryKeys
+                => true;
 
-            public override bool SupportsDecimalComparisons => true;
+            public override bool SupportsDecimalComparisons
+                => true;
 
-            public override DateTime DefaultDateTime => new DateTime();
+            public override DateTime DefaultDateTime
+                => new DateTime();
 
             public override DbContextOptionsBuilder AddOptions(DbContextOptionsBuilder builder)
                 => base
                     .AddOptions(builder)
                     .ConfigureWarnings(
                         c => c.Log(SqlServerEventId.DecimalTypeDefaultWarning));
+
+            protected override void OnModelCreating(ModelBuilder modelBuilder, DbContext context)
+            {
+                base.OnModelCreating(modelBuilder, context);
+
+                modelBuilder.Ignore<Animal>();
+                modelBuilder.Ignore<AnimalIdentification>();
+                modelBuilder.Ignore<AnimalDetails>();
+            }
         }
 
         public class SqlServerBytesTestStoreFactory : SqlServerTestStoreFactory

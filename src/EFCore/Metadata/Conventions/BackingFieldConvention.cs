@@ -31,7 +31,8 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Conventions
     public class BackingFieldConvention :
         IPropertyAddedConvention,
         INavigationAddedConvention,
-        IModelFinalizedConvention
+        ISkipNavigationAddedConvention,
+        IModelFinalizingConvention
     {
         /// <summary>
         ///     Creates a new instance of <see cref="BackingFieldConvention" />.
@@ -56,43 +57,76 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Conventions
             IConventionPropertyBuilder propertyBuilder,
             IConventionContext<IConventionPropertyBuilder> context)
         {
-            var field = GetFieldToSet(propertyBuilder.Metadata);
-            if (field != null)
+            DiscoverField(propertyBuilder);
+        }
+
+        /// <inheritdoc />
+        public virtual void ProcessNavigationAdded(
+            IConventionNavigationBuilder navigationBuilder,
+            IConventionContext<IConventionNavigationBuilder> context)
+        {
+            DiscoverField(navigationBuilder);
+        }
+
+        /// <inheritdoc />
+        public virtual void ProcessSkipNavigationAdded(
+            IConventionSkipNavigationBuilder skipNavigationBuilder,
+            IConventionContext<IConventionSkipNavigationBuilder> context)
+        {
+            DiscoverField(skipNavigationBuilder);
+        }
+
+        /// <inheritdoc />
+        public virtual void ProcessModelFinalizing(
+            IConventionModelBuilder modelBuilder,
+            IConventionContext<IConventionModelBuilder> context)
+        {
+            foreach (var entityType in modelBuilder.Metadata.GetEntityTypes())
             {
-                propertyBuilder.HasField(field);
+                foreach (var property in entityType.GetDeclaredProperties())
+                {
+                    var ambiguousField = property.FindAnnotation(CoreAnnotationNames.AmbiguousField);
+                    if (ambiguousField != null)
+                    {
+                        if (property.GetFieldName() == null)
+                        {
+                            throw new InvalidOperationException((string)ambiguousField.Value);
+                        }
+
+                        property.RemoveAnnotation(CoreAnnotationNames.AmbiguousField);
+                    }
+                }
             }
         }
 
-        /// <summary>
-        ///     Called after a navigation is added to the entity type.
-        /// </summary>
-        /// <param name="relationshipBuilder"> The builder for the foreign key. </param>
-        /// <param name="navigation"> The navigation. </param>
-        /// <param name="context"> Additional information associated with convention execution. </param>
-        public virtual void ProcessNavigationAdded(
-            IConventionRelationshipBuilder relationshipBuilder,
-            IConventionNavigation navigation,
-            IConventionContext<IConventionNavigation> context)
+        private void DiscoverField(IConventionPropertyBaseBuilder conventionPropertyBaseBuilder)
         {
-            var field = GetFieldToSet(navigation);
-            if (field != null)
+            if (ConfigurationSource.Convention.Overrides(conventionPropertyBaseBuilder.Metadata.GetFieldInfoConfigurationSource()))
             {
-                relationshipBuilder.HasField(field, navigation.IsDependentToPrincipal());
+                var field = GetFieldToSet(conventionPropertyBaseBuilder.Metadata);
+                if (field != null)
+                {
+                    conventionPropertyBaseBuilder.HasField(field);
+                }
             }
         }
 
         private FieldInfo GetFieldToSet(IConventionPropertyBase propertyBase)
         {
             if (propertyBase == null
-                || !ConfigurationSource.Convention.Overrides(propertyBase.GetFieldInfoConfigurationSource()))
+                || !ConfigurationSource.Convention.Overrides(propertyBase.GetFieldInfoConfigurationSource())
+                || propertyBase.IsIndexerProperty()
+                || propertyBase.IsShadowProperty())
             {
                 return null;
             }
 
-            var type = propertyBase.DeclaringType.ClrType;
+            var entityType = (IConventionEntityType)propertyBase.DeclaringType;
+            var type = entityType.ClrType;
+            var baseTypes = entityType.GetAllBaseTypes().ToArray();
             while (type != null)
             {
-                var fieldInfo = TryMatchFieldName(propertyBase, type);
+                var fieldInfo = TryMatchFieldName(propertyBase, entityType, type);
                 if (fieldInfo != null
                     && (propertyBase.PropertyInfo != null || propertyBase.Name == fieldInfo.GetSimpleMemberName()))
                 {
@@ -100,18 +134,20 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Conventions
                 }
 
                 type = type.BaseType;
+                entityType = baseTypes.FirstOrDefault(et => et.ClrType == type);
             }
 
             return null;
         }
 
-        private static FieldInfo TryMatchFieldName(IConventionPropertyBase propertyBase, Type entityClrType)
+        private static FieldInfo TryMatchFieldName(
+            IConventionPropertyBase propertyBase,
+            IConventionEntityType entityType,
+            Type entityClrType)
         {
-            var model = propertyBase.DeclaringType.Model;
             var propertyName = propertyBase.Name;
 
             IReadOnlyDictionary<string, FieldInfo> fields;
-            var entityType = model.FindEntityType(entityClrType);
             if (entityType == null)
             {
                 var newFields = new Dictionary<string, FieldInfo>(StringComparer.Ordinal);
@@ -178,7 +214,7 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Conventions
                 {
                     var newMatch = typeInfo == null
                         ? currentValue.Value
-                        : (IsConvertible(typeInfo, currentValue.Value)
+                        : (typeInfo.IsCompatibleWith(currentValue.Value.FieldType)
                             ? currentValue.Value
                             : null);
 
@@ -237,41 +273,6 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Conventions
                 }
 
                 right = middle - 1;
-            }
-        }
-
-        private static bool IsConvertible(Type typeInfo, FieldInfo fieldInfo)
-        {
-            var fieldTypeInfo = fieldInfo.FieldType;
-
-            return typeInfo.IsAssignableFrom(fieldTypeInfo)
-                || fieldTypeInfo.IsAssignableFrom(typeInfo);
-        }
-
-        /// <summary>
-        ///     Called after a model is finalized.
-        /// </summary>
-        /// <param name="modelBuilder"> The builder for the model. </param>
-        /// <param name="context"> Additional information associated with convention execution. </param>
-        public virtual void ProcessModelFinalized(
-            IConventionModelBuilder modelBuilder,
-            IConventionContext<IConventionModelBuilder> context)
-        {
-            foreach (var entityType in modelBuilder.Metadata.GetEntityTypes())
-            {
-                foreach (var property in entityType.GetDeclaredProperties())
-                {
-                    var ambiguousField = property.FindAnnotation(CoreAnnotationNames.AmbiguousField);
-                    if (ambiguousField != null)
-                    {
-                        if (property.GetFieldName() == null)
-                        {
-                            throw new InvalidOperationException((string)ambiguousField.Value);
-                        }
-
-                        property.RemoveAnnotation(CoreAnnotationNames.AmbiguousField);
-                    }
-                }
             }
         }
     }

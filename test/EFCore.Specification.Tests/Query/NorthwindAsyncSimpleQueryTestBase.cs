@@ -27,13 +27,14 @@ namespace Microsoft.EntityFrameworkCore.Query
         {
         }
 
-        protected NorthwindContext CreateContext() => Fixture.CreateContext();
+        protected NorthwindContext CreateContext()
+            => Fixture.CreateContext();
 
         [ConditionalFact]
         public virtual async Task Query_backed_by_database_view()
         {
             using var context = CreateContext();
-            var results = await context.Set<ProductQuery>().ToArrayAsync();
+            var results = await context.Set<ProductView>().ToArrayAsync();
 
             Assert.Equal(69, results.Length);
         }

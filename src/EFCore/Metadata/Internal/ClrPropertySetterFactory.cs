@@ -33,7 +33,8 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Internal
         ///     doing so can result in application failures when updating to a new Entity Framework Core release.
         /// </summary>
         protected override IClrPropertySetter CreateGeneric<TEntity, TValue, TNonNullableEnumValue>(
-            MemberInfo memberInfo, IPropertyBase propertyBase)
+            MemberInfo memberInfo,
+            IPropertyBase propertyBase)
         {
             var entityParameter = Expression.Parameter(typeof(TEntity), "entity");
             var valueParameter = Expression.Parameter(typeof(TValue), "value");
@@ -45,8 +46,7 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Internal
             Expression writeExpression;
             if (memberInfo.DeclaringType.IsAssignableFrom(typeof(TEntity)))
             {
-                writeExpression = Expression.MakeMemberAccess(entityParameter, memberInfo)
-                    .Assign(convertedParameter);
+                writeExpression = CreateMemberAssignment(entityParameter);
             }
             else
             {
@@ -62,8 +62,7 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Internal
                             Expression.TypeAs(entityParameter, memberInfo.DeclaringType)),
                         Expression.IfThen(
                             Expression.ReferenceNotEqual(converted, Expression.Constant(null)),
-                            Expression.MakeMemberAccess(converted, memberInfo)
-                                .Assign(convertedParameter))
+                            CreateMemberAssignment(converted))
                     });
             }
 
@@ -78,6 +77,16 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Internal
                 && propertyType.UnwrapNullableType().IsEnum
                     ? new NullableEnumClrPropertySetter<TEntity, TValue, TNonNullableEnumValue>(setter)
                     : (IClrPropertySetter)new ClrPropertySetter<TEntity, TValue>(setter);
+
+            Expression CreateMemberAssignment(Expression parameter)
+            {
+                return propertyBase?.IsIndexerProperty() == true
+                    ? Expression.Assign(
+                        Expression.MakeIndex(
+                            entityParameter, (PropertyInfo)memberInfo, new List<Expression> { Expression.Constant(propertyBase.Name) }),
+                        convertedParameter)
+                    : Expression.MakeMemberAccess(parameter, memberInfo).Assign(convertedParameter);
+            }
         }
     }
 }

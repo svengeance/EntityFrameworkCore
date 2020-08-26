@@ -4,8 +4,6 @@
 using System;
 using System.Linq;
 using System.Threading.Tasks;
-using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.EntityFrameworkCore.TestModels.Northwind;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Xunit;
@@ -15,36 +13,29 @@ using Xunit.Abstractions;
 // ReSharper disable InconsistentNaming
 namespace Microsoft.EntityFrameworkCore.Query
 {
-    public class NorthwindAsyncSimpleQuerySqlServerTest : NorthwindAsyncSimpleQueryTestBase<NorthwindQuerySqlServerFixture<NoopModelCustomizer>>
+    public class NorthwindAsyncSimpleQuerySqlServerTest : NorthwindAsyncSimpleQueryRelationalTestBase<
+        NorthwindQuerySqlServerFixture<NoopModelCustomizer>>
     {
         // ReSharper disable once UnusedParameter.Local
         public NorthwindAsyncSimpleQuerySqlServerTest(
-            NorthwindQuerySqlServerFixture<NoopModelCustomizer> fixture, ITestOutputHelper testOutputHelper)
+            NorthwindQuerySqlServerFixture<NoopModelCustomizer> fixture,
+            ITestOutputHelper testOutputHelper)
             : base(fixture)
         {
             Fixture.TestSqlLoggerFactory.Clear();
             //Fixture.TestSqlLoggerFactory.SetTestOutputHelper(testOutputHelper);
         }
 
-        [ConditionalFact(Skip = "Issue#16314")]
+        protected override bool CanExecuteQueryString
+            => true;
+
+        [ConditionalFact]
         public override Task Throws_on_concurrent_query_list()
         {
-            return Task.CompletedTask;
+            return base.Throws_on_concurrent_query_list();
         }
 
-        [ConditionalFact(Skip = "Issue#16314")]
-        public override Task Concat_non_entity()
-        {
-            return Task.CompletedTask;
-        }
-
-        [ConditionalFact(Skip = "Issue#16314")]
-        public override Task Concat_simple()
-        {
-            return Task.CompletedTask;
-        }
-
-        [ConditionalFact(Skip = "Issue#16314")]
+        [ConditionalFact]
         public Task Query_compiler_concurrency()
         {
             const int threadCount = 50;
@@ -67,7 +58,7 @@ namespace Microsoft.EntityFrameworkCore.Query
                                         select (from o2 in context.Orders
                                                 where o1.CustomerID == c.CustomerID
                                                 orderby o2.OrderID
-                                                select o1.OrderID)))
+                                                select o1.OrderID).ToList()).ToList())
                             .GetEnumerator())
                         {
                         }

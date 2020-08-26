@@ -51,7 +51,6 @@ namespace Microsoft.EntityFrameworkCore
             }
         }
 
-        [SqlServerCondition(SqlServerCondition.SupportsSequences)]
         [ConditionalFact]
         public void Insert_with_sequence_HiLo()
         {
@@ -99,7 +98,6 @@ namespace Microsoft.EntityFrameworkCore
         }
 
         [ConditionalFact]
-        [SqlServerCondition(SqlServerCondition.SupportsSequences)]
         public void Insert_with_default_value_from_sequence()
         {
             using var testStore = SqlServerTestStore.CreateInitialized(DatabaseName);
@@ -177,7 +175,6 @@ namespace Microsoft.EntityFrameworkCore
         }
 
         [ConditionalFact]
-        [SqlServerCondition(SqlServerCondition.SupportsSequences)]
         public void Insert_with_default_string_value_from_sequence()
         {
             using var testStore = SqlServerTestStore.CreateInitialized(DatabaseName);
@@ -231,7 +228,6 @@ namespace Microsoft.EntityFrameworkCore
         }
 
         [ConditionalFact]
-        [SqlServerCondition(SqlServerCondition.SupportsSequences)]
         public void Insert_with_key_default_value_from_sequence()
         {
             using var testStore = SqlServerTestStore.CreateInitialized(DatabaseName);
@@ -374,8 +370,6 @@ namespace Microsoft.EntityFrameworkCore
 
                 Assert.NotEqual(new DateTime(), blogs[0].CreatedOn);
                 Assert.NotEqual(new DateTime(), blogs[1].CreatedOn);
-                Assert.Null(blogs[0].OtherId);
-                Assert.Null(blogs[1].OtherId);
             }
 
             using (var context = new BlogContextNonKeyDefaultValue(testStore.Name))
@@ -414,9 +408,6 @@ namespace Microsoft.EntityFrameworkCore
                     {
                         b.Property(e => e.CreatedOn)
                             .HasDefaultValueSql("getdate()");
-
-                        b.Property(e => e.OtherId)
-                            .HasDefaultValue();
                     });
             }
         }
@@ -872,7 +863,6 @@ END");
         }
 
         [ConditionalFact]
-        [SqlServerCondition(SqlServerCondition.SupportsSequences)]
         public void Insert_explicit_value_throws_when_readonly_sequence_before_save()
         {
             using var testStore = SqlServerTestStore.CreateInitialized(DatabaseName);

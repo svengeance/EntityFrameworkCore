@@ -30,13 +30,11 @@ namespace Microsoft.EntityFrameworkCore
                 nameof(ObjectBackedDataTypes),
                 nameof(NullableBackedDataTypes),
                 nameof(NonNullableBackedDataTypes),
-                nameof(AnimalDetails));
+                nameof(Animal),
+                nameof(AnimalDetails),
+                nameof(AnimalIdentification));
 
-            const string expected = @"Animal.Id ---> [nvarchar] [MaxLength = 64]
-AnimalIdentification.AnimalId ---> [nvarchar] [MaxLength = 64]
-AnimalIdentification.Id ---> [nvarchar] [MaxLength = 64]
-AnimalIdentification.Method ---> [nvarchar] [MaxLength = -1]
-BinaryForeignKeyDataType.BinaryKeyDataTypeId ---> [nullable nvarchar] [MaxLength = 450]
+            const string expected = @"BinaryForeignKeyDataType.BinaryKeyDataTypeId ---> [nullable nvarchar] [MaxLength = 450]
 BinaryForeignKeyDataType.Id ---> [nvarchar] [MaxLength = 64]
 BinaryKeyDataType.Ex ---> [nullable nvarchar] [MaxLength = -1]
 BinaryKeyDataType.Id ---> [nvarchar] [MaxLength = 450]
@@ -148,6 +146,8 @@ BuiltInNullableDataTypesShadow.TestNullableUnsignedInt16 ---> [nullable nvarchar
 BuiltInNullableDataTypesShadow.TestNullableUnsignedInt32 ---> [nullable nvarchar] [MaxLength = 64]
 BuiltInNullableDataTypesShadow.TestNullableUnsignedInt64 ---> [nullable nvarchar] [MaxLength = 64]
 BuiltInNullableDataTypesShadow.TestString ---> [nullable nvarchar] [MaxLength = -1]
+DateTimeEnclosure.DateTimeOffset ---> [nullable nvarchar] [MaxLength = 48]
+DateTimeEnclosure.Id ---> [nvarchar] [MaxLength = 64]
 EmailTemplate.Id ---> [nvarchar] [MaxLength = 36]
 EmailTemplate.TemplateType ---> [nvarchar] [MaxLength = -1]
 MaxLengthDataTypes.ByteArray5 ---> [nullable nvarchar] [MaxLength = 8]
@@ -179,25 +179,43 @@ UnicodeDataTypes.StringUnicode ---> [nullable nvarchar] [MaxLength = -1]
             // Column is mapped as int rather than string
         }
 
+        public override void Can_compare_enum_to_constant()
+        {
+            // Column is mapped as int rather than string
+        }
+
+        public override void Can_compare_enum_to_parameter()
+        {
+            // Column is mapped as int rather than string
+        }
+
         public class EverythingIsStringsSqlServerFixture : BuiltInDataTypesFixtureBase
         {
-            public override bool StrictEquality => true;
+            public override bool StrictEquality
+                => true;
 
-            public override bool SupportsAnsi => true;
+            public override bool SupportsAnsi
+                => true;
 
-            public override bool SupportsUnicodeToAnsiConversion => true;
+            public override bool SupportsUnicodeToAnsiConversion
+                => true;
 
-            public override bool SupportsLargeStringComparisons => true;
+            public override bool SupportsLargeStringComparisons
+                => true;
 
             protected override string StoreName { get; } = "EverythingIsStrings";
 
-            protected override ITestStoreFactory TestStoreFactory => SqlServerStringsTestStoreFactory.Instance;
+            protected override ITestStoreFactory TestStoreFactory
+                => SqlServerStringsTestStoreFactory.Instance;
 
-            public override bool SupportsBinaryKeys => true;
+            public override bool SupportsBinaryKeys
+                => true;
 
-            public override bool SupportsDecimalComparisons => true;
+            public override bool SupportsDecimalComparisons
+                => true;
 
-            public override DateTime DefaultDateTime => new DateTime();
+            public override DateTime DefaultDateTime
+                => new DateTime();
 
             public override DbContextOptionsBuilder AddOptions(DbContextOptionsBuilder builder)
                 => base
@@ -210,6 +228,10 @@ UnicodeDataTypes.StringUnicode ---> [nullable nvarchar] [MaxLength = -1]
                 base.OnModelCreating(modelBuilder, context);
 
                 modelBuilder.Entity<MaxLengthDataTypes>().Property(e => e.ByteArray5).HasMaxLength(8);
+
+                modelBuilder.Ignore<Animal>();
+                modelBuilder.Ignore<AnimalIdentification>();
+                modelBuilder.Ignore<AnimalDetails>();
             }
         }
 

@@ -5,7 +5,6 @@ using System;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore.InMemory.Storage.Internal;
 using Microsoft.EntityFrameworkCore.Metadata;
-using Microsoft.EntityFrameworkCore.Metadata.Conventions;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Microsoft.Extensions.DependencyInjection;
@@ -130,7 +129,7 @@ namespace Microsoft.EntityFrameworkCore
 
         private static IModel CreateModel()
         {
-            var modelBuilder = new ModelBuilder(new ConventionSet());
+            var modelBuilder = new ModelBuilder();
 
             modelBuilder.Entity<Test>(
                 b =>

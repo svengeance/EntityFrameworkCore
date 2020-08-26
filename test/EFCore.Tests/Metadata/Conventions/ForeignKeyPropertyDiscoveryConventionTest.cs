@@ -506,8 +506,13 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Conventions
             var logEntry = ListLoggerFactory.Log.Single();
             Assert.Equal(LogLevel.Debug, logEntry.Level);
             Assert.Equal(
-                CoreResources.LogIncompatibleMatchingForeignKeyProperties(new TestLogger<TestLoggingDefinitions>()).GenerateMessage(
-                    "{'PrincipalEntityPeeKay' : string}", "{'PeeKay' : int}"), logEntry.Message);
+                CoreResources.LogIncompatibleMatchingForeignKeyProperties(
+                    new TestLogger<TestLoggingDefinitions>()).GenerateMessage(
+                    nameof(DependentEntity) + "." + nameof(DependentEntity.SomeNav),
+                    nameof(PrincipalEntity),
+                    "{'PrincipalEntityPeeKay' : string}",
+                    "{'PeeKay' : int}"),
+                logEntry.Message);
 
             ValidateModel();
         }
@@ -1099,15 +1104,15 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Conventions
             return modelBuilder;
         }
 
-        private InternalRelationshipBuilder RunConvention(InternalRelationshipBuilder relationshipBuilder)
+        private InternalForeignKeyBuilder RunConvention(InternalForeignKeyBuilder relationshipBuilder)
         {
             var convention = CreateForeignKeyPropertyDiscoveryConvention();
-            var context = new ConventionContext<IConventionRelationshipBuilder>(
+            var context = new ConventionContext<IConventionForeignKeyBuilder>(
                 relationshipBuilder.Metadata.DeclaringEntityType.Model.ConventionDispatcher);
             convention.ProcessForeignKeyAdded(relationshipBuilder, context);
             if (context.ShouldStopProcessing())
             {
-                return (InternalRelationshipBuilder)context.Result;
+                return (InternalForeignKeyBuilder)context.Result;
             }
 
             return relationshipBuilder;
@@ -1130,7 +1135,7 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Conventions
         private void ValidateModel()
         {
             var convention = CreateForeignKeyPropertyDiscoveryConvention();
-            convention.ProcessModelFinalized(_model, new ConventionContext<IConventionModelBuilder>(_model.Metadata.ConventionDispatcher));
+            convention.ProcessModelFinalizing(_model, new ConventionContext<IConventionModelBuilder>(_model.Metadata.ConventionDispatcher));
         }
 
         private ForeignKeyPropertyDiscoveryConvention CreateForeignKeyPropertyDiscoveryConvention()
@@ -1162,19 +1167,25 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Conventions
         public ListLoggerFactory ListLoggerFactory { get; }
             = new ListLoggerFactory(l => l == DbLoggerCategory.Model.Name);
 
-        private Property PrimaryKey => PrincipalType.FindPrimaryKey().Properties.Single();
+        private Property PrimaryKey
+            => PrincipalType.FindPrimaryKey().Properties.Single();
 
-        private EntityType PrincipalType => _model.Entity(typeof(PrincipalEntity), ConfigurationSource.Convention).Metadata;
+        private EntityType PrincipalType
+            => _model.Entity(typeof(PrincipalEntity), ConfigurationSource.Convention).Metadata;
 
-        private EntityType DependentType => _model.Entity(typeof(DependentEntity), ConfigurationSource.Convention).Metadata;
+        private EntityType DependentType
+            => _model.Entity(typeof(DependentEntity), ConfigurationSource.Convention).Metadata;
 
-        private IReadOnlyList<Property> CompositePrimaryKey => PrincipalTypeWithCompositeKey.FindPrimaryKey().Properties;
+        private IReadOnlyList<Property> CompositePrimaryKey
+            => PrincipalTypeWithCompositeKey.FindPrimaryKey().Properties;
 
-        private EntityType PrincipalTypeWithCompositeKey => _model.Entity(
-            typeof(PrincipalEntityWithCompositeKey), ConfigurationSource.Convention).Metadata;
+        private EntityType PrincipalTypeWithCompositeKey
+            => _model.Entity(
+                typeof(PrincipalEntityWithCompositeKey), ConfigurationSource.Convention).Metadata;
 
-        private EntityType DependentTypeWithCompositeKey => _model.Entity(
-            typeof(DependentEntityWithCompositeKey), ConfigurationSource.Convention).Metadata;
+        private EntityType DependentTypeWithCompositeKey
+            => _model.Entity(
+                typeof(DependentEntityWithCompositeKey), ConfigurationSource.Convention).Metadata;
 
         private class PrincipalEntity
         {

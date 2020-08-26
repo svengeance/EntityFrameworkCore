@@ -7,6 +7,10 @@ using System.Reflection;
 using Microsoft.DotNet.Cli.CommandLine;
 using Microsoft.EntityFrameworkCore.Tools.Properties;
 
+#if NET461
+using System.Configuration;
+#endif
+
 namespace Microsoft.EntityFrameworkCore.Tools.Commands
 {
     internal abstract class ProjectCommandBase : EFCommandBase
@@ -22,6 +26,8 @@ namespace Microsoft.EntityFrameworkCore.Tools.Commands
 
         public override void Configure(CommandLineApplication command)
         {
+            command.AllowArgumentSeparator = true;
+
             _assembly = command.Option("-a|--assembly <PATH>", Resources.AssemblyDescription);
             _startupAssembly = command.Option("-s|--startup-assembly <PATH>", Resources.StartupAssemblyDescription);
             _dataDir = command.Option("--data-dir <PATH>", Resources.DataDirDescription);
@@ -43,7 +49,7 @@ namespace Microsoft.EntityFrameworkCore.Tools.Commands
             }
         }
 
-        protected IOperationExecutor CreateExecutor()
+        protected IOperationExecutor CreateExecutor(string[] remainingArguments)
         {
             try
             {
@@ -56,10 +62,32 @@ namespace Microsoft.EntityFrameworkCore.Tools.Commands
                         _projectDir.Value(),
                         _dataDir.Value(),
                         _rootNamespace.Value(),
-                        _language.Value());
+                        _language.Value(),
+                        remainingArguments);
                 }
                 catch (MissingMethodException) // NB: Thrown with EF Core 3.1
                 {
+                    var configurationFile = (_startupAssembly.Value() ?? _assembly.Value()) + ".config";
+                    if (File.Exists(configurationFile))
+                    {
+                        AppDomain.CurrentDomain.SetData("APP_CONFIG_FILE", configurationFile);
+                        try
+                        {
+                            typeof(ConfigurationManager)
+                                .GetField("s_initState", BindingFlags.Static | BindingFlags.NonPublic)
+                                .SetValue(null, 0);
+                            typeof(ConfigurationManager)
+                                .GetField("s_configSystem", BindingFlags.Static | BindingFlags.NonPublic)
+                                .SetValue(null, null);
+                            typeof(ConfigurationManager).Assembly
+                                .GetType("System.Configuration.ClientConfigPaths")
+                                .GetField("s_current", BindingFlags.Static | BindingFlags.NonPublic)
+                                .SetValue(null, null);
+                        }
+                        catch
+                        {
+                        }
+                    }
                 }
 #elif !NETCOREAPP2_0
 #error target frameworks need to be updated.
@@ -70,7 +98,8 @@ namespace Microsoft.EntityFrameworkCore.Tools.Commands
                     _projectDir.Value(),
                     _dataDir.Value(),
                     _rootNamespace.Value(),
-                    _language.Value());
+                    _language.Value(),
+                    remainingArguments);
             }
             catch (FileNotFoundException ex)
                 when (new AssemblyName(ex.FileName).Name == OperationExecutorBase.DesignAssemblyName)

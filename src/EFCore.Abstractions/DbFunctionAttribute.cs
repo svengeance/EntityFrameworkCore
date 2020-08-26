@@ -19,6 +19,8 @@ namespace Microsoft.EntityFrameworkCore
     {
         private string _name;
         private string _schema;
+        private bool _builtIn;
+        private bool? _nullable;
 
         /// <summary>
         ///     Initializes a new instance of the <see cref="DbFunctionAttribute" /> class.
@@ -63,5 +65,29 @@ namespace Microsoft.EntityFrameworkCore
             get => _schema;
             [param: CanBeNull] set => _schema = value;
         }
+
+        /// <summary>
+        ///     The value indicating whether the database function is built-in or not.
+        /// </summary>
+        public virtual bool IsBuiltIn
+        {
+            get => _builtIn;
+            set => _builtIn = value;
+        }
+
+        /// <summary>
+        ///     The value indicating whether the database function can return null result or not.
+        /// </summary>
+        public virtual bool IsNullable
+        {
+            get => _nullable ?? true;
+            set => _nullable = value;
+        }
+
+        /// <summary>
+        ///     Checks whether <see cref="IsNullable" /> has been explicitly set to a value.
+        /// </summary>
+        public bool IsNullableHasValue
+            => _nullable.HasValue;
     }
 }

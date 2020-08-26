@@ -21,7 +21,7 @@ namespace Microsoft.EntityFrameworkCore
         }
 
         [ConditionalFact]
-        public async Task Browse_ReturnsViewWithGenre()
+        public virtual async Task Browse_ReturnsViewWithGenre()
         {
             using var context = CreateContext();
             await context.Database.CreateExecutionStrategy().ExecuteAsync(
@@ -44,7 +44,7 @@ namespace Microsoft.EntityFrameworkCore
         }
 
         [ConditionalFact]
-        public async Task Index_CreatesViewWithGenres()
+        public virtual async Task Index_CreatesViewWithGenres()
         {
             using var context = CreateContext();
             await context.Database.CreateExecutionStrategy().ExecuteAsync(
@@ -64,7 +64,7 @@ namespace Microsoft.EntityFrameworkCore
         }
 
         [ConditionalFact]
-        public async Task Details_ReturnsAlbumDetail()
+        public virtual async Task Details_ReturnsAlbumDetail()
         {
             using var context = CreateContext();
             await context.Database.CreateExecutionStrategy().ExecuteAsync(
@@ -110,7 +110,7 @@ namespace Microsoft.EntityFrameworkCore
         }
 
         [ConditionalFact]
-        public async Task Index_GetsSixTopAlbums()
+        public virtual async Task Index_GetsSixTopAlbums()
         {
             using var context = CreateContext();
             await context.Database.CreateExecutionStrategy().ExecuteAsync(
@@ -162,7 +162,7 @@ namespace Microsoft.EntityFrameworkCore
         }
 
         [ConditionalFact]
-        public async Task GenreMenuComponent_Returns_NineGenres()
+        public virtual async Task GenreMenuComponent_Returns_NineGenres()
         {
             using var context = CreateContext();
             await context.Database.CreateExecutionStrategy().ExecuteAsync(
@@ -186,7 +186,7 @@ namespace Microsoft.EntityFrameworkCore
         }
 
         [ConditionalFact]
-        public async Task AddressAndPayment_RedirectToCompleteWhenSuccessful()
+        public virtual async Task AddressAndPayment_RedirectToCompleteWhenSuccessful()
         {
             const string cartId = "CartId_A";
 
@@ -215,7 +215,7 @@ namespace Microsoft.EntityFrameworkCore
         }
 
         [ConditionalFact]
-        public async Task AddressAndPayment_ReturnsOrderIfInvalidPromoCode()
+        public virtual async Task AddressAndPayment_ReturnsOrderIfInvalidPromoCode()
         {
             const string cartId = "CartId_A";
 
@@ -251,7 +251,7 @@ namespace Microsoft.EntityFrameworkCore
             };
 
         [ConditionalFact]
-        public async Task Complete_ReturnsOrderIdIfValid()
+        public virtual async Task Complete_ReturnsOrderIdIfValid()
         {
             using var context = CreateContext();
             await context.Database.CreateExecutionStrategy().ExecuteAsync(
@@ -272,7 +272,7 @@ namespace Microsoft.EntityFrameworkCore
         }
 
         [ConditionalFact]
-        public async Task Complete_ReturnsErrorIfInvalidOrder()
+        public virtual async Task Complete_ReturnsErrorIfInvalidOrder()
         {
             using var context = CreateContext();
             await context.Database.CreateExecutionStrategy().ExecuteAsync(
@@ -290,7 +290,7 @@ namespace Microsoft.EntityFrameworkCore
         }
 
         [ConditionalFact]
-        public async Task CartSummaryComponent_returns_items()
+        public virtual async Task CartSummaryComponent_returns_items()
         {
             const string cartId = "CartId_A";
             const string albumTitle = "Good goat, M.A.A.D Village";
@@ -330,7 +330,7 @@ namespace Microsoft.EntityFrameworkCore
         }
 
         [ConditionalFact]
-        public async void Music_store_project_to_mapped_entity()
+        public virtual async void Music_store_project_to_mapped_entity()
         {
             using var context = CreateContext();
             await context.Database.CreateExecutionStrategy().ExecuteAsync(
@@ -368,7 +368,7 @@ namespace Microsoft.EntityFrameworkCore
         }
 
         [ConditionalFact]
-        public async Task RemoveFromCart_removes_items_from_cart()
+        public virtual async Task RemoveFromCart_removes_items_from_cart()
         {
             const string cartId = "CartId_A";
             const int numberOfItems = 5;
@@ -403,7 +403,7 @@ namespace Microsoft.EntityFrameworkCore
         [ConditionalTheory]
         [InlineData(null)]
         [InlineData("CartId_A")]
-        public async Task Cart_is_empty_when_no_items_have_been_added(string cartId)
+        public virtual async Task Cart_is_empty_when_no_items_have_been_added(string cartId)
         {
             using var context = CreateContext();
             await context.Database.CreateExecutionStrategy().ExecuteAsync(
@@ -421,7 +421,7 @@ namespace Microsoft.EntityFrameworkCore
         }
 
         [ConditionalFact]
-        public async Task Cart_has_items_once_they_have_been_added()
+        public virtual async Task Cart_has_items_once_they_have_been_added()
         {
             const string cartId = "CartId_A";
 
@@ -450,7 +450,7 @@ namespace Microsoft.EntityFrameworkCore
         }
 
         [ConditionalFact]
-        public async Task Can_add_items_to_cart()
+        public virtual async Task Can_add_items_to_cart()
         {
             const string cartId = "CartId_A";
 
@@ -487,13 +487,14 @@ namespace Microsoft.EntityFrameworkCore
             var shoppingCartId = "CartId_A";
             var id = 1;
             var query = context.CartItems
-                .Select(ci => new CartItem
-                {
-                    CartId = ci.CartId,
-                    CartItemId = ci.CartItemId,
-                    Count = ci.Count,
-                    Album = new Album { Title = ci.Album.Title }
-                });
+                .Select(
+                    ci => new CartItem
+                    {
+                        CartId = ci.CartId,
+                        CartItemId = ci.CartItemId,
+                        Count = ci.Count,
+                        Album = new Album { Title = ci.Album.Title }
+                    });
 
             var cartItem = async
                 ? await query.FirstOrDefaultAsync(ci => ci.CartId == shoppingCartId && ci.CartItemId == id)
@@ -698,7 +699,7 @@ namespace Microsoft.EntityFrameworkCore
 
             public async Task<List<string>> InvokeAsync()
             {
-                var genres = await _context.Genres.Select(g => g.Name).Take(9).ToListAsync();
+                var genres = await _context.Genres.OrderBy(e => e.GenreId).Select(g => g.Name).Take(9).ToListAsync();
 
                 return genres;
             }
@@ -762,15 +763,18 @@ namespace Microsoft.EntityFrameworkCore
 
         protected TFixture Fixture { get; }
 
-        protected MusicStoreContext CreateContext() => Fixture.CreateContext();
+        protected MusicStoreContext CreateContext()
+            => Fixture.CreateContext();
 
         public abstract class MusicStoreFixtureBase : SharedStoreFixtureBase<MusicStoreContext>
         {
-            public virtual IDisposable BeginTransaction(DbContext context) => context.Database.BeginTransaction();
+            public virtual IDisposable BeginTransaction(DbContext context)
+                => context.Database.BeginTransaction();
 
             protected override string StoreName { get; } = "MusicStore";
 
-            protected override bool UsePooling => false;
+            protected override bool UsePooling
+                => false;
         }
     }
 }

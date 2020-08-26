@@ -25,22 +25,6 @@ namespace Microsoft.EntityFrameworkCore
             //fixture.TestSqlLoggerFactory.SetTestOutputHelper(testOutputHelper);
         }
 
-        [ConditionalFact(Skip = "Issue#13487")]
-        public void Translate_array_length()
-        {
-            using var db = CreateContext();
-            db.Set<MappedDataTypesWithIdentity>()
-                .Where(p => p.Blob.Length == 0)
-                .Select(p => p.Blob.Length)
-                .FirstOrDefault();
-
-            AssertSql(
-                @"SELECT length(""p"".""Blob"")
-FROM ""MappedDataTypesWithIdentity"" AS ""p""
-WHERE length(""p"".""Blob"") = 0
-LIMIT 1");
-        }
-
         [ConditionalFact]
         public virtual void Can_insert_and_query_decimal()
         {
@@ -884,30 +868,25 @@ LIMIT 1");
                 .Where(e => e.PartitionId == 200)
                 .GroupBy(_ => true);
 
-            var ex = Assert.Throws<InvalidOperationException>(
-                () => query
-                    .Select(g => g.Min(e => e.TestNullableDecimal))
-                    .ToList());
+            Assert.Equal(
+                SqliteStrings.AggregateOperationNotSupported(nameof(Queryable.Min), typeof(decimal).ShortDisplayName()),
+                Assert.Throws<NotSupportedException>(
+                    () => query.Select(g => g.Min(e => e.TestNullableDecimal)).ToList()).Message);
 
-            AssertTranslationFailed(
-                () => query
-                    .Select(g => g.Min(e => e.TestNullableDecimal))
-                    .ToList());
+            Assert.Equal(
+                SqliteStrings.AggregateOperationNotSupported(nameof(Queryable.Min), typeof(DateTimeOffset).ShortDisplayName()),
+                Assert.Throws<NotSupportedException>(
+                    () => query.Select(g => g.Min(e => e.TestNullableDateTimeOffset)).ToList()).Message);
 
-            AssertTranslationFailed(
-                () => query
-                    .Select(g => g.Min(e => e.TestNullableDateTimeOffset))
-                    .ToList());
+            Assert.Equal(
+                SqliteStrings.AggregateOperationNotSupported(nameof(Queryable.Min), typeof(TimeSpan).ShortDisplayName()),
+                Assert.Throws<NotSupportedException>(
+                    () => query.Select(g => g.Min(e => e.TestNullableTimeSpan)).ToList()).Message);
 
-            AssertTranslationFailed(
-                () => query
-                    .Select(g => g.Min(e => e.TestNullableTimeSpan))
-                    .ToList());
-
-            AssertTranslationFailed(
-                () => query
-                    .Select(g => g.Min(e => e.TestNullableUnsignedInt64))
-                    .ToList());
+            Assert.Equal(
+                SqliteStrings.AggregateOperationNotSupported(nameof(Queryable.Min), typeof(ulong).ShortDisplayName()),
+                Assert.Throws<NotSupportedException>(
+                    () => query.Select(g => g.Min(e => e.TestNullableUnsignedInt64)).ToList()).Message);
         }
 
         [ConditionalFact]
@@ -942,25 +921,25 @@ LIMIT 1");
                 .Where(e => e.PartitionId == 201)
                 .GroupBy(_ => true);
 
-            AssertTranslationFailed(
-                () => query
-                    .Select(g => g.Max(e => e.TestNullableDecimal))
-                    .ToList());
+            Assert.Equal(
+                SqliteStrings.AggregateOperationNotSupported(nameof(Queryable.Max), typeof(decimal).ShortDisplayName()),
+                Assert.Throws<NotSupportedException>(
+                    () => query.Select(g => g.Max(e => e.TestNullableDecimal)).ToList()).Message);
 
-            AssertTranslationFailed(
-                () => query
-                    .Select(g => g.Max(e => e.TestNullableDateTimeOffset))
-                    .ToList());
+            Assert.Equal(
+                SqliteStrings.AggregateOperationNotSupported(nameof(Queryable.Max), typeof(DateTimeOffset).ShortDisplayName()),
+                Assert.Throws<NotSupportedException>(
+                    () => query.Select(g => g.Max(e => e.TestNullableDateTimeOffset)).ToList()).Message);
 
-            AssertTranslationFailed(
-                () => query
-                    .Select(g => g.Max(e => e.TestNullableTimeSpan))
-                    .ToList());
+            Assert.Equal(
+                SqliteStrings.AggregateOperationNotSupported(nameof(Queryable.Max), typeof(TimeSpan).ShortDisplayName()),
+                Assert.Throws<NotSupportedException>(
+                    () => query.Select(g => g.Max(e => e.TestNullableTimeSpan)).ToList()).Message);
 
-            AssertTranslationFailed(
-                () => query
-                    .Select(g => g.Max(e => e.TestNullableUnsignedInt64))
-                    .ToList());
+            Assert.Equal(
+                SqliteStrings.AggregateOperationNotSupported(nameof(Queryable.Max), typeof(ulong).ShortDisplayName()),
+                Assert.Throws<NotSupportedException>(
+                    () => query.Select(g => g.Max(e => e.TestNullableUnsignedInt64)).ToList()).Message);
         }
 
         [ConditionalFact]
@@ -985,10 +964,12 @@ LIMIT 1");
 
             context.SaveChanges();
 
-            AssertTranslationFailed(
-                () => context.Set<BuiltInNullableDataTypes>()
-                    .Where(e => e.PartitionId == 202)
-                    .Average(e => e.TestNullableDecimal));
+            Assert.Equal(
+                SqliteStrings.AggregateOperationNotSupported(nameof(Queryable.Average), typeof(decimal).ShortDisplayName()),
+                Assert.Throws<NotSupportedException>(
+                    () => context.Set<BuiltInNullableDataTypes>()
+                        .Where(e => e.PartitionId == 202)
+                        .Average(e => e.TestNullableDecimal)).Message);
         }
 
         [ConditionalFact]
@@ -1013,10 +994,12 @@ LIMIT 1");
 
             context.SaveChanges();
 
-            AssertTranslationFailed(
-                () => context.Set<BuiltInDataTypes>()
-                    .Where(e => e.PartitionId == 203)
-                    .Sum(e => e.TestDecimal));
+            Assert.Equal(
+                SqliteStrings.AggregateOperationNotSupported(nameof(Queryable.Sum), typeof(decimal).ShortDisplayName()),
+                Assert.Throws<NotSupportedException>(
+                    () => context.Set<BuiltInDataTypes>()
+                        .Where(e => e.PartitionId == 203)
+                        .Sum(e => e.TestDecimal)).Message);
         }
 
         [ConditionalFact]
@@ -1374,6 +1357,8 @@ LIMIT 1");
                     Id = 216,
                     PartitionId = 204,
                     TestDecimal = 3.000000000000003m,
+                    TestDouble = 1.5,
+                    TestSingle = 1.5f,
                     TestUnsignedInt64 = 10000000000000000001
                 });
 
@@ -1385,11 +1370,15 @@ LIMIT 1");
                     {
                         Id = e.Id,
                         TestDecimal = e.TestDecimal % 2.000000000000002m,
+                        TestDouble = e.TestDouble % 1.0,
+                        TestSingle = e.TestSingle % 1.0f,
                         TestUnsignedInt64 = e.TestUnsignedInt64 % 10000000000000000000
                     })
                 .First(e => e.Id == 216);
 
             Assert.Equal(1.000000000000001m, result.TestDecimal);
+            Assert.Equal(0.5, result.TestDouble);
+            Assert.Equal(0.5f, result.TestSingle);
             Assert.Equal(1ul, result.TestUnsignedInt64);
         }
 
@@ -1506,6 +1495,63 @@ LIMIT 1");
             Assert.Equal(SqliteStrings.OrderByNotSupported("ulong"), ex.Message);
         }
 
+        public override void Object_to_string_conversion()
+        {
+            base.Object_to_string_conversion();
+
+            AssertSql(
+                @"SELECT ""b"".""TestSignedByte"", ""b"".""TestByte"", ""b"".""TestInt16"", ""b"".""TestUnsignedInt16"", ""b"".""TestInt32"", ""b"".""TestUnsignedInt32"", ""b"".""TestInt64"", ""b"".""TestUnsignedInt64"", ""b"".""TestSingle"", ""b"".""TestDouble"", ""b"".""TestDecimal"", ""b"".""TestCharacter"", ""b"".""TestDateTime"", ""b"".""TestDateTimeOffset"", ""b"".""TestTimeSpan""
+FROM ""BuiltInDataTypes"" AS ""b""
+WHERE ""b"".""Id"" = 13");
+        }
+
+        [ConditionalFact]
+        public virtual void Projecting_aritmetic_operations_on_decimals()
+        {
+            using var context = CreateContext();
+            var expected = (from dt1 in context.Set<BuiltInDataTypes>().ToList()
+                            from dt2 in context.Set<BuiltInDataTypes>().ToList()
+                            orderby dt1.Id, dt2.Id
+                            select new
+                            {
+                                add = dt1.TestDecimal + dt2.TestDecimal,
+                                subtract = dt1.TestDecimal - dt2.TestDecimal,
+                                multiply = dt1.TestDecimal * dt2.TestDecimal,
+                                divide = dt1.TestDecimal / dt2.TestDecimal,
+                                negate = -dt1.TestDecimal
+                            }).ToList();
+
+            Fixture.TestSqlLoggerFactory.Clear();
+
+            var actual = (from dt1 in context.Set<BuiltInDataTypes>()
+                          from dt2 in context.Set<BuiltInDataTypes>()
+                          orderby dt1.Id, dt2.Id
+                          select new
+                          {
+                              add = dt1.TestDecimal + dt2.TestDecimal,
+                              subtract = dt1.TestDecimal - dt2.TestDecimal,
+                              multiply = dt1.TestDecimal * dt2.TestDecimal,
+                              divide = dt1.TestDecimal / dt2.TestDecimal,
+                              negate = -dt1.TestDecimal
+                          }).ToList();
+
+            Assert.Equal(expected.Count, actual.Count);
+            for (var i = 0; i < expected.Count; i++)
+            {
+                Assert.Equal(expected[i].add, actual[i].add);
+                Assert.Equal(expected[i].subtract, actual[i].subtract);
+                Assert.Equal(expected[i].multiply, actual[i].multiply);
+                Assert.Equal(expected[i].divide, actual[i].divide);
+                Assert.Equal(expected[i].negate, actual[i].negate);
+            }
+
+            AssertSql(
+                @"SELECT ef_add(""b"".""TestDecimal"", ""b0"".""TestDecimal"") AS ""add"", ef_add(""b"".""TestDecimal"", ef_negate(""b0"".""TestDecimal"")) AS ""subtract"", ef_multiply(""b"".""TestDecimal"", ""b0"".""TestDecimal"") AS ""multiply"", ef_divide(""b"".""TestDecimal"", ""b0"".""TestDecimal"") AS ""divide"", ef_negate(""b"".""TestDecimal"") AS ""negate""
+FROM ""BuiltInDataTypes"" AS ""b""
+CROSS JOIN ""BuiltInDataTypes"" AS ""b0""
+ORDER BY ""b"".""Id"", ""b0"".""Id""");
+        }
+
         private void AssertTranslationFailed(Action testCode)
             => Assert.Contains(
                 CoreStrings.TranslationFailed("").Substring(21),
@@ -1516,18 +1562,26 @@ LIMIT 1");
 
         public class BuiltInDataTypesSqliteFixture : BuiltInDataTypesFixtureBase
         {
-            public override bool StrictEquality => false;
+            public override bool StrictEquality
+                => false;
 
-            public override bool SupportsAnsi => false;
+            public override bool SupportsAnsi
+                => false;
 
-            public override bool SupportsUnicodeToAnsiConversion => true;
+            public override bool SupportsUnicodeToAnsiConversion
+                => true;
 
-            public override bool SupportsLargeStringComparisons => true;
+            public override bool SupportsLargeStringComparisons
+                => true;
 
-            public override bool SupportsDecimalComparisons => false;
+            public override bool SupportsDecimalComparisons
+                => false;
 
-            protected override ITestStoreFactory TestStoreFactory => SqliteTestStoreFactory.Instance;
-            public TestSqlLoggerFactory TestSqlLoggerFactory => (TestSqlLoggerFactory)ListLoggerFactory;
+            protected override ITestStoreFactory TestStoreFactory
+                => SqliteTestStoreFactory.Instance;
+
+            public TestSqlLoggerFactory TestSqlLoggerFactory
+                => (TestSqlLoggerFactory)ListLoggerFactory;
 
             protected override void OnModelCreating(ModelBuilder modelBuilder, DbContext context)
             {
@@ -1624,9 +1678,11 @@ LIMIT 1");
                     b => b.Property(e => e.Decimal).HasColumnType("decimal(5, 2)"));
             }
 
-            public override bool SupportsBinaryKeys => true;
+            public override bool SupportsBinaryKeys
+                => true;
 
-            public override DateTime DefaultDateTime => new DateTime();
+            public override DateTime DefaultDateTime
+                => new DateTime();
         }
 
         protected class MappedDataTypes

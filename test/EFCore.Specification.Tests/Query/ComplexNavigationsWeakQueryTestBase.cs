@@ -122,6 +122,12 @@ namespace Microsoft.EntityFrameworkCore.Query
         }
 
         [ConditionalTheory(Skip = "Issue#16752")]
+        public override Task Include_collection_with_multiple_orderbys_complex_repeated_checked(bool async)
+        {
+            return base.Include_collection_with_multiple_orderbys_complex_repeated_checked(async);
+        }
+
+        [ConditionalTheory(Skip = "Issue#16752")]
         public override Task Include_collection_with_multiple_orderbys_member(bool async)
         {
             return base.Include_collection_with_multiple_orderbys_member(async);
@@ -162,12 +168,18 @@ namespace Microsoft.EntityFrameworkCore.Query
         {
         }
 
-        public override Task Union_over_entities_with_different_nullability(bool async) => Task.CompletedTask;
+        public override Task Union_over_entities_with_different_nullability(bool async)
+            => Task.CompletedTask;
 
         [ConditionalTheory(Skip = "Issue#16752")]
         public override Task Include_inside_subquery(bool async)
         {
             return base.Include_inside_subquery(async);
+        }
+
+        public override void Filtered_include_outer_parameter_used_inside_filter()
+        {
+            // TODO: this test can be ran with weak entities once #18191 is fixed and we can use query test infra properly
         }
     }
 }

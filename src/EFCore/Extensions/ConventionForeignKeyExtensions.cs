@@ -19,7 +19,8 @@ namespace Microsoft.EntityFrameworkCore
         /// <param name="entityType"> One of the entity types related by the foreign key. </param>
         /// <returns> The entity type related to the given one. </returns>
         public static IConventionEntityType GetRelatedEntityType(
-            [NotNull] this IConventionForeignKey foreignKey, [NotNull] IConventionEntityType entityType)
+            [NotNull] this IConventionForeignKey foreignKey,
+            [NotNull] IConventionEntityType entityType)
             => (IConventionEntityType)((IForeignKey)foreignKey).GetRelatedEntityType(entityType);
 
         /// <summary>
@@ -30,7 +31,7 @@ namespace Microsoft.EntityFrameworkCore
         ///     A value indicating whether the navigation is on the dependent type pointing to the principal type.
         /// </param>
         /// <returns>
-        ///     A navigation associated with this foreign key or <c>null</c>.
+        ///     A navigation associated with this foreign key or <see langword="null" />.
         /// </returns>
         public static IConventionNavigation GetNavigation([NotNull] this IConventionForeignKey foreignKey, bool pointsToPrincipal)
             => pointsToPrincipal ? foreignKey.DependentToPrincipal : foreignKey.PrincipalToDependent;

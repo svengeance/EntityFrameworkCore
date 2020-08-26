@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore.Diagnostics;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.InMemory.Internal;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.Storage;
@@ -28,58 +29,62 @@ namespace Microsoft.EntityFrameworkCore.InMemory.Query.Internal
             private readonly IEnumerable<ValueBuffer> _innerEnumerable;
             private readonly Func<QueryContext, ValueBuffer, T> _shaper;
             private readonly Type _contextType;
-            private readonly IDiagnosticsLogger<DbLoggerCategory.Query> _logger;
+            private readonly IDiagnosticsLogger<DbLoggerCategory.Query> _queryLogger;
+            private readonly bool _standAloneStateManager;
 
             public QueryingEnumerable(
                 QueryContext queryContext,
                 IEnumerable<ValueBuffer> innerEnumerable,
                 Func<QueryContext, ValueBuffer, T> shaper,
                 Type contextType,
-                IDiagnosticsLogger<DbLoggerCategory.Query> logger)
+                bool standAloneStateManager)
             {
                 _queryContext = queryContext;
                 _innerEnumerable = innerEnumerable;
                 _shaper = shaper;
                 _contextType = contextType;
-                _logger = logger;
+                _queryLogger = queryContext.QueryLogger;
+                _standAloneStateManager = standAloneStateManager;
             }
 
             public IAsyncEnumerator<T> GetAsyncEnumerator(CancellationToken cancellationToken = default)
-                => new AsyncEnumerator(this, cancellationToken);
+                => new Enumerator(this, cancellationToken);
 
-            public IEnumerator<T> GetEnumerator() => new Enumerator(this);
+            public IEnumerator<T> GetEnumerator()
+                => new Enumerator(this);
 
-            IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+            IEnumerator IEnumerable.GetEnumerator()
+                => GetEnumerator();
 
-            public string ToQueryString() => InMemoryStrings.NoQueryStrings;
+            public string ToQueryString()
+                => InMemoryStrings.NoQueryStrings;
 
-            private sealed class Enumerator : IEnumerator<T>
+            private sealed class Enumerator : IEnumerator<T>, IAsyncEnumerator<T>
             {
                 private IEnumerator<ValueBuffer> _enumerator;
                 private readonly QueryContext _queryContext;
                 private readonly IEnumerable<ValueBuffer> _innerEnumerable;
                 private readonly Func<QueryContext, ValueBuffer, T> _shaper;
                 private readonly Type _contextType;
-                private readonly IDiagnosticsLogger<DbLoggerCategory.Query> _logger;
+                private readonly IDiagnosticsLogger<DbLoggerCategory.Query> _queryLogger;
+                private readonly bool _standAloneStateManager;
+                private readonly CancellationToken _cancellationToken;
 
-                public Enumerator(QueryingEnumerable<T> queryingEnumerable)
+                public Enumerator(QueryingEnumerable<T> queryingEnumerable, CancellationToken cancellationToken = default)
                 {
                     _queryContext = queryingEnumerable._queryContext;
                     _innerEnumerable = queryingEnumerable._innerEnumerable;
                     _shaper = queryingEnumerable._shaper;
                     _contextType = queryingEnumerable._contextType;
-                    _logger = queryingEnumerable._logger;
+                    _queryLogger = queryingEnumerable._queryLogger;
+                    _standAloneStateManager = queryingEnumerable._standAloneStateManager;
+                    _cancellationToken = cancellationToken;
                 }
 
                 public T Current { get; private set; }
 
-                object IEnumerator.Current => Current;
-
-                public void Dispose()
-                {
-                    _enumerator?.Dispose();
-                    _enumerator = null;
-                }
+                object IEnumerator.Current
+                    => Current;
 
                 public bool MoveNext()
                 {
@@ -87,54 +92,16 @@ namespace Microsoft.EntityFrameworkCore.InMemory.Query.Internal
                     {
                         using (_queryContext.ConcurrencyDetector.EnterCriticalSection())
                         {
-                            if (_enumerator == null)
-                            {
-                                _enumerator = _innerEnumerable.GetEnumerator();
-                            }
-
-                            var hasNext = _enumerator.MoveNext();
-
-                            Current = hasNext
-                                ? _shaper(_queryContext, _enumerator.Current)
-                                : default;
-
-                            return hasNext;
+                            return MoveNextHelper();
                         }
                     }
                     catch (Exception exception)
                     {
-                        _logger.QueryIterationFailed(_contextType, exception);
+                        _queryLogger.QueryIterationFailed(_contextType, exception);
 
                         throw;
                     }
                 }
-
-                public void Reset() => throw new NotImplementedException();
-            }
-
-            private sealed class AsyncEnumerator : IAsyncEnumerator<T>
-            {
-                private IEnumerator<ValueBuffer> _enumerator;
-                private readonly QueryContext _queryContext;
-                private readonly IEnumerable<ValueBuffer> _innerEnumerable;
-                private readonly Func<QueryContext, ValueBuffer, T> _shaper;
-                private readonly Type _contextType;
-                private readonly IDiagnosticsLogger<DbLoggerCategory.Query> _logger;
-                private readonly CancellationToken _cancellationToken;
-
-                public AsyncEnumerator(
-                    QueryingEnumerable<T> asyncQueryingEnumerable,
-                    CancellationToken cancellationToken)
-                {
-                    _queryContext = asyncQueryingEnumerable._queryContext;
-                    _innerEnumerable = asyncQueryingEnumerable._innerEnumerable;
-                    _shaper = asyncQueryingEnumerable._shaper;
-                    _contextType = asyncQueryingEnumerable._contextType;
-                    _logger = asyncQueryingEnumerable._logger;
-                    _cancellationToken = cancellationToken;
-                }
-
-                public T Current { get; private set; }
 
                 public ValueTask<bool> MoveNextAsync()
                 {
@@ -144,26 +111,40 @@ namespace Microsoft.EntityFrameworkCore.InMemory.Query.Internal
                         {
                             _cancellationToken.ThrowIfCancellationRequested();
 
-                            if (_enumerator == null)
-                            {
-                                _enumerator = _innerEnumerable.GetEnumerator();
-                            }
-
-                            var hasNext = _enumerator.MoveNext();
-
-                            Current = hasNext
-                                ? _shaper(_queryContext, _enumerator.Current)
-                                : default;
-
-                            return new ValueTask<bool>(hasNext);
+                            return new ValueTask<bool>(MoveNextHelper());
                         }
                     }
                     catch (Exception exception)
                     {
-                        _logger.QueryIterationFailed(_contextType, exception);
+                        _queryLogger.QueryIterationFailed(_contextType, exception);
 
                         throw;
                     }
+                }
+
+                private bool MoveNextHelper()
+                {
+                    if (_enumerator == null)
+                    {
+                        EntityFrameworkEventSource.Log.QueryExecuting();
+
+                        _enumerator = _innerEnumerable.GetEnumerator();
+                        _queryContext.InitializeStateManager(_standAloneStateManager);
+                    }
+
+                    var hasNext = _enumerator.MoveNext();
+
+                    Current = hasNext
+                        ? _shaper(_queryContext, _enumerator.Current)
+                        : default;
+
+                    return hasNext;
+                }
+
+                public void Dispose()
+                {
+                    _enumerator?.Dispose();
+                    _enumerator = null;
                 }
 
                 public ValueTask DisposeAsync()
@@ -173,6 +154,9 @@ namespace Microsoft.EntityFrameworkCore.InMemory.Query.Internal
 
                     return enumerator.DisposeAsyncIfAvailable();
                 }
+
+                public void Reset()
+                    => throw new NotImplementedException();
             }
         }
     }

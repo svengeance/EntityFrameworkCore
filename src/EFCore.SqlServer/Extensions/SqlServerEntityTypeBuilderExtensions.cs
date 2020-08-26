@@ -1,7 +1,6 @@
 // Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
-using System;
 using JetBrains.Annotations;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Microsoft.EntityFrameworkCore.SqlServer.Metadata.Internal;
@@ -22,7 +21,8 @@ namespace Microsoft.EntityFrameworkCore
         /// <param name="memoryOptimized"> A value indicating whether the table is memory-optimized. </param>
         /// <returns> The same builder instance so that multiple calls can be chained. </returns>
         public static EntityTypeBuilder IsMemoryOptimized(
-            [NotNull] this EntityTypeBuilder entityTypeBuilder, bool memoryOptimized = true)
+            [NotNull] this EntityTypeBuilder entityTypeBuilder,
+            bool memoryOptimized = true)
         {
             Check.NotNull(entityTypeBuilder, nameof(entityTypeBuilder));
 
@@ -39,7 +39,8 @@ namespace Microsoft.EntityFrameworkCore
         /// <param name="memoryOptimized"> A value indicating whether the table is memory-optimized. </param>
         /// <returns> The same builder instance so that multiple calls can be chained. </returns>
         public static EntityTypeBuilder<TEntity> IsMemoryOptimized<TEntity>(
-            [NotNull] this EntityTypeBuilder<TEntity> entityTypeBuilder, bool memoryOptimized = true)
+            [NotNull] this EntityTypeBuilder<TEntity> entityTypeBuilder,
+            bool memoryOptimized = true)
             where TEntity : class
             => (EntityTypeBuilder<TEntity>)IsMemoryOptimized((EntityTypeBuilder)entityTypeBuilder, memoryOptimized);
 
@@ -50,7 +51,8 @@ namespace Microsoft.EntityFrameworkCore
         /// <param name="memoryOptimized"> A value indicating whether the table is memory-optimized. </param>
         /// <returns> The same builder instance so that multiple calls can be chained. </returns>
         public static OwnedNavigationBuilder IsMemoryOptimized(
-            [NotNull] this OwnedNavigationBuilder collectionOwnershipBuilder, bool memoryOptimized = true)
+            [NotNull] this OwnedNavigationBuilder collectionOwnershipBuilder,
+            bool memoryOptimized = true)
         {
             Check.NotNull(collectionOwnershipBuilder, nameof(collectionOwnershipBuilder));
 
@@ -68,7 +70,8 @@ namespace Microsoft.EntityFrameworkCore
         /// <param name="memoryOptimized"> A value indicating whether the table is memory-optimized. </param>
         /// <returns> The same builder instance so that multiple calls can be chained. </returns>
         public static OwnedNavigationBuilder<TEntity, TRelatedEntity> IsMemoryOptimized<TEntity, TRelatedEntity>(
-            [NotNull] this OwnedNavigationBuilder<TEntity, TRelatedEntity> collectionOwnershipBuilder, bool memoryOptimized = true)
+            [NotNull] this OwnedNavigationBuilder<TEntity, TRelatedEntity> collectionOwnershipBuilder,
+            bool memoryOptimized = true)
             where TEntity : class
             where TRelatedEntity : class
             => (OwnedNavigationBuilder<TEntity, TRelatedEntity>)IsMemoryOptimized(
@@ -82,7 +85,7 @@ namespace Microsoft.EntityFrameworkCore
         /// <param name="fromDataAnnotation"> Indicates whether the configuration was specified using a data annotation. </param>
         /// <returns>
         ///     The same builder instance if the configuration was applied,
-        ///     <c>null</c> otherwise.
+        ///     <see langword="null" /> otherwise.
         /// </returns>
         public static IConventionEntityTypeBuilder IsMemoryOptimized(
             [NotNull] this IConventionEntityTypeBuilder entityTypeBuilder,
@@ -104,7 +107,7 @@ namespace Microsoft.EntityFrameworkCore
         /// <param name="entityTypeBuilder"> The builder for the entity type being configured. </param>
         /// <param name="memoryOptimized"> A value indicating whether the table is memory-optimized. </param>
         /// <param name="fromDataAnnotation"> Indicates whether the configuration was specified using a data annotation. </param>
-        /// <returns> <c>true</c> if the mapped table can be configured as memory-optimized. </returns>
+        /// <returns> <see langword="true" /> if the mapped table can be configured as memory-optimized. </returns>
         public static bool CanSetIsMemoryOptimized(
             [NotNull] this IConventionEntityTypeBuilder entityTypeBuilder,
             bool? memoryOptimized,

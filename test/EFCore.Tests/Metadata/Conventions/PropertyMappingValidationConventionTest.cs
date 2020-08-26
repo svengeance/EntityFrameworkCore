@@ -9,10 +9,11 @@ using System.Threading;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.InMemory.Storage.Internal;
-using Microsoft.EntityFrameworkCore.Internal;
+using Microsoft.EntityFrameworkCore.Metadata.Conventions.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata.Internal;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.EntityFrameworkCore.TestUtilities;
+using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
 // ReSharper disable InconsistentNaming
@@ -23,7 +24,7 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Conventions
         [ConditionalFact]
         public virtual void Throws_when_added_property_is_not_of_primitive_type()
         {
-            var modelBuilder = CreateConventionlessModelBuilder().GetInfrastructure();
+            var modelBuilder = CreateConventionlessInternalModelBuilder();
             var entityTypeBuilder = modelBuilder.Entity(typeof(NonPrimitiveAsPropertyEntity), ConfigurationSource.Convention);
             entityTypeBuilder.Property(
                 typeof(NavigationAsProperty), nameof(NonPrimitiveAsPropertyEntity.Property), ConfigurationSource.Convention);
@@ -39,7 +40,7 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Conventions
         [ConditionalFact]
         public virtual void Does_not_throw_when_added_shadow_property_by_convention_is_not_of_primitive_type()
         {
-            var modelBuilder = CreateConventionlessModelBuilder().GetInfrastructure();
+            var modelBuilder = CreateConventionlessInternalModelBuilder();
             var entityTypeBuilder = modelBuilder.Entity(typeof(NonPrimitiveAsPropertyEntity), ConfigurationSource.Convention);
             entityTypeBuilder.Property(typeof(NavigationAsProperty), "ShadowProperty", ConfigurationSource.Convention);
             entityTypeBuilder.Ignore(nameof(NonPrimitiveAsPropertyEntity.Property), ConfigurationSource.Explicit);
@@ -50,7 +51,7 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Conventions
         [ConditionalFact]
         public virtual void Throws_when_primitive_type_property_is_not_added_or_ignored()
         {
-            var modelBuilder = CreateConventionlessModelBuilder().GetInfrastructure();
+            var modelBuilder = CreateConventionlessInternalModelBuilder();
             modelBuilder.Entity(typeof(PrimitivePropertyEntity), ConfigurationSource.Convention);
 
             Assert.Equal(
@@ -62,7 +63,7 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Conventions
         [ConditionalFact]
         public virtual void Throws_when_nonprimitive_value_type_property_is_not_added_or_ignored()
         {
-            var modelBuilder = CreateConventionlessModelBuilder().GetInfrastructure();
+            var modelBuilder = CreateConventionlessInternalModelBuilder();
             modelBuilder.Entity(typeof(NonPrimitiveValueTypePropertyEntity), ConfigurationSource.Convention);
 
             Assert.Equal(
@@ -74,7 +75,7 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Conventions
         [ConditionalFact]
         public virtual void Throws_when_keyless_type_property_is_not_added_or_ignored()
         {
-            var modelBuilder = CreateConventionlessModelBuilder().GetInfrastructure();
+            var modelBuilder = CreateConventionlessInternalModelBuilder();
             modelBuilder.Entity(typeof(NonPrimitiveReferenceTypePropertyEntity), ConfigurationSource.Convention);
 
             Assert.Equal(
@@ -88,7 +89,7 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Conventions
         [ConditionalFact]
         public virtual void Does_not_throw_when_primitive_type_property_is_added()
         {
-            var modelBuilder = CreateConventionlessModelBuilder().GetInfrastructure();
+            var modelBuilder = CreateConventionlessInternalModelBuilder();
             var entityTypeBuilder = modelBuilder.Entity(typeof(PrimitivePropertyEntity), ConfigurationSource.Convention);
             entityTypeBuilder.Property(typeof(int), "Property", ConfigurationSource.Convention);
 
@@ -98,7 +99,7 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Conventions
         [ConditionalFact]
         public virtual void Does_not_throw_when_primitive_type_property_is_ignored()
         {
-            var modelBuilder = CreateConventionlessModelBuilder().GetInfrastructure();
+            var modelBuilder = CreateConventionlessInternalModelBuilder();
             var entityTypeBuilder = modelBuilder.Entity(typeof(PrimitivePropertyEntity), ConfigurationSource.Convention);
             entityTypeBuilder.Ignore("Property", ConfigurationSource.DataAnnotation);
 
@@ -108,7 +109,7 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Conventions
         [ConditionalFact]
         public virtual void Throws_when_navigation_is_not_added_or_ignored()
         {
-            var modelBuilder = CreateConventionlessModelBuilder().GetInfrastructure();
+            var modelBuilder = CreateConventionlessInternalModelBuilder();
             modelBuilder.Entity(typeof(NavigationEntity), ConfigurationSource.Convention);
             modelBuilder.Entity(typeof(PrimitivePropertyEntity), ConfigurationSource.Convention);
 
@@ -121,7 +122,7 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Conventions
         [ConditionalFact]
         public virtual void Does_not_throw_when_navigation_is_added()
         {
-            var modelBuilder = CreateConventionlessModelBuilder().GetInfrastructure();
+            var modelBuilder = CreateConventionlessInternalModelBuilder();
             var entityTypeBuilder = modelBuilder.Entity(typeof(NavigationEntity), ConfigurationSource.Convention);
             var referencedEntityTypeBuilder = modelBuilder.Entity(typeof(PrimitivePropertyEntity), ConfigurationSource.Convention);
             referencedEntityTypeBuilder.Ignore("Property", ConfigurationSource.DataAnnotation);
@@ -133,7 +134,7 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Conventions
         [ConditionalFact]
         public virtual void Does_not_throw_when_navigation_is_ignored()
         {
-            var modelBuilder = CreateConventionlessModelBuilder().GetInfrastructure();
+            var modelBuilder = CreateConventionlessInternalModelBuilder();
             var entityTypeBuilder = modelBuilder.Entity(typeof(NavigationEntity), ConfigurationSource.Convention);
             entityTypeBuilder.Ignore("Navigation", ConfigurationSource.DataAnnotation);
 
@@ -143,7 +144,7 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Conventions
         [ConditionalFact]
         public virtual void Does_not_throw_when_navigation_target_entity_is_ignored()
         {
-            var modelBuilder = CreateConventionlessModelBuilder().GetInfrastructure();
+            var modelBuilder = CreateConventionlessInternalModelBuilder();
             modelBuilder.Entity(typeof(NavigationEntity), ConfigurationSource.Convention);
             modelBuilder.Ignore(typeof(PrimitivePropertyEntity), ConfigurationSource.Convention);
 
@@ -153,7 +154,7 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Conventions
         [ConditionalFact]
         public virtual void Does_not_throw_when_explicit_navigation_is_not_added()
         {
-            var modelBuilder = CreateConventionlessModelBuilder().GetInfrastructure();
+            var modelBuilder = CreateConventionlessInternalModelBuilder();
             var entityTypeBuilder = modelBuilder.Entity(typeof(ExplicitNavigationEntity), ConfigurationSource.Convention);
             var referencedEntityTypeBuilder = modelBuilder.Entity(typeof(PrimitivePropertyEntity), ConfigurationSource.Convention);
             referencedEntityTypeBuilder.Ignore("Property", ConfigurationSource.DataAnnotation);
@@ -166,7 +167,7 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Conventions
         [ConditionalFact]
         public virtual void Throws_when_interface_type_property_is_not_added_or_ignored()
         {
-            var modelBuilder = CreateConventionlessModelBuilder().GetInfrastructure();
+            var modelBuilder = CreateConventionlessInternalModelBuilder();
             modelBuilder.Entity(typeof(InterfaceNavigationEntity), ConfigurationSource.Convention);
 
             Assert.Equal(
@@ -180,7 +181,7 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Conventions
         [ConditionalFact]
         public virtual void Does_not_throw_when_non_candidate_property_is_not_added()
         {
-            var modelBuilder = CreateConventionlessModelBuilder().GetInfrastructure();
+            var modelBuilder = CreateConventionlessInternalModelBuilder();
             modelBuilder.Entity(typeof(NonCandidatePropertyEntity), ConfigurationSource.Convention);
 
             CreatePropertyMappingValidator()(modelBuilder.Metadata);
@@ -189,11 +190,13 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Conventions
         protected override ModelBuilder CreateConventionlessModelBuilder(bool sensitiveDataLoggingEnabled = false)
         {
             var conventionSet = new ConventionSet();
+            var serviceProvider = CreateServiceProvider(sensitiveDataLoggingEnabled);
 
-            var dependencies = CreateDependencies(sensitiveDataLoggingEnabled);
-            conventionSet.ModelFinalizedConventions.Add(new TypeMappingConvention(dependencies));
+            // Use public API to add conventions, issue #214
+            var dependencies = serviceProvider.GetService<ProviderConventionSetBuilderDependencies>();
+            conventionSet.ModelFinalizingConventions.Add(new TypeMappingConvention(dependencies));
 
-            return new ModelBuilder(conventionSet);
+            return new ModelBuilder(conventionSet, serviceProvider.GetService<ModelDependencies>());
         }
 
         protected virtual Action<IModel> CreatePropertyMappingValidator()

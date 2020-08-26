@@ -1257,7 +1257,8 @@ namespace Microsoft.EntityFrameworkCore
             else
             {
                 Assert.Equal(EntityState.Detached, entry.State);
-                Assert.Null(mailRoom.Building);
+                Assert.Same(mailRoom, building.PrincipalMailRoom);
+                Assert.Contains(office, building.Offices);
 
                 Assert.Equal(EntityState.Detached, context.Entry(office.Building).State);
                 Assert.Same(building, office.Building);
@@ -2160,9 +2161,11 @@ namespace Microsoft.EntityFrameworkCore
                 set => _noGetter = value;
             }
 
-            public string GetNoGetterValue() => _noGetter;
+            public string GetNoGetterValue()
+                => _noGetter;
 
-            public string NoSetter => "NoSetter";
+            public string NoSetter
+                => "NoSetter";
         }
 
         protected class BuildingDto
@@ -2182,9 +2185,11 @@ namespace Microsoft.EntityFrameworkCore
                 set => _noGetter = value;
             }
 
-            public string GetNoGetterValue() => _noGetter;
+            public string GetNoGetterValue()
+                => _noGetter;
 
-            public string NoSetter => "NoSetter";
+            public string NoSetter
+                => "NoSetter";
 
             public int Shadow1 { get; set; }
         }

@@ -7,14 +7,19 @@ using Xunit.Abstractions;
 
 namespace Microsoft.EntityFrameworkCore.Query
 {
-    public class NorthwindJoinQuerySqlServerTest : NorthwindJoinQueryTestBase<NorthwindQuerySqlServerFixture<NoopModelCustomizer>>
+    public class NorthwindJoinQuerySqlServerTest : NorthwindJoinQueryRelationalTestBase<NorthwindQuerySqlServerFixture<NoopModelCustomizer>>
     {
-        public NorthwindJoinQuerySqlServerTest(NorthwindQuerySqlServerFixture<NoopModelCustomizer> fixture, ITestOutputHelper testOutputHelper)
+        public NorthwindJoinQuerySqlServerTest(
+            NorthwindQuerySqlServerFixture<NoopModelCustomizer> fixture,
+            ITestOutputHelper testOutputHelper)
             : base(fixture)
         {
             ClearLog();
             //Fixture.TestSqlLoggerFactory.SetTestOutputHelper(testOutputHelper);
         }
+
+        protected override bool CanExecuteQueryString
+            => true;
 
         public override async Task Join_customers_orders_projection(bool async)
         {
@@ -105,7 +110,7 @@ INNER JOIN [Orders] AS [o] ON [c].[CustomerID] = [o].[CustomerID]");
                 @"SELECT [c].[ContactName], [t].[OrderID]
 FROM [Customers] AS [c]
 INNER JOIN (
-    SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+    SELECT [o].[OrderID], [o].[CustomerID]
     FROM [Orders] AS [o]
 ) AS [t] ON [c].[CustomerID] = [t].[CustomerID]
 WHERE [t].[CustomerID] = N'ALFKI'");
@@ -121,7 +126,7 @@ WHERE [t].[CustomerID] = N'ALFKI'");
 SELECT [c].[ContactName], [t].[OrderID]
 FROM [Customers] AS [c]
 INNER JOIN (
-    SELECT TOP(@__p_0) [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+    SELECT TOP(@__p_0) [o].[OrderID], [o].[CustomerID]
     FROM [Orders] AS [o]
     ORDER BY [o].[OrderID]
 ) AS [t] ON [c].[CustomerID] = [t].[CustomerID]
@@ -167,7 +172,7 @@ WHERE [t].[CustomerID] = N'ALFKI'");
                 @"SELECT [c].[ContactName], [t].[OrderID]
 FROM [Customers] AS [c]
 INNER JOIN (
-    SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+    SELECT [o].[OrderID], [o].[CustomerID]
     FROM [Orders] AS [o]
     WHERE [o].[OrderID] > 0
 ) AS [t] ON [c].[CustomerID] = [t].[CustomerID]
@@ -184,7 +189,7 @@ WHERE [t].[CustomerID] = N'ALFKI'");
 SELECT [c].[ContactName], [t].[OrderID]
 FROM [Customers] AS [c]
 INNER JOIN (
-    SELECT TOP(@__p_0) [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+    SELECT TOP(@__p_0) [o].[OrderID], [o].[CustomerID]
     FROM [Orders] AS [o]
     WHERE [o].[OrderID] > 0
     ORDER BY [o].[OrderID]
@@ -209,11 +214,11 @@ INNER JOIN [Orders] AS [o] ON ([c].[CustomerID] = [o].[CustomerID]) AND ([c].[Cu
             AssertSql(
                 @"SELECT [c].[CustomerID]
 FROM [Customers] AS [c]
-INNER JOIN (
+CROSS JOIN (
     SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
     FROM [Orders] AS [o]
     WHERE [o].[OrderID] < 10250
-) AS [t] ON CAST(1 AS bit) = CAST(1 AS bit)
+) AS [t]
 WHERE [c].[CustomerID] = N'ALFKI'");
         }
 
@@ -335,7 +340,7 @@ LEFT JOIN [Orders] AS [o] ON [e].[EmployeeID] = [o].[EmployeeID]");
 
 SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
 FROM (
-    SELECT TOP(@__p_0) [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+    SELECT TOP(@__p_0) [c].[CustomerID]
     FROM [Customers] AS [c]
     ORDER BY [c].[CustomerID]
 ) AS [t]
@@ -407,7 +412,7 @@ LEFT JOIN [Orders] AS [o] ON [c].[CustomerID] = [o].[CustomerID]");
                 @"SELECT [c].[ContactName], [t].[OrderID]
 FROM [Customers] AS [c]
 INNER JOIN (
-    SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+    SELECT [o].[OrderID], [o].[CustomerID]
     FROM [Orders] AS [o]
     WHERE [o].[OrderID] > 5
 ) AS [t] ON [c].[CustomerID] = [t].[CustomerID]");
@@ -459,14 +464,123 @@ ORDER BY [c].[CustomerID]");
 SELECT [c].[CustomerID], [t0].[OrderID]
 FROM [Customers] AS [c]
 INNER JOIN (
-    SELECT [t].[OrderID], [t].[CustomerID], [t].[EmployeeID], [t].[OrderDate]
+    SELECT [t].[OrderID], [t].[CustomerID]
     FROM (
-        SELECT TOP(@__p_0) [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+        SELECT TOP(@__p_0) [o].[OrderID], [o].[CustomerID]
         FROM [Orders] AS [o]
         ORDER BY [o].[OrderID]
     ) AS [t]
     WHERE [t].[CustomerID] IS NOT NULL AND ([t].[CustomerID] LIKE N'A%')
 ) AS [t0] ON [c].[CustomerID] = [t0].[CustomerID]");
+        }
+
+        public override async Task Inner_join_with_tautology_predicate_converts_to_cross_join(bool async)
+        {
+            await base.Inner_join_with_tautology_predicate_converts_to_cross_join(async);
+
+            AssertSql(
+                @"@__p_0='10'
+
+SELECT [t].[CustomerID], [t0].[OrderID]
+FROM (
+    SELECT TOP(@__p_0) [c].[CustomerID]
+    FROM [Customers] AS [c]
+    ORDER BY [c].[CustomerID]
+) AS [t]
+CROSS JOIN (
+    SELECT TOP(@__p_0) [o].[OrderID]
+    FROM [Orders] AS [o]
+    ORDER BY [o].[OrderID]
+) AS [t0]
+ORDER BY [t].[CustomerID]");
+        }
+
+        public override async Task Left_join_with_tautology_predicate_doesnt_convert_to_cross_join(bool async)
+        {
+            await base.Left_join_with_tautology_predicate_doesnt_convert_to_cross_join(async);
+
+            AssertSql(
+                @"@__p_0='10'
+
+SELECT [t].[CustomerID], [t0].[OrderID]
+FROM (
+    SELECT TOP(@__p_0) [c].[CustomerID]
+    FROM [Customers] AS [c]
+    ORDER BY [c].[CustomerID]
+) AS [t]
+LEFT JOIN (
+    SELECT TOP(@__p_0) [o].[OrderID]
+    FROM [Orders] AS [o]
+    ORDER BY [o].[OrderID]
+) AS [t0] ON 1 = 1
+ORDER BY [t].[CustomerID]");
+        }
+
+        public override async Task SelectMany_with_client_eval(bool async)
+        {
+            await base.SelectMany_with_client_eval(async);
+
+            AssertSql(
+                @"SELECT [t].[OrderID], [t].[CustomerID], [t].[EmployeeID], [t].[OrderDate], [t].[ContactName]
+FROM [Customers] AS [c]
+CROSS APPLY (
+    SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate], [c].[ContactName]
+    FROM [Orders] AS [o]
+    WHERE [c].[CustomerID] = [o].[CustomerID]
+) AS [t]
+WHERE [c].[CustomerID] LIKE N'F%'");
+        }
+
+        public override async Task SelectMany_with_client_eval_with_collection_shaper(bool async)
+        {
+            await base.SelectMany_with_client_eval_with_collection_shaper(async);
+
+            AssertSql(
+                @"SELECT [t].[OrderID], [t].[CustomerID], [t].[EmployeeID], [t].[OrderDate], [t].[ContactName], [c].[CustomerID], [t].[OrderID], [o0].[OrderID], [o0].[ProductID], [o0].[Discount], [o0].[Quantity], [o0].[UnitPrice]
+FROM [Customers] AS [c]
+CROSS APPLY (
+    SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate], [c].[ContactName]
+    FROM [Orders] AS [o]
+    WHERE [c].[CustomerID] = [o].[CustomerID]
+) AS [t]
+LEFT JOIN [Order Details] AS [o0] ON [t].[OrderID] = [o0].[OrderID]
+WHERE [c].[CustomerID] LIKE N'F%'
+ORDER BY [c].[CustomerID], [t].[OrderID], [o0].[OrderID], [o0].[ProductID]");
+        }
+
+        public override async Task SelectMany_with_client_eval_with_collection_shaper_ignored(bool async)
+        {
+            await base.SelectMany_with_client_eval_with_collection_shaper_ignored(async);
+
+            AssertSql(
+                @"SELECT [t].[OrderID], [t].[CustomerID], [t].[EmployeeID], [t].[OrderDate], [t].[ContactName]
+FROM [Customers] AS [c]
+CROSS APPLY (
+    SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate], [c].[ContactName]
+    FROM [Orders] AS [o]
+    WHERE [c].[CustomerID] = [o].[CustomerID]
+) AS [t]
+WHERE [c].[CustomerID] LIKE N'F%'");
+        }
+
+        public override async Task SelectMany_with_client_eval_with_constructor(bool async)
+        {
+            await base.SelectMany_with_client_eval_with_constructor(async);
+
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[City], [t0].[OrderID], [t0].[ProductID], [t0].[OrderID0], [t0].[OrderID1], [t0].[ProductID0]
+FROM [Customers] AS [c]
+LEFT JOIN (
+    SELECT [t].[OrderID], [t].[ProductID], [o].[OrderID] AS [OrderID0], [t].[OrderID] AS [OrderID1], [t].[ProductID] AS [ProductID0], [o].[CustomerID]
+    FROM [Orders] AS [o]
+    INNER JOIN (
+        SELECT [o0].[OrderID], [o0].[ProductID]
+        FROM [Order Details] AS [o0]
+        WHERE [o0].[OrderID] < 11000
+    ) AS [t] ON [o].[OrderID] = [t].[OrderID]
+) AS [t0] ON [c].[CustomerID] = [t0].[CustomerID]
+WHERE [c].[CustomerID] LIKE N'A%'
+ORDER BY [c].[CustomerID], [t0].[OrderID0], [t0].[OrderID1], [t0].[ProductID0]");
         }
 
         private void AssertSql(params string[] expected)

@@ -76,7 +76,7 @@ namespace Microsoft.EntityFrameworkCore.Storage
             var (connection, context, logger) = (parameterObject.Connection, parameterObject.Context, parameterObject.Logger);
 
             var commandId = Guid.NewGuid();
-            var command = CreateCommand(parameterObject, commandId, DbCommandMethod.ExecuteNonQuery);
+            var command = CreateDbCommand(parameterObject, commandId, DbCommandMethod.ExecuteNonQuery);
 
             connection.Open();
 
@@ -143,8 +143,8 @@ namespace Microsoft.EntityFrameworkCore.Storage
             IRelationalConnection connection)
         {
             command.Parameters.Clear();
-            await command.DisposeAsync();
-            await connection.CloseAsync();
+            await command.DisposeAsync().ConfigureAwait(false);
+            await connection.CloseAsync().ConfigureAwait(false);
         }
 
         /// <summary>
@@ -162,9 +162,9 @@ namespace Microsoft.EntityFrameworkCore.Storage
             var (connection, context, logger) = (parameterObject.Connection, parameterObject.Context, parameterObject.Logger);
 
             var commandId = Guid.NewGuid();
-            var command = CreateCommand(parameterObject, commandId, DbCommandMethod.ExecuteNonQuery);
+            var command = CreateDbCommand(parameterObject, commandId, DbCommandMethod.ExecuteNonQuery);
 
-            await connection.OpenAsync(cancellationToken);
+            await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
 
             var startTime = DateTimeOffset.UtcNow;
             var stopwatch = Stopwatch.StartNew();
@@ -173,30 +173,32 @@ namespace Microsoft.EntityFrameworkCore.Storage
                 var interceptionResult = logger == null
                     ? default
                     : await logger.CommandNonQueryExecutingAsync(
-                        connection,
-                        command,
-                        context,
-                        commandId,
-                        connection.ConnectionId,
-                        startTime,
-                        cancellationToken);
+                            connection,
+                            command,
+                            context,
+                            commandId,
+                            connection.ConnectionId,
+                            startTime,
+                            cancellationToken)
+                        .ConfigureAwait(false);
 
                 var result = interceptionResult.HasResult
                     ? interceptionResult.Result
-                    : await command.ExecuteNonQueryAsync(cancellationToken);
+                    : await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
 
                 if (logger != null)
                 {
                     result = await logger.CommandNonQueryExecutedAsync(
-                        connection,
-                        command,
-                        context,
-                        commandId,
-                        connection.ConnectionId,
-                        result,
-                        startTime,
-                        stopwatch.Elapsed,
-                        cancellationToken);
+                            connection,
+                            command,
+                            context,
+                            commandId,
+                            connection.ConnectionId,
+                            result,
+                            startTime,
+                            stopwatch.Elapsed,
+                            cancellationToken)
+                        .ConfigureAwait(false);
                 }
 
                 return result;
@@ -206,23 +208,24 @@ namespace Microsoft.EntityFrameworkCore.Storage
                 if (logger != null)
                 {
                     await logger.CommandErrorAsync(
-                        connection,
-                        command,
-                        context,
-                        DbCommandMethod.ExecuteNonQuery,
-                        commandId,
-                        connection.ConnectionId,
-                        exception,
-                        startTime,
-                        stopwatch.Elapsed,
-                        cancellationToken);
+                            connection,
+                            command,
+                            context,
+                            DbCommandMethod.ExecuteNonQuery,
+                            commandId,
+                            connection.ConnectionId,
+                            exception,
+                            startTime,
+                            stopwatch.Elapsed,
+                            cancellationToken)
+                        .ConfigureAwait(false);
                 }
 
                 throw;
             }
             finally
             {
-                await CleanupCommandAsync(command, connection);
+                await CleanupCommandAsync(command, connection).ConfigureAwait(false);
             }
         }
 
@@ -236,7 +239,7 @@ namespace Microsoft.EntityFrameworkCore.Storage
             var (connection, context, logger) = (parameterObject.Connection, parameterObject.Context, parameterObject.Logger);
 
             var commandId = Guid.NewGuid();
-            var command = CreateCommand(parameterObject, commandId, DbCommandMethod.ExecuteScalar);
+            var command = CreateDbCommand(parameterObject, commandId, DbCommandMethod.ExecuteScalar);
 
             connection.Open();
 
@@ -304,9 +307,9 @@ namespace Microsoft.EntityFrameworkCore.Storage
             var (connection, context, logger) = (parameterObject.Connection, parameterObject.Context, parameterObject.Logger);
 
             var commandId = Guid.NewGuid();
-            var command = CreateCommand(parameterObject, commandId, DbCommandMethod.ExecuteScalar);
+            var command = CreateDbCommand(parameterObject, commandId, DbCommandMethod.ExecuteScalar);
 
-            await connection.OpenAsync(cancellationToken);
+            await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
 
             var startTime = DateTimeOffset.UtcNow;
             var stopwatch = Stopwatch.StartNew();
@@ -316,17 +319,18 @@ namespace Microsoft.EntityFrameworkCore.Storage
                 var interceptionResult = logger == null
                     ? default
                     : await logger.CommandScalarExecutingAsync(
-                        connection,
-                        command,
-                        context,
-                        commandId,
-                        connection.ConnectionId,
-                        startTime,
-                        cancellationToken);
+                            connection,
+                            command,
+                            context,
+                            commandId,
+                            connection.ConnectionId,
+                            startTime,
+                            cancellationToken)
+                        .ConfigureAwait(false);
 
                 var result = interceptionResult.HasResult
                     ? interceptionResult.Result
-                    : await command.ExecuteScalarAsync(cancellationToken);
+                    : await command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false);
 
                 if (logger != null)
                 {
@@ -339,7 +343,7 @@ namespace Microsoft.EntityFrameworkCore.Storage
                         result,
                         startTime,
                         stopwatch.Elapsed,
-                        cancellationToken);
+                        cancellationToken).ConfigureAwait(false);
                 }
 
                 return result;
@@ -349,23 +353,24 @@ namespace Microsoft.EntityFrameworkCore.Storage
                 if (logger != null)
                 {
                     await logger.CommandErrorAsync(
-                        connection,
-                        command,
-                        context,
-                        DbCommandMethod.ExecuteScalar,
-                        commandId,
-                        connection.ConnectionId,
-                        exception,
-                        startTime,
-                        stopwatch.Elapsed,
-                        cancellationToken);
+                            connection,
+                            command,
+                            context,
+                            DbCommandMethod.ExecuteScalar,
+                            commandId,
+                            connection.ConnectionId,
+                            exception,
+                            startTime,
+                            stopwatch.Elapsed,
+                            cancellationToken)
+                        .ConfigureAwait(false);
                 }
 
                 throw;
             }
             finally
             {
-                await CleanupCommandAsync(command, connection);
+                await CleanupCommandAsync(command, connection).ConfigureAwait(false);
             }
         }
 
@@ -382,7 +387,7 @@ namespace Microsoft.EntityFrameworkCore.Storage
             var logger = parameterObject.Logger;
 
             var commandId = Guid.NewGuid();
-            var command = CreateCommand(parameterObject, commandId, DbCommandMethod.ExecuteReader);
+            var command = CreateDbCommand(parameterObject, commandId, DbCommandMethod.ExecuteReader);
 
             connection.Open();
 
@@ -476,9 +481,9 @@ namespace Microsoft.EntityFrameworkCore.Storage
             var logger = parameterObject.Logger;
 
             var commandId = Guid.NewGuid();
-            var command = CreateCommand(parameterObject, commandId, DbCommandMethod.ExecuteReader);
+            var command = CreateDbCommand(parameterObject, commandId, DbCommandMethod.ExecuteReader);
 
-            await connection.OpenAsync(cancellationToken);
+            await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
 
             var startTime = DateTimeOffset.UtcNow;
             var stopwatch = Stopwatch.StartNew();
@@ -489,35 +494,38 @@ namespace Microsoft.EntityFrameworkCore.Storage
                 var interceptionResult = logger == null
                     ? default
                     : await logger.CommandReaderExecutingAsync(
-                        connection,
-                        command,
-                        context,
-                        commandId,
-                        connection.ConnectionId,
-                        startTime,
-                        cancellationToken);
+                            connection,
+                            command,
+                            context,
+                            commandId,
+                            connection.ConnectionId,
+                            startTime,
+                            cancellationToken)
+                        .ConfigureAwait(false);
 
                 var reader = interceptionResult.HasResult
                     ? interceptionResult.Result
-                    : await command.ExecuteReaderAsync(cancellationToken);
+                    : await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
 
                 if (logger != null)
                 {
                     reader = await logger.CommandReaderExecutedAsync(
-                        connection,
-                        command,
-                        context,
-                        commandId,
-                        connection.ConnectionId,
-                        reader,
-                        startTime,
-                        stopwatch.Elapsed,
-                        cancellationToken);
+                            connection,
+                            command,
+                            context,
+                            commandId,
+                            connection.ConnectionId,
+                            reader,
+                            startTime,
+                            stopwatch.Elapsed,
+                            cancellationToken)
+                        .ConfigureAwait(false);
                 }
 
                 if (readerColumns != null)
                 {
-                    reader = await new BufferedDataReader(reader).InitializeAsync(readerColumns, cancellationToken);
+                    reader = await new BufferedDataReader(reader).InitializeAsync(readerColumns, cancellationToken)
+                        .ConfigureAwait(false);
                 }
 
                 var result = CreateRelationalDataReader(
@@ -536,16 +544,17 @@ namespace Microsoft.EntityFrameworkCore.Storage
                 if (logger != null)
                 {
                     await logger.CommandErrorAsync(
-                        connection,
-                        command,
-                        context,
-                        DbCommandMethod.ExecuteReader,
-                        commandId,
-                        connection.ConnectionId,
-                        exception,
-                        startTime,
-                        stopwatch.Elapsed,
-                        cancellationToken);
+                            connection,
+                            command,
+                            context,
+                            DbCommandMethod.ExecuteReader,
+                            commandId,
+                            connection.ConnectionId,
+                            exception,
+                            startTime,
+                            stopwatch.Elapsed,
+                            cancellationToken)
+                        .ConfigureAwait(false);
                 }
 
                 throw;
@@ -554,7 +563,7 @@ namespace Microsoft.EntityFrameworkCore.Storage
             {
                 if (!readerOpen)
                 {
-                    await CleanupCommandAsync(command, connection);
+                    await CleanupCommandAsync(command, connection).ConfigureAwait(false);
                 }
             }
         }
@@ -574,7 +583,7 @@ namespace Microsoft.EntityFrameworkCore.Storage
         /// <param name="commandId"> The command correlation ID. </param>
         /// <param name="commandMethod"> The method that will be called on the created command. </param>
         /// <returns> The created command. </returns>
-        public virtual DbCommand CreateCommand(
+        public virtual DbCommand CreateDbCommand(
             RelationalCommandParameterObject parameterObject,
             Guid commandId,
             DbCommandMethod commandMethod)
@@ -642,10 +651,14 @@ namespace Microsoft.EntityFrameworkCore.Storage
         /// <param name="connection">The connection, to pass to the <see cref="RelationalDataReader" /> constructor.</param>
         /// <param name="command">The command that was executed, to pass to the <see cref="RelationalDataReader" /> constructor.</param>
         /// <param name="reader">The underlying reader for the result set, to pass to the <see cref="RelationalDataReader" /> constructor.</param>
-        /// <param name="commandId">A correlation ID that identifies the <see cref="DbCommand" /> instance being used, to pass to the <see cref="RelationalDataReader" /> constructor.</param>
+        /// <param name="commandId">
+        ///     A correlation ID that identifies the <see cref="DbCommand" /> instance being used, to pass to the
+        ///     <see cref="RelationalDataReader" /> constructor.
+        /// </param>
         /// <param name="logger">The diagnostic source, to pass to the <see cref="RelationalDataReader" /> constructor.</param>
         /// <returns>The created <see cref="RelationalDataReader" />.</returns>
-        protected virtual RelationalDataReader CreateRelationalDataReader([NotNull] IRelationalConnection connection,
+        protected virtual RelationalDataReader CreateRelationalDataReader(
+            [NotNull] IRelationalConnection connection,
             [NotNull] DbCommand command,
             [NotNull] DbDataReader reader,
             Guid commandId,

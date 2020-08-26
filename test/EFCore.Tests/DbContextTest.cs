@@ -12,7 +12,6 @@ using Microsoft.EntityFrameworkCore.ChangeTracking.Internal;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
-using Microsoft.EntityFrameworkCore.Metadata.Conventions;
 using Microsoft.EntityFrameworkCore.Metadata.Internal;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Microsoft.Extensions.DependencyInjection;
@@ -99,7 +98,7 @@ namespace Microsoft.EntityFrameworkCore
         [ConditionalFact]
         public void Set_throws_for_weak_types()
         {
-            var model = new Model(new ConventionSet());
+            var model = new Model();
             var question = model.AddEntityType(typeof(Question), ConfigurationSource.Explicit);
             model.AddEntityType(typeof(User), nameof(Question.Author), question, ConfigurationSource.Explicit);
 
@@ -114,13 +113,29 @@ namespace Microsoft.EntityFrameworkCore
         }
 
         [ConditionalFact]
+        public void Set_throws_for_shared_types()
+        {
+            var model = new Model();
+            var question = model.AddEntityType("SharedQuestion", typeof(Question), ConfigurationSource.Explicit);
+
+            var optionsBuilder = new DbContextOptionsBuilder();
+            optionsBuilder
+                .UseInMemoryDatabase(Guid.NewGuid().ToString())
+                .UseInternalServiceProvider(InMemoryTestHelpers.Instance.CreateServiceProvider())
+                .UseModel(model.FinalizeModel());
+            using var context = new DbContext(optionsBuilder.Options);
+            var ex = Assert.Throws<InvalidOperationException>(() => context.Set<Question>().Local);
+            Assert.Equal(CoreStrings.InvalidSetSharedType(typeof(Question).ShortDisplayName()), ex.Message);
+        }
+
+        [ConditionalFact]
         public void SaveChanges_calls_DetectChanges()
         {
             var services = new ServiceCollection()
                 .AddScoped<IStateManager, FakeStateManager>()
                 .AddScoped<IChangeDetector, FakeChangeDetector>();
 
-            var model = new ModelBuilder(new ConventionSet()).Entity<User>().Metadata.Model;
+            var model = new ModelBuilder().Entity<User>().Metadata.Model;
             var serviceProvider = InMemoryTestHelpers.Instance.CreateServiceProvider(services);
 
             using var context = new DbContext(
@@ -727,7 +742,7 @@ namespace Microsoft.EntityFrameworkCore
             await Assert.ThrowsAsync<ObjectDisposedException>(() => context.FindAsync(typeof(Random), 77).AsTask());
 
             var methodCount = typeof(DbContext).GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly).Count();
-            var expectedMethodCount = 42;
+            var expectedMethodCount = 42 + 8;
             Assert.True(
                 methodCount == expectedMethodCount,
                 userMessage: $"Expected {expectedMethodCount} methods on DbContext but found {methodCount}. "
@@ -801,7 +816,8 @@ namespace Microsoft.EntityFrameworkCore
 
             public bool Disposed { get; set; }
 
-            public void Dispose() => Disposed = true;
+            public void Dispose()
+                => Disposed = true;
 
             public object GetService(Type serviceType)
             {
@@ -817,7 +833,8 @@ namespace Microsoft.EntityFrameworkCore
             {
                 public static FakeServiceScope Scope { get; } = new FakeServiceScope();
 
-                public IServiceScope CreateScope() => Scope;
+                public IServiceScope CreateScope()
+                    => Scope;
             }
 
             public class FakeServiceScope : IServiceScope
@@ -826,7 +843,8 @@ namespace Microsoft.EntityFrameworkCore
 
                 public IServiceProvider ServiceProvider { get; set; } = new FakeServiceProvider();
 
-                public void Dispose() => Disposed = true;
+                public void Dispose()
+                    => Disposed = true;
             }
         }
 

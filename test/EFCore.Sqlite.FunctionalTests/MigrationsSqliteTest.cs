@@ -2,1197 +2,933 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
-using System.Collections.Generic;
-using System.Data.Common;
-using Identity30.Data;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.Internal;
-using Microsoft.EntityFrameworkCore.Migrations;
-using Microsoft.EntityFrameworkCore.Migrations.Operations;
-using Microsoft.EntityFrameworkCore.TestModels.AspNetIdentity;
-using ModelSnapshot22;
+using System.Threading.Tasks;
+using Microsoft.Data.Sqlite;
+using Microsoft.EntityFrameworkCore.Scaffolding;
+using Microsoft.EntityFrameworkCore.Sqlite.Internal;
+using Microsoft.EntityFrameworkCore.Sqlite.Scaffolding.Internal;
+using Microsoft.EntityFrameworkCore.TestUtilities;
+using Microsoft.Extensions.DependencyInjection;
 using Xunit;
+using Xunit.Abstractions;
+
+#nullable enable
 
 namespace Microsoft.EntityFrameworkCore
 {
-    public class MigrationsSqliteTest : MigrationsTestBase<MigrationsSqliteFixture>
+    public class MigrationsSqliteTest : MigrationsTestBase<MigrationsSqliteTest.MigrationsSqliteFixture>
     {
-        public MigrationsSqliteTest(MigrationsSqliteFixture fixture)
+        public MigrationsSqliteTest(MigrationsSqliteFixture fixture, ITestOutputHelper testOutputHelper)
             : base(fixture)
         {
+            Fixture.TestSqlLoggerFactory.Clear();
+            //Fixture.TestSqlLoggerFactory.SetTestOutputHelper(testOutputHelper);
         }
 
-        public override void Can_generate_migration_from_initial_database_to_initial()
+        public override async Task Create_table()
         {
-            base.Can_generate_migration_from_initial_database_to_initial();
+            await base.Create_table();
 
-            Assert.Equal(
-                @"CREATE TABLE IF NOT EXISTS ""__EFMigrationsHistory"" (
-    ""MigrationId"" TEXT NOT NULL CONSTRAINT ""PK___EFMigrationsHistory"" PRIMARY KEY,
-    ""ProductVersion"" TEXT NOT NULL
-);
-
-",
-                Sql,
-                ignoreLineEndingDifferences: true);
+            AssertSql(
+                @"CREATE TABLE ""People"" (
+    ""Id"" INTEGER NOT NULL CONSTRAINT ""PK_People"" PRIMARY KEY AUTOINCREMENT,
+    ""Name"" TEXT NULL
+);");
         }
 
-        public override void Can_generate_no_migration_script()
+        public override async Task Create_table_all_settings()
         {
-            base.Can_generate_no_migration_script();
+            await base.Create_table_all_settings();
 
-            Assert.Equal(
-                @"CREATE TABLE IF NOT EXISTS ""__EFMigrationsHistory"" (
-    ""MigrationId"" TEXT NOT NULL CONSTRAINT ""PK___EFMigrationsHistory"" PRIMARY KEY,
-    ""ProductVersion"" TEXT NOT NULL
-);
+            AssertSql(
+                @"CREATE TABLE ""People"" (
+    -- Table comment
 
-",
-                Sql,
-                ignoreLineEndingDifferences: true);
+    ""CustomId"" INTEGER NOT NULL CONSTRAINT ""PK_People"" PRIMARY KEY,
+
+    -- Employer ID comment
+    ""EmployerId"" INTEGER NOT NULL,
+
+    ""SSN"" TEXT COLLATE NOCASE NOT NULL,
+    CONSTRAINT ""AK_People_SSN"" UNIQUE (""SSN""),
+    CONSTRAINT ""CK_EmployerId"" CHECK (""EmployerId"" > 0),
+    CONSTRAINT ""FK_People_Employers_EmployerId"" FOREIGN KEY (""EmployerId"") REFERENCES ""Employers"" (""Id"") ON DELETE RESTRICT
+);");
         }
 
-        public override void Can_generate_up_scripts()
+        public override async Task Create_table_with_comments()
         {
-            base.Can_generate_up_scripts();
+            await base.Create_table_with_comments();
 
-            Assert.Equal(
-                @"CREATE TABLE IF NOT EXISTS ""__EFMigrationsHistory"" (
-    ""MigrationId"" TEXT NOT NULL CONSTRAINT ""PK___EFMigrationsHistory"" PRIMARY KEY,
-    ""ProductVersion"" TEXT NOT NULL
-);
+            AssertSql(
+                @"CREATE TABLE ""People"" (
+    -- Table comment
 
-CREATE TABLE ""Table1"" (
-    ""Id"" INTEGER NOT NULL CONSTRAINT ""PK_Table1"" PRIMARY KEY,
-    ""Foo"" INTEGER NOT NULL
-);
+    ""Id"" INTEGER NOT NULL,
 
-INSERT INTO ""__EFMigrationsHistory"" (""MigrationId"", ""ProductVersion"")
-VALUES ('00000000000001_Migration1', '7.0.0-test');
-
-ALTER TABLE ""Table1"" RENAME COLUMN ""Foo"" TO ""Bar"";
-
-INSERT INTO ""__EFMigrationsHistory"" (""MigrationId"", ""ProductVersion"")
-VALUES ('00000000000002_Migration2', '7.0.0-test');
-
-INSERT INTO ""__EFMigrationsHistory"" (""MigrationId"", ""ProductVersion"")
-VALUES ('00000000000003_Migration3', '7.0.0-test');
-
-",
-                Sql,
-                ignoreLineEndingDifferences: true);
+    -- Column comment
+    ""Name"" TEXT NULL
+);");
         }
 
-        public override void Can_generate_one_up_script()
+        public override async Task Create_table_with_multiline_comments()
         {
-            base.Can_generate_one_up_script();
+            await base.Create_table_with_multiline_comments();
 
-            Assert.Equal(
-                @"ALTER TABLE ""Table1"" RENAME COLUMN ""Foo"" TO ""Bar"";
+            AssertSql(
+                @"CREATE TABLE ""People"" (
+    -- This is a multi-line
+    -- table comment.
+    -- More information can
+    -- be found in the docs.
 
-INSERT INTO ""__EFMigrationsHistory"" (""MigrationId"", ""ProductVersion"")
-VALUES ('00000000000002_Migration2', '7.0.0-test');
+    ""Id"" INTEGER NOT NULL,
 
-",
-                Sql,
-                ignoreLineEndingDifferences: true);
+    -- This is a multi-line
+    -- column comment.
+    -- More information can
+    -- be found in the docs.
+    ""Name"" TEXT NULL
+);");
         }
 
-        public override void Can_generate_up_script_using_names()
+        public override async Task Create_table_with_computed_column(bool? stored)
         {
-            base.Can_generate_up_script_using_names();
+            await base.Create_table_with_computed_column(stored);
 
-            Assert.Equal(
-                @"ALTER TABLE ""Table1"" RENAME COLUMN ""Foo"" TO ""Bar"";
+            var computedColumnTypeSql = stored == true ? " STORED" : "";
 
-INSERT INTO ""__EFMigrationsHistory"" (""MigrationId"", ""ProductVersion"")
-VALUES ('00000000000002_Migration2', '7.0.0-test');
-
-",
-                Sql,
-                ignoreLineEndingDifferences: true);
+            AssertSql(
+                $@"CREATE TABLE ""People"" (
+    ""Id"" INTEGER NOT NULL,
+    ""Sum"" AS (""X"" + ""Y""){computedColumnTypeSql},
+    ""X"" INTEGER NOT NULL,
+    ""Y"" INTEGER NOT NULL
+);");
         }
 
-        public override void Can_generate_idempotent_up_scripts()
+        public override async Task Alter_table_add_comment()
         {
-            Assert.Throws<NotSupportedException>(() => base.Can_generate_idempotent_up_scripts());
+            await base.Alter_table_add_comment();
+
+            AssertSql(
+                @"CREATE TABLE ""ef_temp_People"" (
+    -- Table comment
+
+    ""Id"" INTEGER NOT NULL
+);",
+                @"INSERT INTO ""ef_temp_People"" (""Id"")
+SELECT ""Id""
+FROM People;",
+                @"PRAGMA foreign_keys = 0;",
+                @"DROP TABLE ""People"";",
+                @"ALTER TABLE ""ef_temp_People"" RENAME TO ""People"";",
+                @"PRAGMA foreign_keys = 1;");
         }
 
-        public override void Can_generate_down_scripts()
+        public override async Task Alter_table_add_comment_non_default_schema()
         {
-            base.Can_generate_down_scripts();
+            await base.Alter_table_add_comment_non_default_schema();
 
-            Assert.Equal(
-                @"ALTER TABLE ""Table1"" RENAME COLUMN ""Bar"" TO ""Foo"";
+            AssertSql(
+                @"CREATE TABLE ""ef_temp_People"" (
+    -- Table comment
 
-DELETE FROM ""__EFMigrationsHistory""
-WHERE ""MigrationId"" = '00000000000002_Migration2';
-
-DROP TABLE ""Table1"";
-
-DELETE FROM ""__EFMigrationsHistory""
-WHERE ""MigrationId"" = '00000000000001_Migration1';
-
-",
-                Sql,
-                ignoreLineEndingDifferences: true);
+    ""Id"" INTEGER NOT NULL
+);",
+                @"INSERT INTO ""ef_temp_People"" (""Id"")
+SELECT ""Id""
+FROM People;",
+                @"PRAGMA foreign_keys = 0;",
+                @"DROP TABLE ""People"";",
+                @"ALTER TABLE ""ef_temp_People"" RENAME TO ""People"";",
+                @"PRAGMA foreign_keys = 1;");
         }
 
-        public override void Can_generate_one_down_script()
+        public override async Task Alter_table_change_comment()
         {
-            base.Can_generate_one_down_script();
+            await base.Alter_table_change_comment();
 
-            Assert.Equal(
-                @"ALTER TABLE ""Table1"" RENAME COLUMN ""Bar"" TO ""Foo"";
+            AssertSql(
+                @"CREATE TABLE ""ef_temp_People"" (
+    -- Table comment2
 
-DELETE FROM ""__EFMigrationsHistory""
-WHERE ""MigrationId"" = '00000000000002_Migration2';
-
-",
-                Sql,
-                ignoreLineEndingDifferences: true);
+    ""Id"" INTEGER NOT NULL
+);",
+                @"INSERT INTO ""ef_temp_People"" (""Id"")
+SELECT ""Id""
+FROM People;",
+                @"PRAGMA foreign_keys = 0;",
+                @"DROP TABLE ""People"";",
+                @"ALTER TABLE ""ef_temp_People"" RENAME TO ""People"";",
+                @"PRAGMA foreign_keys = 1;");
         }
 
-        public override void Can_generate_down_script_using_names()
+        public override async Task Alter_table_remove_comment()
         {
-            base.Can_generate_down_script_using_names();
+            await base.Alter_table_remove_comment();
 
-            Assert.Equal(
-                @"ALTER TABLE ""Table1"" RENAME COLUMN ""Bar"" TO ""Foo"";
-
-DELETE FROM ""__EFMigrationsHistory""
-WHERE ""MigrationId"" = '00000000000002_Migration2';
-
-",
-                Sql,
-                ignoreLineEndingDifferences: true);
+            AssertSql(
+                @"CREATE TABLE ""ef_temp_People"" (
+    ""Id"" INTEGER NOT NULL
+);",
+                @"INSERT INTO ""ef_temp_People"" (""Id"")
+SELECT ""Id""
+FROM People;",
+                @"PRAGMA foreign_keys = 0;",
+                @"DROP TABLE ""People"";",
+                @"ALTER TABLE ""ef_temp_People"" RENAME TO ""People"";",
+                @"PRAGMA foreign_keys = 1;");
         }
 
-        public override void Can_generate_idempotent_down_scripts()
+        public override async Task Rename_table()
         {
-            Assert.Throws<NotSupportedException>(() => base.Can_generate_idempotent_down_scripts());
+            await base.Rename_table();
+
+            AssertSql(
+                @"ALTER TABLE ""People"" RENAME TO ""Persons"";");
         }
 
-        public override void Can_get_active_provider()
+        public override async Task Rename_table_with_primary_key()
         {
-            base.Can_get_active_provider();
+            await base.Rename_table_with_primary_key();
 
-            Assert.Equal("Microsoft.EntityFrameworkCore.Sqlite", ActiveProvider);
+            AssertSql(
+                @"ALTER TABLE ""People"" RENAME TO ""Persons"";",
+                //
+                @"CREATE TABLE ""ef_temp_Persons"" (
+    ""Id"" INTEGER NOT NULL CONSTRAINT ""PK_Persons"" PRIMARY KEY
+);",
+                //
+                @"INSERT INTO ""ef_temp_Persons"" (""Id"")
+SELECT ""Id""
+FROM Persons;",
+                //
+                @"PRAGMA foreign_keys = 0;",
+                //
+                @"DROP TABLE ""Persons"";",
+                //
+                @"ALTER TABLE ""ef_temp_Persons"" RENAME TO ""Persons"";",
+                //
+                @"PRAGMA foreign_keys = 1;");
         }
 
-        protected override void AssertFirstMigration(DbConnection connection)
+        // SQLite does not support schemas.
+        public override async Task Move_table()
         {
-            var sql = GetDatabaseSchemaAsync(connection);
-            Assert.Equal(
-                @"
-CreatedTable
-    Id INTEGER NOT NULL
-    ColumnWithDefaultToDrop INTEGER NULL DEFAULT 0
-    ColumnWithDefaultToAlter INTEGER NULL DEFAULT 1
+            await base.Move_table();
 
-Foos
-    Id INTEGER NOT NULL
-
-sqlite_sequence
-    name  NULL
-    seq  NULL
-",
-                sql,
-                ignoreLineEndingDifferences: true);
+            AssertSql();
         }
 
-        protected override void BuildSecondMigration(MigrationBuilder migrationBuilder)
+        // SQLite does not support schemas
+        public override async Task Create_schema()
         {
-            base.BuildSecondMigration(migrationBuilder);
+            await base.Create_schema();
 
-            for (var i = migrationBuilder.Operations.Count - 1; i >= 0; i--)
+            AssertSql(
+                @"CREATE TABLE ""People"" (
+    ""Id"" INTEGER NOT NULL
+);");
+        }
+
+        public override async Task Add_column_with_defaultValue_datetime()
+        {
+            await base.Add_column_with_defaultValue_datetime();
+
+            AssertSql(
+                @"ALTER TABLE ""People"" ADD ""Birthday"" TEXT NOT NULL DEFAULT '2015-04-12 17:05:00';");
+        }
+
+        public override async Task Add_column_with_defaultValueSql()
+        {
+            if (new Version(new SqliteConnection().ServerVersion) < new Version(3, 32, 0))
             {
-                var operation = migrationBuilder.Operations[i];
-                if (operation is AlterColumnOperation
-                    || operation is DropColumnOperation)
-                {
-                    migrationBuilder.Operations.RemoveAt(i);
-                }
+                var ex = await Assert.ThrowsAsync<SqliteException>(base.Add_column_with_defaultValueSql);
+                Assert.Contains("Cannot add a column with non-constant default", ex.Message);
+
+                return;
+            }
+
+            await base.Add_column_with_defaultValueSql();
+
+            AssertSql(
+                @"ALTER TABLE ""People"" ADD ""Sum"" INTEGER NULL DEFAULT (1 + 2);");
+        }
+
+        public override async Task Add_column_with_computedSql(bool? stored)
+        {
+            if (stored == true && new Version(new SqliteConnection().ServerVersion) < new Version(3, 32, 0))
+            {
+                var ex = await Assert.ThrowsAsync<SqliteException>
+                    (() => base.Add_column_with_computedSql(stored));
+                Assert.Contains("cannot add a STORED column", ex.Message);
+                return;
+            }
+
+            await base.Add_column_with_computedSql(stored);
+
+            var storedSql = stored == true ? " STORED" : "";
+
+            AssertSql(
+                $@"ALTER TABLE ""People"" ADD ""Sum"" AS (""X"" + ""Y""){storedSql};");
+        }
+
+        public override async Task Add_column_with_max_length()
+        {
+            await base.Add_column_with_max_length();
+
+            // See issue #3698
+            AssertSql(
+                @"ALTER TABLE ""People"" ADD ""Name"" TEXT NULL;");
+        }
+
+        public override async Task Add_column_with_comment()
+        {
+            await base.Add_column_with_comment();
+
+            AssertSql(
+                @"ALTER TABLE ""People"" ADD ""FullName"" TEXT NULL;",
+                //
+                @"CREATE TABLE ""ef_temp_People"" (
+    -- My comment
+    ""FullName"" TEXT NULL,
+
+    ""Id"" INTEGER NOT NULL
+);",
+                //
+                @"INSERT INTO ""ef_temp_People"" (""FullName"", ""Id"")
+SELECT ""FullName"", ""Id""
+FROM People;",
+                //
+                @"PRAGMA foreign_keys = 0;",
+                //
+                @"DROP TABLE ""People"";",
+                //
+                @"ALTER TABLE ""ef_temp_People"" RENAME TO ""People"";",
+                //
+                @"PRAGMA foreign_keys = 1;");
+        }
+
+        public override async Task Add_column_with_collation()
+        {
+            await base.Add_column_with_collation();
+
+            AssertSql(
+                @"ALTER TABLE ""People"" ADD ""Name"" TEXT COLLATE NOCASE NULL;");
+        }
+
+        public override async Task Add_column_computed_with_collation()
+        {
+            await base.Add_column_computed_with_collation();
+
+            AssertSql(
+                @"ALTER TABLE ""People"" ADD ""Name"" AS ('hello') COLLATE NOCASE;");
+        }
+
+        public override async Task Add_column_with_check_constraint()
+        {
+            await base.Add_column_with_check_constraint();
+
+            AssertSql(
+                @"ALTER TABLE ""People"" ADD ""DriverLicense"" INTEGER NOT NULL DEFAULT 0;",
+                @"CREATE TABLE ""ef_temp_People"" (
+    ""DriverLicense"" INTEGER NOT NULL,
+    ""Id"" INTEGER NOT NULL,
+    CONSTRAINT ""CK_Foo"" CHECK (""DriverLicense"" > 0)
+);",
+                @"INSERT INTO ""ef_temp_People"" (""DriverLicense"", ""Id"")
+SELECT ""DriverLicense"", ""Id""
+FROM People;",
+                @"PRAGMA foreign_keys = 0;",
+                @"DROP TABLE ""People"";",
+                @"ALTER TABLE ""ef_temp_People"" RENAME TO ""People"";",
+                @"PRAGMA foreign_keys = 1;");
+        }
+
+        public override async Task Alter_column_make_required()
+        {
+            await base.Alter_column_make_required();
+
+            AssertSql(
+                @"CREATE TABLE ""ef_temp_People"" (
+    ""Id"" INTEGER NOT NULL,
+    ""SomeColumn"" TEXT NOT NULL
+);",
+                @"INSERT INTO ""ef_temp_People"" (""Id"", ""SomeColumn"")
+SELECT ""Id"", IFNULL(""SomeColumn"", '')
+FROM People;",
+                @"PRAGMA foreign_keys = 0;",
+                @"DROP TABLE ""People"";",
+                @"ALTER TABLE ""ef_temp_People"" RENAME TO ""People"";",
+                @"PRAGMA foreign_keys = 1;");
+        }
+
+        public override async Task Alter_column_make_required_with_index()
+        {
+            await base.Alter_column_make_required_with_index();
+
+            AssertSql(
+                @"CREATE TABLE ""ef_temp_People"" (
+    ""Id"" INTEGER NOT NULL,
+    ""SomeColumn"" TEXT NOT NULL
+);",
+                @"INSERT INTO ""ef_temp_People"" (""Id"", ""SomeColumn"")
+SELECT ""Id"", IFNULL(""SomeColumn"", '')
+FROM People;",
+                @"PRAGMA foreign_keys = 0;",
+                @"DROP TABLE ""People"";",
+                @"ALTER TABLE ""ef_temp_People"" RENAME TO ""People"";",
+                @"PRAGMA foreign_keys = 1;",
+                @"CREATE INDEX ""IX_People_SomeColumn"" ON ""People"" (""SomeColumn"");");
+        }
+
+        public override async Task Alter_column_make_required_with_composite_index()
+        {
+            await base.Alter_column_make_required_with_composite_index();
+
+            AssertSql(
+                @"CREATE TABLE ""ef_temp_People"" (
+    ""FirstName"" TEXT NOT NULL,
+    ""Id"" INTEGER NOT NULL,
+    ""LastName"" TEXT NULL
+);",
+                @"INSERT INTO ""ef_temp_People"" (""FirstName"", ""Id"", ""LastName"")
+SELECT IFNULL(""FirstName"", ''), ""Id"", ""LastName""
+FROM People;",
+                @"PRAGMA foreign_keys = 0;",
+                @"DROP TABLE ""People"";",
+                @"ALTER TABLE ""ef_temp_People"" RENAME TO ""People"";",
+                @"PRAGMA foreign_keys = 1;",
+                @"CREATE INDEX ""IX_People_FirstName_LastName"" ON ""People"" (""FirstName"", ""LastName"");");
+        }
+
+        public override async Task Alter_column_make_computed(bool? stored)
+        {
+            await base.Alter_column_make_computed(stored);
+
+            var storedSql = stored == true ? " STORED" : "";
+
+            AssertSql(
+                $@"CREATE TABLE ""ef_temp_People"" (
+    ""Id"" INTEGER NOT NULL,
+    ""Sum"" AS (""X"" + ""Y""){storedSql},
+    ""X"" INTEGER NOT NULL,
+    ""Y"" INTEGER NOT NULL
+);",
+                @"INSERT INTO ""ef_temp_People"" (""Id"", ""X"", ""Y"")
+SELECT ""Id"", ""X"", ""Y""
+FROM People;",
+                @"PRAGMA foreign_keys = 0;",
+                @"DROP TABLE ""People"";",
+                @"ALTER TABLE ""ef_temp_People"" RENAME TO ""People"";",
+                @"PRAGMA foreign_keys = 1;");
+        }
+
+        public override async Task Alter_column_change_computed()
+        {
+            await base.Alter_column_change_computed();
+
+            AssertSql(
+                @"CREATE TABLE ""ef_temp_People"" (
+    ""Id"" INTEGER NOT NULL,
+    ""Sum"" AS (""X"" - ""Y""),
+    ""X"" INTEGER NOT NULL,
+    ""Y"" INTEGER NOT NULL
+);",
+                @"INSERT INTO ""ef_temp_People"" (""Id"", ""X"", ""Y"")
+SELECT ""Id"", ""X"", ""Y""
+FROM People;",
+                @"PRAGMA foreign_keys = 0;",
+                @"DROP TABLE ""People"";",
+                @"ALTER TABLE ""ef_temp_People"" RENAME TO ""People"";",
+                @"PRAGMA foreign_keys = 1;");
+        }
+
+        public override async Task Alter_column_change_computed_type()
+        {
+            await base.Alter_column_change_computed_type();
+
+            AssertSql(
+                @"CREATE TABLE ""ef_temp_People"" (
+    ""Id"" INTEGER NOT NULL,
+    ""Sum"" AS (""X"" + ""Y"") STORED,
+    ""X"" INTEGER NOT NULL,
+    ""Y"" INTEGER NOT NULL
+);",
+                @"INSERT INTO ""ef_temp_People"" (""Id"", ""X"", ""Y"")
+SELECT ""Id"", ""X"", ""Y""
+FROM People;",
+                @"PRAGMA foreign_keys = 0;",
+                @"DROP TABLE ""People"";",
+                @"ALTER TABLE ""ef_temp_People"" RENAME TO ""People"";",
+                @"PRAGMA foreign_keys = 1;");
+        }
+
+        public override async Task Alter_column_add_comment()
+        {
+            await base.Alter_column_add_comment();
+
+            AssertSql(
+                @"CREATE TABLE ""ef_temp_People"" (
+    -- Some comment
+    ""Id"" INTEGER NOT NULL
+);",
+                @"INSERT INTO ""ef_temp_People"" (""Id"")
+SELECT ""Id""
+FROM People;",
+                @"PRAGMA foreign_keys = 0;",
+                @"DROP TABLE ""People"";",
+                @"ALTER TABLE ""ef_temp_People"" RENAME TO ""People"";",
+                @"PRAGMA foreign_keys = 1;");
+        }
+
+        public override async Task Alter_column_change_comment()
+        {
+            await base.Alter_column_change_comment();
+
+            AssertSql(
+                @"CREATE TABLE ""ef_temp_People"" (
+    -- Some comment2
+    ""Id"" INTEGER NOT NULL
+);",
+                @"INSERT INTO ""ef_temp_People"" (""Id"")
+SELECT ""Id""
+FROM People;",
+                @"PRAGMA foreign_keys = 0;",
+                @"DROP TABLE ""People"";",
+                @"ALTER TABLE ""ef_temp_People"" RENAME TO ""People"";",
+                @"PRAGMA foreign_keys = 1;");
+        }
+
+        public override async Task Alter_column_remove_comment()
+        {
+            await base.Alter_column_remove_comment();
+
+            AssertSql(
+                @"CREATE TABLE ""ef_temp_People"" (
+    ""Id"" INTEGER NOT NULL
+);",
+                @"INSERT INTO ""ef_temp_People"" (""Id"")
+SELECT ""Id""
+FROM People;",
+                @"PRAGMA foreign_keys = 0;",
+                @"DROP TABLE ""People"";",
+                @"ALTER TABLE ""ef_temp_People"" RENAME TO ""People"";",
+                @"PRAGMA foreign_keys = 1;");
+        }
+
+        public override async Task Alter_column_set_collation()
+        {
+            await base.Alter_column_set_collation();
+
+            AssertSql(
+                @"CREATE TABLE ""ef_temp_People"" (
+    ""Name"" TEXT COLLATE NOCASE NULL
+);",
+                @"INSERT INTO ""ef_temp_People"" (""Name"")
+SELECT ""Name""
+FROM People;",
+                @"PRAGMA foreign_keys = 0;",
+                @"DROP TABLE ""People"";",
+                @"ALTER TABLE ""ef_temp_People"" RENAME TO ""People"";",
+                @"PRAGMA foreign_keys = 1;");
+        }
+
+        public override async Task Alter_column_reset_collation()
+        {
+            await base.Alter_column_reset_collation();
+
+            AssertSql(
+                @"CREATE TABLE ""ef_temp_People"" (
+    ""Name"" TEXT NULL
+);",
+                @"INSERT INTO ""ef_temp_People"" (""Name"")
+SELECT ""Name""
+FROM People;",
+                @"PRAGMA foreign_keys = 0;",
+                @"DROP TABLE ""People"";",
+                @"ALTER TABLE ""ef_temp_People"" RENAME TO ""People"";",
+                @"PRAGMA foreign_keys = 1;");
+        }
+
+        public override async Task Drop_column()
+        {
+            await base.Drop_column();
+
+            AssertSql(
+                @"CREATE TABLE ""ef_temp_People"" (
+    ""Id"" INTEGER NOT NULL
+);",
+                @"INSERT INTO ""ef_temp_People"" (""Id"")
+SELECT ""Id""
+FROM People;",
+                @"PRAGMA foreign_keys = 0;",
+                @"DROP TABLE ""People"";",
+                @"ALTER TABLE ""ef_temp_People"" RENAME TO ""People"";",
+                @"PRAGMA foreign_keys = 1;");
+        }
+
+        public override async Task Drop_column_primary_key()
+        {
+            await base.Drop_column_primary_key();
+
+            AssertSql(
+                @"CREATE TABLE ""ef_temp_People"" (
+    ""SomeColumn"" INTEGER NOT NULL
+);",
+                @"INSERT INTO ""ef_temp_People"" (""SomeColumn"")
+SELECT ""SomeColumn""
+FROM People;",
+                @"PRAGMA foreign_keys = 0;",
+                @"DROP TABLE ""People"";",
+                @"ALTER TABLE ""ef_temp_People"" RENAME TO ""People"";",
+                @"PRAGMA foreign_keys = 1;");
+        }
+
+        public override async Task Rename_column()
+        {
+            await base.Rename_column();
+
+            AssertSql(
+                @"ALTER TABLE ""People"" RENAME COLUMN ""SomeColumn"" TO ""SomeOtherColumn"";");
+        }
+
+        public override async Task Create_index_with_filter()
+        {
+            await base.Create_index_with_filter();
+
+            AssertSql(
+                @"CREATE INDEX ""IX_People_Name"" ON ""People"" (""Name"") WHERE ""Name"" IS NOT NULL;");
+        }
+
+        public override async Task Create_unique_index_with_filter()
+        {
+            await base.Create_unique_index_with_filter();
+
+            AssertSql(
+                @"CREATE UNIQUE INDEX ""IX_People_Name"" ON ""People"" (""Name"") WHERE ""Name"" IS NOT NULL AND ""Name"" <> '';");
+        }
+
+        public override async Task Rename_index()
+        {
+            await base.Rename_index();
+
+            AssertSql(
+                @"DROP INDEX ""Foo"";",
+                //
+                @"CREATE INDEX ""foo"" ON ""People"" (""FirstName"");");
+        }
+
+        public override async Task Add_primary_key()
+        {
+            await base.Add_primary_key();
+
+            AssertSql(
+                @"CREATE TABLE ""ef_temp_People"" (
+    ""SomeField"" INTEGER NOT NULL CONSTRAINT ""PK_People"" PRIMARY KEY
+);",
+                @"INSERT INTO ""ef_temp_People"" (""SomeField"")
+SELECT ""SomeField""
+FROM People;",
+                @"PRAGMA foreign_keys = 0;",
+                @"DROP TABLE ""People"";",
+                @"ALTER TABLE ""ef_temp_People"" RENAME TO ""People"";",
+                @"PRAGMA foreign_keys = 1;");
+        }
+
+        public override async Task Add_primary_key_with_name()
+        {
+            await base.Add_primary_key_with_name();
+
+            AssertSql(
+                @"CREATE TABLE ""ef_temp_People"" (
+    ""SomeField"" INTEGER NOT NULL CONSTRAINT ""PK_Foo"" PRIMARY KEY
+);",
+                @"INSERT INTO ""ef_temp_People"" (""SomeField"")
+SELECT ""SomeField""
+FROM People;",
+                @"PRAGMA foreign_keys = 0;",
+                @"DROP TABLE ""People"";",
+                @"ALTER TABLE ""ef_temp_People"" RENAME TO ""People"";",
+                @"PRAGMA foreign_keys = 1;");
+        }
+
+        public override async Task Add_primary_key_composite_with_name()
+        {
+            await base.Add_primary_key_composite_with_name();
+
+            AssertSql(
+                @"CREATE TABLE ""ef_temp_People"" (
+    ""SomeField1"" INTEGER NOT NULL,
+    ""SomeField2"" INTEGER NOT NULL,
+    CONSTRAINT ""PK_Foo"" PRIMARY KEY (""SomeField1"", ""SomeField2"")
+);",
+                @"INSERT INTO ""ef_temp_People"" (""SomeField1"", ""SomeField2"")
+SELECT ""SomeField1"", ""SomeField2""
+FROM People;",
+                @"PRAGMA foreign_keys = 0;",
+                @"DROP TABLE ""People"";",
+                @"ALTER TABLE ""ef_temp_People"" RENAME TO ""People"";",
+                @"PRAGMA foreign_keys = 1;");
+        }
+
+        public override async Task Drop_primary_key()
+        {
+            await base.Drop_primary_key();
+
+            AssertSql(
+                @"CREATE TABLE ""ef_temp_People"" (
+    ""SomeField"" INTEGER NOT NULL
+);",
+                @"INSERT INTO ""ef_temp_People"" (""SomeField"")
+SELECT ""SomeField""
+FROM People;",
+                @"PRAGMA foreign_keys = 0;",
+                @"DROP TABLE ""People"";",
+                @"ALTER TABLE ""ef_temp_People"" RENAME TO ""People"";",
+                @"PRAGMA foreign_keys = 1;");
+        }
+
+        public override async Task Add_foreign_key()
+        {
+            await base.Add_foreign_key();
+
+            AssertSql(
+                @"CREATE TABLE ""ef_temp_Orders"" (
+    ""CustomerId"" INTEGER NOT NULL,
+    ""Id"" INTEGER NOT NULL,
+    CONSTRAINT ""FK_Orders_Customers_CustomerId"" FOREIGN KEY (""CustomerId"") REFERENCES ""Customers"" (""Id"") ON DELETE RESTRICT
+);",
+                @"INSERT INTO ""ef_temp_Orders"" (""CustomerId"", ""Id"")
+SELECT ""CustomerId"", ""Id""
+FROM Orders;",
+                @"PRAGMA foreign_keys = 0;",
+                @"DROP TABLE ""Orders"";",
+                @"ALTER TABLE ""ef_temp_Orders"" RENAME TO ""Orders"";",
+                @"PRAGMA foreign_keys = 1;");
+        }
+
+        public override async Task Add_foreign_key_with_name()
+        {
+            await base.Add_foreign_key_with_name();
+
+            AssertSql(
+                @"CREATE TABLE ""ef_temp_Orders"" (
+    ""CustomerId"" INTEGER NOT NULL,
+    ""Id"" INTEGER NOT NULL,
+    CONSTRAINT ""FK_Foo"" FOREIGN KEY (""CustomerId"") REFERENCES ""Customers"" (""Id"") ON DELETE RESTRICT
+);",
+                @"INSERT INTO ""ef_temp_Orders"" (""CustomerId"", ""Id"")
+SELECT ""CustomerId"", ""Id""
+FROM Orders;",
+                @"PRAGMA foreign_keys = 0;",
+                @"DROP TABLE ""Orders"";",
+                @"ALTER TABLE ""ef_temp_Orders"" RENAME TO ""Orders"";",
+                @"PRAGMA foreign_keys = 1;");
+        }
+
+        public override async Task Drop_foreign_key()
+        {
+            await base.Drop_foreign_key();
+
+            AssertSql(
+                @"CREATE TABLE ""ef_temp_Orders"" (
+    ""CustomerId"" INTEGER NOT NULL,
+    ""Id"" INTEGER NOT NULL
+);",
+                @"INSERT INTO ""ef_temp_Orders"" (""CustomerId"", ""Id"")
+SELECT ""CustomerId"", ""Id""
+FROM Orders;",
+                @"PRAGMA foreign_keys = 0;",
+                @"DROP TABLE ""Orders"";",
+                @"ALTER TABLE ""ef_temp_Orders"" RENAME TO ""Orders"";",
+                @"PRAGMA foreign_keys = 1;");
+        }
+
+        public override async Task Add_unique_constraint()
+        {
+            await base.Add_unique_constraint();
+
+            AssertSql(
+                @"CREATE TABLE ""ef_temp_People"" (
+    ""AlternateKeyColumn"" INTEGER NOT NULL,
+    ""Id"" INTEGER NOT NULL,
+    CONSTRAINT ""AK_People_AlternateKeyColumn"" UNIQUE (""AlternateKeyColumn"")
+);",
+                @"INSERT INTO ""ef_temp_People"" (""AlternateKeyColumn"", ""Id"")
+SELECT ""AlternateKeyColumn"", ""Id""
+FROM People;",
+                @"PRAGMA foreign_keys = 0;",
+                @"DROP TABLE ""People"";",
+                @"ALTER TABLE ""ef_temp_People"" RENAME TO ""People"";",
+                @"PRAGMA foreign_keys = 1;");
+        }
+
+        public override async Task Add_unique_constraint_composite_with_name()
+        {
+            await base.Add_unique_constraint_composite_with_name();
+
+            AssertSql(
+                @"CREATE TABLE ""ef_temp_People"" (
+    ""AlternateKeyColumn1"" INTEGER NOT NULL,
+    ""AlternateKeyColumn2"" INTEGER NOT NULL,
+    ""Id"" INTEGER NOT NULL,
+    CONSTRAINT ""AK_Foo"" UNIQUE (""AlternateKeyColumn1"", ""AlternateKeyColumn2"")
+);",
+                @"INSERT INTO ""ef_temp_People"" (""AlternateKeyColumn1"", ""AlternateKeyColumn2"", ""Id"")
+SELECT ""AlternateKeyColumn1"", ""AlternateKeyColumn2"", ""Id""
+FROM People;",
+                @"PRAGMA foreign_keys = 0;",
+                @"DROP TABLE ""People"";",
+                @"ALTER TABLE ""ef_temp_People"" RENAME TO ""People"";",
+                @"PRAGMA foreign_keys = 1;");
+        }
+
+        public override async Task Drop_unique_constraint()
+        {
+            await base.Drop_unique_constraint();
+
+            AssertSql(
+                @"CREATE TABLE ""ef_temp_People"" (
+    ""AlternateKeyColumn"" INTEGER NOT NULL,
+    ""Id"" INTEGER NOT NULL
+);",
+                @"INSERT INTO ""ef_temp_People"" (""AlternateKeyColumn"", ""Id"")
+SELECT ""AlternateKeyColumn"", ""Id""
+FROM People;",
+                @"PRAGMA foreign_keys = 0;",
+                @"DROP TABLE ""People"";",
+                @"ALTER TABLE ""ef_temp_People"" RENAME TO ""People"";",
+                @"PRAGMA foreign_keys = 1;");
+        }
+
+        public override async Task Add_check_constraint_with_name()
+        {
+            await base.Add_check_constraint_with_name();
+
+            AssertSql(
+                @"CREATE TABLE ""ef_temp_People"" (
+    ""DriverLicense"" INTEGER NOT NULL,
+    ""Id"" INTEGER NOT NULL,
+    CONSTRAINT ""CK_Foo"" CHECK (""DriverLicense"" > 0)
+);",
+                @"INSERT INTO ""ef_temp_People"" (""DriverLicense"", ""Id"")
+SELECT ""DriverLicense"", ""Id""
+FROM People;",
+                @"PRAGMA foreign_keys = 0;",
+                @"DROP TABLE ""People"";",
+                @"ALTER TABLE ""ef_temp_People"" RENAME TO ""People"";",
+                @"PRAGMA foreign_keys = 1;");
+        }
+
+        public override async Task Alter_check_constraint()
+        {
+            await base.Alter_check_constraint();
+
+            AssertSql(
+                @"CREATE TABLE ""ef_temp_People"" (
+    ""DriverLicense"" INTEGER NOT NULL,
+    ""Id"" INTEGER NOT NULL,
+    CONSTRAINT ""CK_Foo"" CHECK (""DriverLicense"" > 1)
+);",
+                @"INSERT INTO ""ef_temp_People"" (""DriverLicense"", ""Id"")
+SELECT ""DriverLicense"", ""Id""
+FROM People;",
+                @"PRAGMA foreign_keys = 0;",
+                @"DROP TABLE ""People"";",
+                @"ALTER TABLE ""ef_temp_People"" RENAME TO ""People"";",
+                @"PRAGMA foreign_keys = 1;");
+        }
+
+        public override async Task Drop_check_constraint()
+        {
+            await base.Drop_check_constraint();
+
+            AssertSql(
+                @"CREATE TABLE ""ef_temp_People"" (
+    ""DriverLicense"" INTEGER NOT NULL,
+    ""Id"" INTEGER NOT NULL
+);",
+                @"INSERT INTO ""ef_temp_People"" (""DriverLicense"", ""Id"")
+SELECT ""DriverLicense"", ""Id""
+FROM People;",
+                @"PRAGMA foreign_keys = 0;",
+                @"DROP TABLE ""People"";",
+                @"ALTER TABLE ""ef_temp_People"" RENAME TO ""People"";",
+                @"PRAGMA foreign_keys = 1;");
+        }
+
+        public override Task Create_sequence()
+            => AssertNotSupportedAsync(base.Create_sequence, SqliteStrings.SequencesNotSupported);
+
+        public override Task Create_sequence_all_settings()
+            => AssertNotSupportedAsync(base.Create_sequence, SqliteStrings.SequencesNotSupported);
+
+        public override Task Alter_sequence_all_settings()
+            => AssertNotSupportedAsync(base.Create_sequence, SqliteStrings.SequencesNotSupported);
+
+        public override Task Alter_sequence_increment_by()
+            => AssertNotSupportedAsync(base.Create_sequence, SqliteStrings.SequencesNotSupported);
+
+        public override Task Drop_sequence()
+            => AssertNotSupportedAsync(base.Create_sequence, SqliteStrings.SequencesNotSupported);
+
+        public override Task Rename_sequence()
+            => AssertNotSupportedAsync(base.Create_sequence, SqliteStrings.SequencesNotSupported);
+
+        public override Task Move_sequence()
+            => AssertNotSupportedAsync(base.Create_sequence, SqliteStrings.SequencesNotSupported);
+
+        // SQLite does not support schemas
+        protected override bool AssertSchemaNames
+            => false;
+
+        // Reverse-engineering of comments isn't supported in Sqlite
+        protected override bool AssertComments
+            => false;
+
+        // Reverse engineering of computed columns isn't fully supported on SQLite
+        protected override bool AssertComputedColumns
+            => false;
+
+        // Our current version Sqlite doesn't seem to support scaffolding collations
+        protected override bool AssertCollations
+            => false;
+
+        // Reverse engineering of index filters isn't supported in SQLite
+        protected override bool AssertIndexFilters
+            => false;
+
+        // Reverse engineering of constraint names isn't supported in SQLite
+        protected override bool AssertConstraintNames
+            => false;
+
+        protected override string NonDefaultCollation
+            => "NOCASE";
+
+        protected virtual async Task AssertNotSupportedAsync(Func<Task> action, string? message = null)
+        {
+            var ex = await Assert.ThrowsAsync<NotSupportedException>(action);
+            if (message != null)
+            {
+                Assert.Equal(message, ex.Message);
             }
         }
 
-        protected override void AssertSecondMigration(DbConnection connection)
+        public class MigrationsSqliteFixture : MigrationsFixtureBase
         {
-            var sql = GetDatabaseSchemaAsync(connection);
-            Assert.Equal(
-                @"
-CreatedTable
-    Id INTEGER NOT NULL
-    ColumnWithDefaultToDrop INTEGER NULL DEFAULT 0
-    ColumnWithDefaultToAlter INTEGER NULL DEFAULT 1
+            protected override string StoreName { get; } = nameof(MigrationsSqliteTest);
 
-Foos
-    Id INTEGER NOT NULL
+            protected override ITestStoreFactory TestStoreFactory
+                => SqliteTestStoreFactory.Instance;
 
-sqlite_sequence
-    name  NULL
-    seq  NULL
-",
-                sql,
-                ignoreLineEndingDifferences: true);
-        }
+            public override TestHelpers TestHelpers
+                => SqliteTestHelpers.Instance;
 
-        private string GetDatabaseSchemaAsync(DbConnection connection)
-        {
-            var builder = new IndentedStringBuilder();
-
-            using (var command = connection.CreateCommand())
-            {
-                command.CommandText = @"
-                    SELECT name
-                    FROM sqlite_master
-                    WHERE type = 'table'
-                    ORDER BY name;";
-
-                var tables = new List<string>();
-                using (var reader = command.ExecuteReader())
-                {
-                    while (reader.Read())
-                    {
-                        tables.Add(reader.GetString(0));
-                    }
-                }
-
-                var first = true;
-                foreach (var table in tables)
-                {
-                    if (first)
-                    {
-                        first = false;
-                    }
-                    else
-                    {
-                        builder.DecrementIndent();
-                    }
-
-                    builder
-                        .AppendLine()
-                        .AppendLine(table)
-                        .IncrementIndent();
-
-                    command.CommandText = "PRAGMA table_info(" + table + ");";
-                    using var reader = command.ExecuteReader();
-                    while (reader.Read())
-                    {
-                        builder
-                            .Append(reader[1]) // Name
-                            .Append(" ")
-                            .Append(reader[2]) // Type
-                            .Append(" ")
-                            .Append(reader.GetBoolean(3) ? "NOT NULL" : "NULL");
-
-                        if (!reader.IsDBNull(4))
-                        {
-                            builder
-                                .Append(" DEFAULT ")
-                                .Append(reader[4]);
-                        }
-
-                        builder.AppendLine();
-                    }
-                }
-            }
-
-            return builder.ToString();
-        }
-
-        public override void Can_diff_against_2_2_model()
-        {
-            using var context = new BloggingContext();
-            DiffSnapshot(new BloggingContextModelSnapshot22(), context);
-        }
-
-        public class BloggingContextModelSnapshot22 : ModelSnapshot
-        {
-            protected override void BuildModel(ModelBuilder modelBuilder)
-            {
-#pragma warning disable 612, 618
-                modelBuilder
-                    .HasAnnotation("ProductVersion", "2.2.4-servicing-10062");
-
-                modelBuilder.Entity(
-                    "ModelSnapshot22.Blog", b =>
-                    {
-                        b.Property<int>("Id")
-                            .ValueGeneratedOnAdd();
-
-                        b.Property<string>("Name");
-
-                        b.HasKey("Id");
-
-                        b.ToTable("Blogs");
-                    });
-
-                modelBuilder.Entity(
-                    "ModelSnapshot22.Post", b =>
-                    {
-                        b.Property<int>("Id")
-                            .ValueGeneratedOnAdd();
-
-                        b.Property<int?>("BlogId");
-
-                        b.Property<string>("Content");
-
-                        b.Property<DateTime>("EditDate");
-
-                        b.Property<string>("Title");
-
-                        b.HasKey("Id");
-
-                        b.HasIndex("BlogId");
-
-                        b.ToTable("Post");
-                    });
-
-                modelBuilder.Entity(
-                    "ModelSnapshot22.Post", b =>
-                    {
-                        b.HasOne("ModelSnapshot22.Blog", "Blog")
-                            .WithMany("Posts")
-                            .HasForeignKey("BlogId");
-                    });
-#pragma warning restore 612, 618
-            }
-        }
-
-        public class AspNetIdentity21ModelSnapshot : ModelSnapshot
-        {
-            protected override void BuildModel(ModelBuilder modelBuilder)
-            {
-#pragma warning disable 612, 618
-                modelBuilder
-                    .HasAnnotation("ProductVersion", "2.1.0");
-
-                modelBuilder.Entity(
-                    "Microsoft.AspNetCore.Identity.IdentityRole", b =>
-                    {
-                        b.Property<string>("Id")
-                            .ValueGeneratedOnAdd();
-
-                        b.Property<string>("ConcurrencyStamp")
-                            .IsConcurrencyToken();
-
-                        b.Property<string>("Name")
-                            .HasMaxLength(256);
-
-                        b.Property<string>("NormalizedName")
-                            .HasMaxLength(256);
-
-                        b.HasKey("Id");
-
-                        b.HasIndex("NormalizedName")
-                            .IsUnique()
-                            .HasName("RoleNameIndex");
-
-                        b.ToTable("AspNetRoles");
-                    });
-
-                modelBuilder.Entity(
-                    "Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>", b =>
-                    {
-                        b.Property<int>("Id")
-                            .ValueGeneratedOnAdd();
-
-                        b.Property<string>("ClaimType");
-
-                        b.Property<string>("ClaimValue");
-
-                        b.Property<string>("RoleId")
-                            .IsRequired();
-
-                        b.HasKey("Id");
-
-                        b.HasIndex("RoleId");
-
-                        b.ToTable("AspNetRoleClaims");
-                    });
-
-                modelBuilder.Entity(
-                    "Microsoft.AspNetCore.Identity.IdentityUser", b =>
-                    {
-                        b.Property<string>("Id")
-                            .ValueGeneratedOnAdd();
-
-                        b.Property<int>("AccessFailedCount");
-
-                        b.Property<string>("ConcurrencyStamp")
-                            .IsConcurrencyToken();
-
-                        b.Property<string>("Email")
-                            .HasMaxLength(256);
-
-                        b.Property<bool>("EmailConfirmed");
-
-                        b.Property<bool>("LockoutEnabled");
-
-                        b.Property<DateTimeOffset?>("LockoutEnd");
-
-                        b.Property<string>("NormalizedEmail")
-                            .HasMaxLength(256);
-
-                        b.Property<string>("NormalizedUserName")
-                            .HasMaxLength(256);
-
-                        b.Property<string>("PasswordHash");
-
-                        b.Property<string>("PhoneNumber");
-
-                        b.Property<bool>("PhoneNumberConfirmed");
-
-                        b.Property<string>("SecurityStamp");
-
-                        b.Property<bool>("TwoFactorEnabled");
-
-                        b.Property<string>("UserName")
-                            .HasMaxLength(256);
-
-                        b.HasKey("Id");
-
-                        b.HasIndex("NormalizedEmail")
-                            .HasName("EmailIndex");
-
-                        b.HasIndex("NormalizedUserName")
-                            .IsUnique()
-                            .HasName("UserNameIndex");
-
-                        b.ToTable("AspNetUsers");
-                    });
-
-                modelBuilder.Entity(
-                    "Microsoft.AspNetCore.Identity.IdentityUserClaim<string>", b =>
-                    {
-                        b.Property<int>("Id")
-                            .ValueGeneratedOnAdd();
-
-                        b.Property<string>("ClaimType");
-
-                        b.Property<string>("ClaimValue");
-
-                        b.Property<string>("UserId")
-                            .IsRequired();
-
-                        b.HasKey("Id");
-
-                        b.HasIndex("UserId");
-
-                        b.ToTable("AspNetUserClaims");
-                    });
-
-                modelBuilder.Entity(
-                    "Microsoft.AspNetCore.Identity.IdentityUserLogin<string>", b =>
-                    {
-                        b.Property<string>("LoginProvider")
-                            .HasMaxLength(128);
-
-                        b.Property<string>("ProviderKey")
-                            .HasMaxLength(128);
-
-                        b.Property<string>("ProviderDisplayName");
-
-                        b.Property<string>("UserId")
-                            .IsRequired();
-
-                        b.HasKey("LoginProvider", "ProviderKey");
-
-                        b.HasIndex("UserId");
-
-                        b.ToTable("AspNetUserLogins");
-                    });
-
-                modelBuilder.Entity(
-                    "Microsoft.AspNetCore.Identity.IdentityUserRole<string>", b =>
-                    {
-                        b.Property<string>("UserId");
-
-                        b.Property<string>("RoleId");
-
-                        b.HasKey("UserId", "RoleId");
-
-                        b.HasIndex("RoleId");
-
-                        b.ToTable("AspNetUserRoles");
-                    });
-
-                modelBuilder.Entity(
-                    "Microsoft.AspNetCore.Identity.IdentityUserToken<string>", b =>
-                    {
-                        b.Property<string>("UserId");
-
-                        b.Property<string>("LoginProvider")
-                            .HasMaxLength(128);
-
-                        b.Property<string>("Name")
-                            .HasMaxLength(128);
-
-                        b.Property<string>("Value");
-
-                        b.HasKey("UserId", "LoginProvider", "Name");
-
-                        b.ToTable("AspNetUserTokens");
-                    });
-
-                modelBuilder.Entity(
-                    "Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>", b =>
-                    {
-                        b.HasOne("Microsoft.AspNetCore.Identity.IdentityRole")
-                            .WithMany()
-                            .HasForeignKey("RoleId")
-                            .OnDelete(DeleteBehavior.Cascade);
-                    });
-
-                modelBuilder.Entity(
-                    "Microsoft.AspNetCore.Identity.IdentityUserClaim<string>", b =>
-                    {
-                        b.HasOne("Microsoft.AspNetCore.Identity.IdentityUser")
-                            .WithMany()
-                            .HasForeignKey("UserId")
-                            .OnDelete(DeleteBehavior.Cascade);
-                    });
-
-                modelBuilder.Entity(
-                    "Microsoft.AspNetCore.Identity.IdentityUserLogin<string>", b =>
-                    {
-                        b.HasOne("Microsoft.AspNetCore.Identity.IdentityUser")
-                            .WithMany()
-                            .HasForeignKey("UserId")
-                            .OnDelete(DeleteBehavior.Cascade);
-                    });
-
-                modelBuilder.Entity(
-                    "Microsoft.AspNetCore.Identity.IdentityUserRole<string>", b =>
-                    {
-                        b.HasOne("Microsoft.AspNetCore.Identity.IdentityRole")
-                            .WithMany()
-                            .HasForeignKey("RoleId")
-                            .OnDelete(DeleteBehavior.Cascade);
-
-                        b.HasOne("Microsoft.AspNetCore.Identity.IdentityUser")
-                            .WithMany()
-                            .HasForeignKey("UserId")
-                            .OnDelete(DeleteBehavior.Cascade);
-                    });
-
-                modelBuilder.Entity(
-                    "Microsoft.AspNetCore.Identity.IdentityUserToken<string>", b =>
-                    {
-                        b.HasOne("Microsoft.AspNetCore.Identity.IdentityUser")
-                            .WithMany()
-                            .HasForeignKey("UserId")
-                            .OnDelete(DeleteBehavior.Cascade);
-                    });
-#pragma warning restore 612, 618
-            }
-        }
-
-        public override void Can_diff_against_2_1_ASP_NET_Identity_model()
-        {
-            using var context = new ApplicationDbContext();
-            DiffSnapshot(new AspNetIdentity21ModelSnapshot(), context);
-        }
-
-        public class AspNetIdentity22ModelSnapshot : ModelSnapshot
-        {
-            protected override void BuildModel(ModelBuilder modelBuilder)
-            {
-#pragma warning disable 612, 618
-                modelBuilder
-                    .HasAnnotation("ProductVersion", "2.2.0-preview1");
-
-                modelBuilder.Entity(
-                    "Microsoft.AspNetCore.Identity.IdentityRole", b =>
-                    {
-                        b.Property<string>("Id")
-                            .ValueGeneratedOnAdd();
-
-                        b.Property<string>("ConcurrencyStamp")
-                            .IsConcurrencyToken();
-
-                        b.Property<string>("Name")
-                            .HasMaxLength(256);
-
-                        b.Property<string>("NormalizedName")
-                            .HasMaxLength(256);
-
-                        b.HasKey("Id");
-
-                        b.HasIndex("NormalizedName")
-                            .IsUnique()
-                            .HasName("RoleNameIndex");
-
-                        b.ToTable("AspNetRoles");
-                    });
-
-                modelBuilder.Entity(
-                    "Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>", b =>
-                    {
-                        b.Property<int>("Id")
-                            .ValueGeneratedOnAdd();
-
-                        b.Property<string>("ClaimType");
-
-                        b.Property<string>("ClaimValue");
-
-                        b.Property<string>("RoleId")
-                            .IsRequired();
-
-                        b.HasKey("Id");
-
-                        b.HasIndex("RoleId");
-
-                        b.ToTable("AspNetRoleClaims");
-                    });
-
-                modelBuilder.Entity(
-                    "Microsoft.AspNetCore.Identity.IdentityUser", b =>
-                    {
-                        b.Property<string>("Id")
-                            .ValueGeneratedOnAdd();
-
-                        b.Property<int>("AccessFailedCount");
-
-                        b.Property<string>("ConcurrencyStamp")
-                            .IsConcurrencyToken();
-
-                        b.Property<string>("Email")
-                            .HasMaxLength(256);
-
-                        b.Property<bool>("EmailConfirmed");
-
-                        b.Property<bool>("LockoutEnabled");
-
-                        b.Property<DateTimeOffset?>("LockoutEnd");
-
-                        b.Property<string>("NormalizedEmail")
-                            .HasMaxLength(256);
-
-                        b.Property<string>("NormalizedUserName")
-                            .HasMaxLength(256);
-
-                        b.Property<string>("PasswordHash");
-
-                        b.Property<string>("PhoneNumber");
-
-                        b.Property<bool>("PhoneNumberConfirmed");
-
-                        b.Property<string>("SecurityStamp");
-
-                        b.Property<bool>("TwoFactorEnabled");
-
-                        b.Property<string>("UserName")
-                            .HasMaxLength(256);
-
-                        b.HasKey("Id");
-
-                        b.HasIndex("NormalizedEmail")
-                            .HasName("EmailIndex");
-
-                        b.HasIndex("NormalizedUserName")
-                            .IsUnique()
-                            .HasName("UserNameIndex");
-
-                        b.ToTable("AspNetUsers");
-                    });
-
-                modelBuilder.Entity(
-                    "Microsoft.AspNetCore.Identity.IdentityUserClaim<string>", b =>
-                    {
-                        b.Property<int>("Id")
-                            .ValueGeneratedOnAdd();
-
-                        b.Property<string>("ClaimType");
-
-                        b.Property<string>("ClaimValue");
-
-                        b.Property<string>("UserId")
-                            .IsRequired();
-
-                        b.HasKey("Id");
-
-                        b.HasIndex("UserId");
-
-                        b.ToTable("AspNetUserClaims");
-                    });
-
-                modelBuilder.Entity(
-                    "Microsoft.AspNetCore.Identity.IdentityUserLogin<string>", b =>
-                    {
-                        b.Property<string>("LoginProvider")
-                            .HasMaxLength(128);
-
-                        b.Property<string>("ProviderKey")
-                            .HasMaxLength(128);
-
-                        b.Property<string>("ProviderDisplayName");
-
-                        b.Property<string>("UserId")
-                            .IsRequired();
-
-                        b.HasKey("LoginProvider", "ProviderKey");
-
-                        b.HasIndex("UserId");
-
-                        b.ToTable("AspNetUserLogins");
-                    });
-
-                modelBuilder.Entity(
-                    "Microsoft.AspNetCore.Identity.IdentityUserRole<string>", b =>
-                    {
-                        b.Property<string>("UserId");
-
-                        b.Property<string>("RoleId");
-
-                        b.HasKey("UserId", "RoleId");
-
-                        b.HasIndex("RoleId");
-
-                        b.ToTable("AspNetUserRoles");
-                    });
-
-                modelBuilder.Entity(
-                    "Microsoft.AspNetCore.Identity.IdentityUserToken<string>", b =>
-                    {
-                        b.Property<string>("UserId");
-
-                        b.Property<string>("LoginProvider")
-                            .HasMaxLength(128);
-
-                        b.Property<string>("Name")
-                            .HasMaxLength(128);
-
-                        b.Property<string>("Value");
-
-                        b.HasKey("UserId", "LoginProvider", "Name");
-
-                        b.ToTable("AspNetUserTokens");
-                    });
-
-                modelBuilder.Entity(
-                    "Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>", b =>
-                    {
-                        b.HasOne("Microsoft.AspNetCore.Identity.IdentityRole")
-                            .WithMany()
-                            .HasForeignKey("RoleId")
-                            .OnDelete(DeleteBehavior.Cascade);
-                    });
-
-                modelBuilder.Entity(
-                    "Microsoft.AspNetCore.Identity.IdentityUserClaim<string>", b =>
-                    {
-                        b.HasOne("Microsoft.AspNetCore.Identity.IdentityUser")
-                            .WithMany()
-                            .HasForeignKey("UserId")
-                            .OnDelete(DeleteBehavior.Cascade);
-                    });
-
-                modelBuilder.Entity(
-                    "Microsoft.AspNetCore.Identity.IdentityUserLogin<string>", b =>
-                    {
-                        b.HasOne("Microsoft.AspNetCore.Identity.IdentityUser")
-                            .WithMany()
-                            .HasForeignKey("UserId")
-                            .OnDelete(DeleteBehavior.Cascade);
-                    });
-
-                modelBuilder.Entity(
-                    "Microsoft.AspNetCore.Identity.IdentityUserRole<string>", b =>
-                    {
-                        b.HasOne("Microsoft.AspNetCore.Identity.IdentityRole")
-                            .WithMany()
-                            .HasForeignKey("RoleId")
-                            .OnDelete(DeleteBehavior.Cascade);
-
-                        b.HasOne("Microsoft.AspNetCore.Identity.IdentityUser")
-                            .WithMany()
-                            .HasForeignKey("UserId")
-                            .OnDelete(DeleteBehavior.Cascade);
-                    });
-
-                modelBuilder.Entity(
-                    "Microsoft.AspNetCore.Identity.IdentityUserToken<string>", b =>
-                    {
-                        b.HasOne("Microsoft.AspNetCore.Identity.IdentityUser")
-                            .WithMany()
-                            .HasForeignKey("UserId")
-                            .OnDelete(DeleteBehavior.Cascade);
-                    });
-#pragma warning restore 612, 618
-            }
-        }
-
-        public override void Can_diff_against_2_2_ASP_NET_Identity_model()
-        {
-            using var context = new ApplicationDbContext();
-            DiffSnapshot(new AspNetIdentity22ModelSnapshot(), context);
-        }
-
-        public class AspNetIdentity30ModelSnapshot : ModelSnapshot
-        {
-            protected override void BuildModel(ModelBuilder modelBuilder)
-            {
-#pragma warning disable 612, 618
-                modelBuilder
-                    .HasAnnotation("ProductVersion", "3.0.0");
-
-                modelBuilder.Entity(
-                    "Microsoft.AspNetCore.Identity.IdentityRole", b =>
-                    {
-                        b.Property<string>("Id")
-                            .HasColumnType("TEXT");
-
-                        b.Property<string>("ConcurrencyStamp")
-                            .IsConcurrencyToken()
-                            .HasColumnType("TEXT");
-
-                        b.Property<string>("Name")
-                            .HasColumnType("TEXT")
-                            .HasMaxLength(256);
-
-                        b.Property<string>("NormalizedName")
-                            .HasColumnType("TEXT")
-                            .HasMaxLength(256);
-
-                        b.HasKey("Id");
-
-                        b.HasIndex("NormalizedName")
-                            .IsUnique()
-                            .HasName("RoleNameIndex");
-
-                        b.ToTable("AspNetRoles");
-                    });
-
-                modelBuilder.Entity(
-                    "Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>", b =>
-                    {
-                        b.Property<int>("Id")
-                            .ValueGeneratedOnAdd()
-                            .HasColumnType("INTEGER");
-
-                        b.Property<string>("ClaimType")
-                            .HasColumnType("TEXT");
-
-                        b.Property<string>("ClaimValue")
-                            .HasColumnType("TEXT");
-
-                        b.Property<string>("RoleId")
-                            .IsRequired()
-                            .HasColumnType("TEXT");
-
-                        b.HasKey("Id");
-
-                        b.HasIndex("RoleId");
-
-                        b.ToTable("AspNetRoleClaims");
-                    });
-
-                modelBuilder.Entity(
-                    "Microsoft.AspNetCore.Identity.IdentityUser", b =>
-                    {
-                        b.Property<string>("Id")
-                            .HasColumnType("TEXT");
-
-                        b.Property<int>("AccessFailedCount")
-                            .HasColumnType("INTEGER");
-
-                        b.Property<string>("ConcurrencyStamp")
-                            .IsConcurrencyToken()
-                            .HasColumnType("TEXT");
-
-                        b.Property<string>("Email")
-                            .HasColumnType("TEXT")
-                            .HasMaxLength(256);
-
-                        b.Property<bool>("EmailConfirmed")
-                            .HasColumnType("INTEGER");
-
-                        b.Property<bool>("LockoutEnabled")
-                            .HasColumnType("INTEGER");
-
-                        b.Property<DateTimeOffset?>("LockoutEnd")
-                            .HasColumnType("TEXT");
-
-                        b.Property<string>("NormalizedEmail")
-                            .HasColumnType("TEXT")
-                            .HasMaxLength(256);
-
-                        b.Property<string>("NormalizedUserName")
-                            .HasColumnType("TEXT")
-                            .HasMaxLength(256);
-
-                        b.Property<string>("PasswordHash")
-                            .HasColumnType("TEXT");
-
-                        b.Property<string>("PhoneNumber")
-                            .HasColumnType("TEXT");
-
-                        b.Property<bool>("PhoneNumberConfirmed")
-                            .HasColumnType("INTEGER");
-
-                        b.Property<string>("SecurityStamp")
-                            .HasColumnType("TEXT");
-
-                        b.Property<bool>("TwoFactorEnabled")
-                            .HasColumnType("INTEGER");
-
-                        b.Property<string>("UserName")
-                            .HasColumnType("TEXT")
-                            .HasMaxLength(256);
-
-                        b.HasKey("Id");
-
-                        b.HasIndex("NormalizedEmail")
-                            .HasName("EmailIndex");
-
-                        b.HasIndex("NormalizedUserName")
-                            .IsUnique()
-                            .HasName("UserNameIndex");
-
-                        b.ToTable("AspNetUsers");
-                    });
-
-                modelBuilder.Entity(
-                    "Microsoft.AspNetCore.Identity.IdentityUserClaim<string>", b =>
-                    {
-                        b.Property<int>("Id")
-                            .ValueGeneratedOnAdd()
-                            .HasColumnType("INTEGER");
-
-                        b.Property<string>("ClaimType")
-                            .HasColumnType("TEXT");
-
-                        b.Property<string>("ClaimValue")
-                            .HasColumnType("TEXT");
-
-                        b.Property<string>("UserId")
-                            .IsRequired()
-                            .HasColumnType("TEXT");
-
-                        b.HasKey("Id");
-
-                        b.HasIndex("UserId");
-
-                        b.ToTable("AspNetUserClaims");
-                    });
-
-                modelBuilder.Entity(
-                    "Microsoft.AspNetCore.Identity.IdentityUserLogin<string>", b =>
-                    {
-                        b.Property<string>("LoginProvider")
-                            .HasColumnType("TEXT")
-                            .HasMaxLength(128);
-
-                        b.Property<string>("ProviderKey")
-                            .HasColumnType("TEXT")
-                            .HasMaxLength(128);
-
-                        b.Property<string>("ProviderDisplayName")
-                            .HasColumnType("TEXT");
-
-                        b.Property<string>("UserId")
-                            .IsRequired()
-                            .HasColumnType("TEXT");
-
-                        b.HasKey("LoginProvider", "ProviderKey");
-
-                        b.HasIndex("UserId");
-
-                        b.ToTable("AspNetUserLogins");
-                    });
-
-                modelBuilder.Entity(
-                    "Microsoft.AspNetCore.Identity.IdentityUserRole<string>", b =>
-                    {
-                        b.Property<string>("UserId")
-                            .HasColumnType("TEXT");
-
-                        b.Property<string>("RoleId")
-                            .HasColumnType("TEXT");
-
-                        b.HasKey("UserId", "RoleId");
-
-                        b.HasIndex("RoleId");
-
-                        b.ToTable("AspNetUserRoles");
-                    });
-
-                modelBuilder.Entity(
-                    "Microsoft.AspNetCore.Identity.IdentityUserToken<string>", b =>
-                    {
-                        b.Property<string>("UserId")
-                            .HasColumnType("TEXT");
-
-                        b.Property<string>("LoginProvider")
-                            .HasColumnType("TEXT")
-                            .HasMaxLength(128);
-
-                        b.Property<string>("Name")
-                            .HasColumnType("TEXT")
-                            .HasMaxLength(128);
-
-                        b.Property<string>("Value")
-                            .HasColumnType("TEXT");
-
-                        b.HasKey("UserId", "LoginProvider", "Name");
-
-                        b.ToTable("AspNetUserTokens");
-                    });
-
-                modelBuilder.Entity(
-                    "Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>", b =>
-                    {
-                        b.HasOne("Microsoft.AspNetCore.Identity.IdentityRole", null)
-                            .WithMany()
-                            .HasForeignKey("RoleId")
-                            .OnDelete(DeleteBehavior.Cascade)
-                            .IsRequired();
-                    });
-
-                modelBuilder.Entity(
-                    "Microsoft.AspNetCore.Identity.IdentityUserClaim<string>", b =>
-                    {
-                        b.HasOne("Microsoft.AspNetCore.Identity.IdentityUser", null)
-                            .WithMany()
-                            .HasForeignKey("UserId")
-                            .OnDelete(DeleteBehavior.Cascade)
-                            .IsRequired();
-                    });
-
-                modelBuilder.Entity(
-                    "Microsoft.AspNetCore.Identity.IdentityUserLogin<string>", b =>
-                    {
-                        b.HasOne("Microsoft.AspNetCore.Identity.IdentityUser", null)
-                            .WithMany()
-                            .HasForeignKey("UserId")
-                            .OnDelete(DeleteBehavior.Cascade)
-                            .IsRequired();
-                    });
-
-                modelBuilder.Entity(
-                    "Microsoft.AspNetCore.Identity.IdentityUserRole<string>", b =>
-                    {
-                        b.HasOne("Microsoft.AspNetCore.Identity.IdentityRole", null)
-                            .WithMany()
-                            .HasForeignKey("RoleId")
-                            .OnDelete(DeleteBehavior.Cascade)
-                            .IsRequired();
-
-                        b.HasOne("Microsoft.AspNetCore.Identity.IdentityUser", null)
-                            .WithMany()
-                            .HasForeignKey("UserId")
-                            .OnDelete(DeleteBehavior.Cascade)
-                            .IsRequired();
-                    });
-
-                modelBuilder.Entity(
-                    "Microsoft.AspNetCore.Identity.IdentityUserToken<string>", b =>
-                    {
-                        b.HasOne("Microsoft.AspNetCore.Identity.IdentityUser", null)
-                            .WithMany()
-                            .HasForeignKey("UserId")
-                            .OnDelete(DeleteBehavior.Cascade)
-                            .IsRequired();
-                    });
-#pragma warning restore 612, 618
-            }
-        }
-
-        public override void Can_diff_against_3_0_ASP_NET_Identity_model()
-        {
-            using var context = new ApplicationDbContext();
-            DiffSnapshot(new AspNetIdentity30ModelSnapshot(), context);
-        }
-    }
-}
-
-namespace ModelSnapshot22
-{
-    public class Blog
-    {
-        public int Id { get; set; }
-        public string Name { get; set; }
-
-        public ICollection<Post> Posts { get; set; }
-    }
-
-    public class Post
-    {
-        public int Id { get; set; }
-        public string Title { get; set; }
-        public string Content { get; set; }
-        public DateTime EditDate { get; set; }
-
-        public Blog Blog { get; set; }
-    }
-
-    public class BloggingContext : DbContext
-    {
-        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-            => optionsBuilder.UseSqlite("DataSource=Test.db");
-
-        public DbSet<Blog> Blogs { get; set; }
-    }
-}
-
-namespace Identity30.Data
-{
-    public class ApplicationDbContext : IdentityDbContext
-    {
-        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-            => optionsBuilder.UseSqlite("DataSource=Test.db");
-
-        protected override void OnModelCreating(ModelBuilder builder)
-        {
-            base.OnModelCreating(builder);
-
-            builder.Entity<IdentityUser>(
-                b =>
-                {
-                    b.HasIndex(u => u.NormalizedUserName).HasName("UserNameIndex").IsUnique();
-                    b.HasIndex(u => u.NormalizedEmail).HasName("EmailIndex");
-                    b.ToTable("AspNetUsers");
-                });
-
-            builder.Entity<IdentityUserClaim<string>>(
-                b =>
-                {
-                    b.ToTable("AspNetUserClaims");
-                });
-
-            builder.Entity<IdentityUserLogin<string>>(
-                b =>
-                {
-                    b.ToTable("AspNetUserLogins");
-                });
-
-            builder.Entity<IdentityUserToken<string>>(
-                b =>
-                {
-                    b.ToTable("AspNetUserTokens");
-                });
-
-            builder.Entity<IdentityRole>(
-                b =>
-                {
-                    b.HasIndex(r => r.NormalizedName).HasName("RoleNameIndex").IsUnique();
-                    b.ToTable("AspNetRoles");
-                });
-
-            builder.Entity<IdentityRoleClaim<string>>(
-                b =>
-                {
-                    b.ToTable("AspNetRoleClaims");
-                });
-
-            builder.Entity<IdentityUserRole<string>>(
-                b =>
-                {
-                    b.ToTable("AspNetUserRoles");
-                });
+            protected override IServiceCollection AddServices(IServiceCollection serviceCollection)
+                => base.AddServices(serviceCollection)
+                    .AddScoped<IDatabaseModelFactory, SqliteDatabaseModelFactory>();
         }
     }
 }

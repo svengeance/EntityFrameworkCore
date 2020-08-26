@@ -18,22 +18,16 @@ namespace Microsoft.EntityFrameworkCore
             base.Property_entry_original_value_is_set();
 
             AssertSql(
-                @"SELECT TOP(1) [e].[Id], [e].[EngineSupplierId], [e].[Name], [t].[Id], [t].[StorageLocation_Latitude], [t].[StorageLocation_Longitude]
+                @"SELECT TOP(1) [e].[Id], [e].[EngineSupplierId], [e].[Name], [e].[StorageLocation_Latitude], [e].[StorageLocation_Longitude]
 FROM [Engines] AS [e]
-LEFT JOIN (
-    SELECT [e0].[Id], [e0].[StorageLocation_Latitude], [e0].[StorageLocation_Longitude], [e1].[Id] AS [Id0]
-    FROM [Engines] AS [e0]
-    INNER JOIN [Engines] AS [e1] ON [e0].[Id] = [e1].[Id]
-    WHERE [e0].[StorageLocation_Longitude] IS NOT NULL AND [e0].[StorageLocation_Latitude] IS NOT NULL
-) AS [t] ON [e].[Id] = [t].[Id]
 ORDER BY [e].[Id]",
                 //
                 @"@p1='1'
 @p2='1'
 @p0='FO 108X' (Size = 4000)
 @p3='ChangedEngine' (Size = 4000)
-@p4='47.64491'
-@p5='-122.128101'
+@p4='47.64491' (Nullable = true)
+@p5='-122.128101' (Nullable = true)
 
 SET NOCOUNT ON;
 UPDATE [Engines] SET [Name] = @p0

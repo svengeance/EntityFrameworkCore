@@ -7,9 +7,8 @@ using System.Linq;
 using System.Linq.Expressions;
 using System.Text;
 using JetBrains.Annotations;
+using Microsoft.EntityFrameworkCore.Cosmos.Internal;
 using Microsoft.EntityFrameworkCore.Cosmos.Storage.Internal;
-using Microsoft.EntityFrameworkCore.Diagnostics;
-using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.EntityFrameworkCore.Utilities;
 using Newtonsoft.Json;
@@ -28,6 +27,7 @@ namespace Microsoft.EntityFrameworkCore.Cosmos.Query.Internal
         private readonly StringBuilder _sqlBuilder = new StringBuilder();
         private IReadOnlyDictionary<string, object> _parameterValues;
         private List<SqlParameter> _sqlParameters;
+        private bool _useValueProjection;
 
         private readonly IDictionary<ExpressionType, string> _operatorMap = new Dictionary<ExpressionType, string>
         {
@@ -60,10 +60,7 @@ namespace Microsoft.EntityFrameworkCore.Cosmos.Query.Internal
             // Unary
             { ExpressionType.UnaryPlus, "+" },
             { ExpressionType.Negate, "-" },
-            { ExpressionType.Not, "~" },
-
-            // Others
-            { ExpressionType.Coalesce, " ?? " }
+            { ExpressionType.Not, "~" }
         };
 
         /// <summary>
@@ -73,7 +70,8 @@ namespace Microsoft.EntityFrameworkCore.Cosmos.Query.Internal
         ///     doing so can result in application failures when updating to a new Entity Framework Core release.
         /// </summary>
         public virtual CosmosSqlQuery GetSqlQuery(
-            [NotNull] SelectExpression selectExpression, [NotNull] IReadOnlyDictionary<string, object> parameterValues)
+            [NotNull] SelectExpression selectExpression,
+            [NotNull] IReadOnlyDictionary<string, object> parameterValues)
         {
             _sqlBuilder.Clear();
             _parameterValues = parameterValues;
@@ -154,10 +152,16 @@ namespace Microsoft.EntityFrameworkCore.Cosmos.Query.Internal
         {
             Check.NotNull(projectionExpression, nameof(projectionExpression));
 
+            if (_useValueProjection)
+            {
+                _sqlBuilder.Append("\"").Append(projectionExpression.Alias).Append("\" : ");
+            }
+
             Visit(projectionExpression.Expression);
 
-            if (!string.Equals(string.Empty, projectionExpression.Alias)
-                && !string.Equals(projectionExpression.Alias, projectionExpression.Name))
+            if (!_useValueProjection
+                && !string.IsNullOrEmpty(projectionExpression.Alias)
+                && projectionExpression.Alias != projectionExpression.Name)
             {
                 _sqlBuilder.Append(" AS " + projectionExpression.Alias);
             }
@@ -197,9 +201,21 @@ namespace Microsoft.EntityFrameworkCore.Cosmos.Query.Internal
                 _sqlBuilder.Append("DISTINCT ");
             }
 
-            if (selectExpression.Projection.Any())
+            if (selectExpression.Projection.Count > 0)
             {
-                GenerateList(selectExpression.Projection, e => Visit(e));
+                if (selectExpression.Projection.Any(p => !string.IsNullOrEmpty(p.Alias) && p.Alias != p.Name)
+                    && !selectExpression.Projection.Any(p => p.Expression is SqlFunctionExpression)) // Aggregates are not allowed
+                {
+                    _useValueProjection = true;
+                    _sqlBuilder.Append("VALUE {");
+                    GenerateList(selectExpression.Projection, e => Visit(e));
+                    _sqlBuilder.Append("}");
+                    _useValueProjection = false;
+                }
+                else
+                {
+                    GenerateList(selectExpression.Projection, e => Visit(e));
+                }
             }
             else
             {
@@ -247,7 +263,8 @@ namespace Microsoft.EntityFrameworkCore.Cosmos.Query.Internal
                 }
                 else
                 {
-                    throw new InvalidOperationException(CoreStrings.QueryFailed(selectExpression.Print(), GetType().Name));
+                    // TODO: See Issue#18923
+                    throw new InvalidOperationException(CosmosStrings.OffsetRequiresLimit);
                 }
             }
 
@@ -366,18 +383,23 @@ namespace Microsoft.EntityFrameworkCore.Cosmos.Query.Internal
 
         private JToken GenerateJToken(object value, CoreTypeMapping typeMapping)
         {
+            if (value?.GetType().IsInteger() == true)
+            {
+                var unwrappedType = typeMapping.ClrType.UnwrapNullableType();
+                value = unwrappedType.IsEnum
+                    ? Enum.ToObject(unwrappedType, value)
+                    : value;
+            }
+
             var converter = typeMapping.Converter;
             if (converter != null)
             {
                 value = converter.ConvertToProvider(value);
             }
 
-            if (value == null)
-            {
-                return null;
-            }
-
-            return (value as JToken) ?? JToken.FromObject(value, CosmosClientWrapper.Serializer);
+            return value == null
+                ? null
+                : (value as JToken) ?? JToken.FromObject(value, CosmosClientWrapper.Serializer);
         }
 
         /// <summary>

@@ -88,6 +88,13 @@ namespace <#= model.Namespace #>
 #>
         /// </summary>
 <#
+            if (resource.Obsolete)
+            {
+#>
+        [Obsolete]
+<#
+            }
+
             if (resource.Parameters.Any())
             {
 #>
@@ -184,7 +191,7 @@ namespace <#= model.Namespace.EndsWith(".Internal") ? model.Namespace : (model.N
                     {
 #>
         [Obsolete]
-<#  
+<#
                     }
 #>
         public static EventDefinition<#= genericTypes #> <#= resource.Name #>([NotNull] IDiagnosticsLogger logger)
@@ -226,7 +233,7 @@ namespace <#= model.Namespace.EndsWith(".Internal") ? model.Namespace : (model.N
         {
             result.AccessModifier = (string)Session["AccessModifier"];
         };
-        
+
         if (Session.ContainsKey("LoggingDefinitionsClass"))
         {
             result.LoggingDefinitionsClass = (string)Session["LoggingDefinitionsClass"];
@@ -266,16 +273,29 @@ namespace <#= model.Namespace.EndsWith(".Internal") ? model.Namespace : (model.N
         result.Class = Path.GetFileNameWithoutExtension(resourceFile);
 
         result.DiagnosticsClass = result.Class.Replace("Strings", "Resources");
-        
+
         result.ResourceName = resourceNamespace + "." + result.Class;
 
+        List<ResXDataNode> sortedResources;
         using (var reader = new ResXResourceReader(resourceFile))
         {
             reader.UseResXDataNodes = true;
-
-            result.Resources = Enumerable.ToList(
+            sortedResources = Enumerable.ToList(
                 from DictionaryEntry r in reader
-                select new Resource((ResXDataNode)r.Value));
+                orderby r.Key
+                select (ResXDataNode)r.Value);
+
+            result.Resources = sortedResources
+                .Select(r => new Resource(r))
+                .ToList();
+        }
+
+        using (var writer = new ResXResourceWriter(resourceFile))
+        {
+            foreach (var node in sortedResources)
+                writer.AddResource(node);
+
+            writer.Generate();
         }
 
         return result;

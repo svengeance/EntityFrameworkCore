@@ -5,7 +5,6 @@ using System;
 using JetBrains.Annotations;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.Internal;
 using Microsoft.EntityFrameworkCore.Metadata.Internal;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.EntityFrameworkCore.Utilities;
@@ -116,6 +115,7 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Conventions.Infrastructure
         /// <summary>
         ///     The member classifier.
         /// </summary>
+        [EntityFrameworkInternal]
         public IMemberClassifier MemberClassifier { get; }
 
         /// <summary>
@@ -141,7 +141,8 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Conventions.Infrastructure
         /// <summary>
         ///     The current context instance.
         /// </summary>
-        public Type ContextType => _currentContext.Context.GetType();
+        public Type ContextType
+            => _currentContext.Context.GetType();
 
         /// <summary>
         ///     The model validator.
@@ -204,6 +205,7 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Conventions.Infrastructure
         /// </summary>
         /// <param name="memberClassifier"> A replacement for the current dependency of this type. </param>
         /// <returns> A new parameter object with the given service replaced. </returns>
+        [EntityFrameworkInternal]
         public ProviderConventionSetBuilderDependencies With([NotNull] IMemberClassifier memberClassifier)
             => new ProviderConventionSetBuilderDependencies(
                 TypeMappingSource, ConstructorBindingFactory, ParameterBindingFactories, memberClassifier, Logger, ValidationLogger,

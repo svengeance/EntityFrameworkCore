@@ -8,7 +8,6 @@ using System.Reflection;
 using Microsoft.EntityFrameworkCore.ChangeTracking.Internal;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Metadata;
-using Microsoft.EntityFrameworkCore.Metadata.Conventions;
 using Microsoft.EntityFrameworkCore.Metadata.Internal;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.TestUtilities;
@@ -23,7 +22,7 @@ namespace Microsoft.EntityFrameworkCore.Infrastructure
         public void Every_eventId_has_a_logger_method_and_logs_when_level_enabled()
         {
             var propertyInfo = typeof(DateTime).GetTypeInfo().GetDeclaredProperty(nameof(DateTime.Now));
-            var entityType = new Model(new ConventionSet()).AddEntityType(typeof(object), ConfigurationSource.Convention);
+            var entityType = new Model().AddEntityType(typeof(object), ConfigurationSource.Convention);
             var property = entityType.AddProperty("A", typeof(int), ConfigurationSource.Convention, ConfigurationSource.Convention);
             var otherEntityType = new EntityType(typeof(object), entityType.Model, ConfigurationSource.Convention);
             var otherProperty = otherEntityType.AddProperty(
@@ -31,6 +30,10 @@ namespace Microsoft.EntityFrameworkCore.Infrastructure
             var otherKey = otherEntityType.AddKey(otherProperty, ConfigurationSource.Convention);
             var foreignKey = new ForeignKey(new[] { property }, otherKey, entityType, otherEntityType, ConfigurationSource.Convention);
             var navigation = new Navigation("N", propertyInfo, null, foreignKey);
+            var skipNavigation = new SkipNavigation(
+                "SN", propertyInfo, null, entityType, otherEntityType, true, false, ConfigurationSource.Convention);
+            var navigationBase = new FakeNavigationBase("FNB", ConfigurationSource.Convention, entityType);
+
             entityType.Model.FinalizeModel();
             var options = new DbContextOptionsBuilder()
                 .UseInternalServiceProvider(InMemoryFixture.DefaultServiceProvider)
@@ -45,6 +48,7 @@ namespace Microsoft.EntityFrameworkCore.Infrastructure
                 { typeof(ExpressionPrinter), () => new ExpressionPrinter() },
                 { typeof(Expression), () => Expression.Constant("A") },
                 { typeof(IEntityType), () => entityType },
+                { typeof(IConventionEntityType), () => entityType },
                 { typeof(IKey), () => new Key(new[] { property }, ConfigurationSource.Convention) },
                 { typeof(IPropertyBase), () => property },
                 { typeof(IServiceProvider), () => new FakeServiceProvider() },
@@ -58,6 +62,8 @@ namespace Microsoft.EntityFrameworkCore.Infrastructure
                 { typeof(IReadOnlyList<Exception>), () => new[] { new Exception() } },
                 { typeof(IProperty), () => property },
                 { typeof(INavigation), () => navigation },
+                { typeof(ISkipNavigation), () => skipNavigation },
+                { typeof(INavigationBase), () => navigationBase },
                 { typeof(IForeignKey), () => foreignKey },
                 { typeof(InternalEntityEntry), () => new FakeInternalEntityEntry(entityType) },
                 { typeof(ISet<object>), () => new HashSet<object>() },
@@ -77,7 +83,8 @@ namespace Microsoft.EntityFrameworkCore.Infrastructure
 
         private class FakeServiceProvider : IServiceProvider
         {
-            public object GetService(Type serviceType) => null;
+            public object GetService(Type serviceType)
+                => null;
         }
 
         private class FakeInternalEntityEntry : InternalEntityEntry
@@ -88,6 +95,37 @@ namespace Microsoft.EntityFrameworkCore.Infrastructure
             }
 
             public override object Entity { get; }
+        }
+
+        private class FakeNavigationBase : PropertyBase, INavigationBase
+        {
+            public FakeNavigationBase(string name, ConfigurationSource configurationSource, EntityType entityType)
+                : base(name, null, null, configurationSource)
+            {
+                DeclaringType = entityType;
+            }
+
+            public IEntityType DeclaringEntityType
+                => (IEntityType)DeclaringType;
+
+            public IEntityType TargetEntityType
+                => throw new NotImplementedException();
+
+            public INavigationBase Inverse
+                => throw new NotImplementedException();
+
+            public bool IsCollection
+                => throw new NotImplementedException();
+
+            public override TypeBase DeclaringType { get; }
+
+            public override Type ClrType
+                => throw new NotImplementedException();
+
+            public IClrCollectionAccessor GetCollectionAccessor()
+            {
+                throw new NotImplementedException();
+            }
         }
     }
 }

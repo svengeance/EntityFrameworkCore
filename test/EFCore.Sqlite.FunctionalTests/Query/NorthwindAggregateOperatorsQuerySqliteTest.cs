@@ -3,15 +3,19 @@
 
 using System;
 using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore.Sqlite.Internal;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Xunit;
 using Xunit.Abstractions;
 
 namespace Microsoft.EntityFrameworkCore.Query
 {
-    public class NorthwindAggregateOperatorsQuerySqliteTest : NorthwindAggregateOperatorsQueryTestBase<NorthwindQuerySqliteFixture<NoopModelCustomizer>>
+    public class NorthwindAggregateOperatorsQuerySqliteTest : NorthwindAggregateOperatorsQueryRelationalTestBase<
+        NorthwindQuerySqliteFixture<NoopModelCustomizer>>
     {
-        public NorthwindAggregateOperatorsQuerySqliteTest(NorthwindQuerySqliteFixture<NoopModelCustomizer> fixture, ITestOutputHelper testOutputHelper)
+        public NorthwindAggregateOperatorsQuerySqliteTest(
+            NorthwindQuerySqliteFixture<NoopModelCustomizer> fixture,
+            ITestOutputHelper testOutputHelper)
             : base(fixture)
         {
             ClearLog();
@@ -19,15 +23,23 @@ namespace Microsoft.EntityFrameworkCore.Query
         }
 
         public override Task Sum_with_division_on_decimal(bool async)
-            => AssertTranslationFailed(() => base.Sum_with_division_on_decimal(async));
+            => Assert.ThrowsAsync<NotSupportedException>(() => base.Sum_with_division_on_decimal(async));
 
         public override Task Sum_with_division_on_decimal_no_significant_digits(bool async)
-            => AssertTranslationFailed(() => base.Sum_with_division_on_decimal_no_significant_digits(async));
+            => Assert.ThrowsAsync<NotSupportedException>(() => base.Sum_with_division_on_decimal_no_significant_digits(async));
 
         public override Task Average_with_division_on_decimal(bool async)
-            => AssertTranslationFailed(() => base.Average_with_division_on_decimal(async));
+            => Assert.ThrowsAsync<NotSupportedException>(() => base.Average_with_division_on_decimal(async));
 
         public override Task Average_with_division_on_decimal_no_significant_digits(bool async)
-            => AssertTranslationFailed(() => base.Average_with_division_on_decimal_no_significant_digits(async));
+            => Assert.ThrowsAsync<NotSupportedException>(() => base.Average_with_division_on_decimal_no_significant_digits(async));
+
+        public override async Task Multiple_collection_navigation_with_FirstOrDefault_chained(bool async)
+        {
+            Assert.Equal(
+                SqliteStrings.ApplyNotSupported,
+                (await Assert.ThrowsAsync<InvalidOperationException>(
+                    () => base.Multiple_collection_navigation_with_FirstOrDefault_chained(async))).Message);
+        }
     }
 }

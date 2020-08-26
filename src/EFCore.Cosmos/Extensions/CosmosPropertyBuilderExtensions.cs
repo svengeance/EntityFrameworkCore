@@ -58,7 +58,7 @@ namespace Microsoft.EntityFrameworkCore
         /// <param name="fromDataAnnotation"> Indicates whether the configuration was specified using a data annotation. </param>
         /// <returns>
         ///     The same builder instance if the configuration was applied,
-        ///     <c>null</c> otherwise.
+        ///     <see langword="null" /> otherwise.
         /// </returns>
         public static IConventionPropertyBuilder ToJsonProperty(
             [NotNull] this IConventionPropertyBuilder propertyBuilder,
@@ -81,11 +81,36 @@ namespace Microsoft.EntityFrameworkCore
         /// <param name="propertyBuilder"> The builder for the property being configured. </param>
         /// <param name="name"> The name of the property. </param>
         /// <param name="fromDataAnnotation"> Indicates whether the configuration was specified using a data annotation. </param>
-        /// <returns> <c>true</c> if the property name can be set. </returns>
+        /// <returns> <see langword="true" /> if the property name can be set. </returns>
         public static bool CanSetJsonProperty(
             [NotNull] this IConventionPropertyBuilder propertyBuilder,
             [CanBeNull] string name,
             bool fromDataAnnotation = false)
             => propertyBuilder.CanSetAnnotation(CosmosAnnotationNames.PropertyName, name, fromDataAnnotation);
+
+        /// <summary>
+        ///     Configures this property to be the etag concurrency token.
+        /// </summary>
+        /// <param name="propertyBuilder"> The builder for the property being configured. </param>
+        /// <returns> The same builder instance so that multiple calls can be chained. </returns>
+        public static PropertyBuilder IsETagConcurrency([NotNull] this PropertyBuilder propertyBuilder)
+        {
+            Check.NotNull(propertyBuilder, nameof(propertyBuilder));
+            propertyBuilder
+                .IsConcurrencyToken()
+                .ToJsonProperty("_etag")
+                .ValueGeneratedOnAddOrUpdate();
+            return propertyBuilder;
+        }
+
+        /// <summary>
+        ///     Configures this property to be the etag concurrency token.
+        /// </summary>
+        /// <typeparam name="TProperty"> The type of the property being configured. </typeparam>
+        /// <param name="propertyBuilder"> The builder for the property being configured. </param>
+        /// <returns> The same builder instance so that multiple calls can be chained. </returns>
+        public static PropertyBuilder<TProperty> IsETagConcurrency<TProperty>(
+            [NotNull] this PropertyBuilder<TProperty> propertyBuilder)
+            => (PropertyBuilder<TProperty>)IsETagConcurrency((PropertyBuilder)propertyBuilder);
     }
 }

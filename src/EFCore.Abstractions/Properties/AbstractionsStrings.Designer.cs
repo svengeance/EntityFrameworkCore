@@ -30,6 +30,14 @@ namespace Microsoft.EntityFrameworkCore.Diagnostics
                 argumentName);
 
         /// <summary>
+        ///     The collection argument '{argumentName}' must not contain any empty elements.
+        /// </summary>
+        public static string CollectionArgumentHasEmptyElements([CanBeNull] object argumentName)
+            => string.Format(
+                GetString("CollectionArgumentHasEmptyElements", nameof(argumentName)),
+                argumentName);
+
+        /// <summary>
         ///     The collection argument '{argumentName}' must contain at least one element.
         /// </summary>
         public static string CollectionArgumentIsEmpty([CanBeNull] object argumentName)

@@ -118,7 +118,7 @@ namespace Microsoft.EntityFrameworkCore.Cosmos.Storage.Internal
 
             static bool IsTransient(HttpStatusCode statusCode)
                 => statusCode == HttpStatusCode.ServiceUnavailable
-                       || statusCode == HttpStatusCode.TooManyRequests;
+                    || statusCode == HttpStatusCode.TooManyRequests;
         }
 
         /// <summary>
@@ -130,13 +130,10 @@ namespace Microsoft.EntityFrameworkCore.Cosmos.Storage.Internal
         protected override TimeSpan? GetNextDelay(Exception lastException)
         {
             var baseDelay = base.GetNextDelay(lastException);
-            if (baseDelay == null)
-            {
-                return null;
-            }
-
-            return CallOnWrappedException(lastException, GetDelayFromException)
-                   ?? baseDelay;
+            return baseDelay == null
+                ? null
+                : CallOnWrappedException(lastException, GetDelayFromException)
+                    ?? baseDelay;
         }
 
         private static TimeSpan? GetDelayFromException(Exception exception)
@@ -148,49 +145,77 @@ namespace Microsoft.EntityFrameworkCore.Cosmos.Storage.Internal
 
             if (exception is HttpException httpException)
             {
-                if (httpException.Response.Headers.TryGetValues("x-ms-retry-after-ms", out var values))
+                if (httpException.Response.Headers.TryGetValues("x-ms-retry-after-ms", out var values)
+                    && TryParseMsRetryAfter(values.FirstOrDefault(), out var delay))
                 {
-                    var delayString = values.Single();
-                    return TimeSpan.FromMilliseconds(int.Parse(delayString));
+                    return delay;
                 }
 
-                var retryDate = httpException.Response.Headers.RetryAfter.Date;
-                if (retryDate != null)
+                if (httpException.Response.Headers.TryGetValues("Retry-After", out values)
+                    && TryParseRetryAfter(values.FirstOrDefault(), out delay))
                 {
-                    var delay = retryDate.Value.Subtract(DateTime.Now);
-                    return delay <= TimeSpan.Zero ? TimeSpan.FromMilliseconds(1) : delay;
+                    return delay;
                 }
-
-                return httpException.Response.Headers.RetryAfter.Delta;
             }
 
             if (exception is WebException webException)
             {
                 var response = (HttpWebResponse)webException.Response;
 
-                var delayString = response.Headers.GetValues("x-ms-retry-after-ms")?.Single();
-                if (delayString != null)
+                var delayString = response.Headers.GetValues("x-ms-retry-after-ms")?.FirstOrDefault();
+                if (TryParseMsRetryAfter(delayString, out var delay))
                 {
-                    return TimeSpan.FromMilliseconds(int.Parse(delayString));
+                    return delay;
                 }
 
-                delayString = response.Headers.GetValues("Retry-After")?.Single();
-                if (delayString != null)
+                delayString = response.Headers.GetValues("Retry-After")?.FirstOrDefault();
+                if (TryParseRetryAfter(delayString, out delay))
                 {
-                    if (int.TryParse(delayString, out var intDelay))
-                    {
-                        return TimeSpan.FromSeconds(intDelay);
-                    }
-
-                    if (DateTime.TryParse(delayString, CultureInfo.InvariantCulture, DateTimeStyles.None, out var retryDate))
-                    {
-                        var delay = retryDate.Subtract(DateTime.Now);
-                        return delay <= TimeSpan.Zero ? TimeSpan.FromMilliseconds(1) : delay;
-                    }
+                    return delay;
                 }
             }
 
             return null;
+            static bool TryParseMsRetryAfter(string delayString, out TimeSpan delay)
+            {
+                delay = default;
+                if (delayString == null)
+                {
+                    return false;
+                }
+
+                if (int.TryParse(delayString, out var intDelay))
+                {
+                    delay = TimeSpan.FromMilliseconds(intDelay);
+                    return true;
+                }
+
+                return false;
+            }
+
+            static bool TryParseRetryAfter(string delayString, out TimeSpan delay)
+            {
+                delay = default;
+                if (delayString == null)
+                {
+                    return false;
+                }
+
+                if (int.TryParse(delayString, out var intDelay))
+                {
+                    delay = TimeSpan.FromSeconds(intDelay);
+                    return true;
+                }
+
+                if (DateTimeOffset.TryParse(delayString, CultureInfo.InvariantCulture, DateTimeStyles.None, out var retryDate))
+                {
+                    delay = retryDate.Subtract(DateTimeOffset.Now);
+                    delay = delay <= TimeSpan.Zero ? TimeSpan.FromMilliseconds(1) : delay;
+                    return true;
+                }
+
+                return false;
+            }
         }
     }
 }

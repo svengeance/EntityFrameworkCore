@@ -8,7 +8,8 @@ using Xunit;
 
 namespace Microsoft.EntityFrameworkCore.Query
 {
-    public class NorthwindAsyncSimpleQueryInMemoryTest : NorthwindAsyncSimpleQueryTestBase<NorthwindQueryInMemoryFixture<NoopModelCustomizer>>
+    public class NorthwindAsyncSimpleQueryInMemoryTest : NorthwindAsyncSimpleQueryTestBase<
+        NorthwindQueryInMemoryFixture<NoopModelCustomizer>>
     {
         public NorthwindAsyncSimpleQueryInMemoryTest(NorthwindQueryInMemoryFixture<NoopModelCustomizer> fixture)
             : base(fixture)
@@ -20,5 +21,9 @@ namespace Microsoft.EntityFrameworkCore.Query
         {
             return Assert.ThrowsAsync<InvalidOperationException>(() => base.Average_on_nav_subquery_in_projection());
         }
+
+        // mapping to view not supported on InMemory
+        public override Task Query_backed_by_database_view()
+            => Task.CompletedTask;
     }
 }

@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Linq;
+using System.Linq.Expressions;
 using System.Threading;
 using System.Threading.Tasks;
 using JetBrains.Annotations;
@@ -15,7 +16,7 @@ using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Internal;
 using Microsoft.EntityFrameworkCore.Metadata;
-using Microsoft.EntityFrameworkCore.Query.Internal;
+using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.Utilities;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -52,7 +53,7 @@ namespace Microsoft.EntityFrameworkCore
         IDbSetCache,
         IDbContextPoolable
     {
-        private IDictionary<Type, object> _sets;
+        private IDictionary<(Type Type, string Name), object> _sets;
         private readonly DbContextOptions _options;
 
         private IDbContextServices _contextServices;
@@ -61,12 +62,13 @@ namespace Microsoft.EntityFrameworkCore
         private ChangeTracker _changeTracker;
 
         private IServiceScope _serviceScope;
-        private IDbContextPool _dbContextPool;
+        private DbContextLease _lease = DbContextLease.InactiveLease;
+        private DbContextPoolConfigurationSnapshot _configurationSnapshot;
         private bool _initializing;
         private bool _disposed;
 
         private readonly Guid _contextId = Guid.NewGuid();
-        private int _lease;
+        private int _leaseCount;
 
         /// <summary>
         ///     <para>
@@ -149,7 +151,7 @@ namespace Microsoft.EntityFrameworkCore
         ///     </para>
         /// </summary>
         public virtual DbContextId ContextId
-            => new DbContextId(_contextId, _lease);
+            => new DbContextId(_contextId, _leaseCount);
 
         /// <summary>
         ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
@@ -158,7 +160,8 @@ namespace Microsoft.EntityFrameworkCore
         ///     doing so can result in application failures when updating to a new Entity Framework Core release.
         /// </summary>
         [EntityFrameworkInternal]
-        IDbSetSource IDbContextDependencies.SetSource => DbContextDependencies.SetSource;
+        IDbSetSource IDbContextDependencies.SetSource
+            => DbContextDependencies.SetSource;
 
         /// <summary>
         ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
@@ -167,7 +170,8 @@ namespace Microsoft.EntityFrameworkCore
         ///     doing so can result in application failures when updating to a new Entity Framework Core release.
         /// </summary>
         [EntityFrameworkInternal]
-        IEntityFinderFactory IDbContextDependencies.EntityFinderFactory => DbContextDependencies.EntityFinderFactory;
+        IEntityFinderFactory IDbContextDependencies.EntityFinderFactory
+            => DbContextDependencies.EntityFinderFactory;
 
         /// <summary>
         ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
@@ -176,7 +180,8 @@ namespace Microsoft.EntityFrameworkCore
         ///     doing so can result in application failures when updating to a new Entity Framework Core release.
         /// </summary>
         [EntityFrameworkInternal]
-        IAsyncQueryProvider IDbContextDependencies.QueryProvider => DbContextDependencies.QueryProvider;
+        IAsyncQueryProvider IDbContextDependencies.QueryProvider
+            => DbContextDependencies.QueryProvider;
 
         /// <summary>
         ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
@@ -185,7 +190,8 @@ namespace Microsoft.EntityFrameworkCore
         ///     doing so can result in application failures when updating to a new Entity Framework Core release.
         /// </summary>
         [EntityFrameworkInternal]
-        IStateManager IDbContextDependencies.StateManager => DbContextDependencies.StateManager;
+        IStateManager IDbContextDependencies.StateManager
+            => DbContextDependencies.StateManager;
 
         /// <summary>
         ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
@@ -194,7 +200,8 @@ namespace Microsoft.EntityFrameworkCore
         ///     doing so can result in application failures when updating to a new Entity Framework Core release.
         /// </summary>
         [EntityFrameworkInternal]
-        IChangeDetector IDbContextDependencies.ChangeDetector => DbContextDependencies.ChangeDetector;
+        IChangeDetector IDbContextDependencies.ChangeDetector
+            => DbContextDependencies.ChangeDetector;
 
         /// <summary>
         ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
@@ -203,7 +210,8 @@ namespace Microsoft.EntityFrameworkCore
         ///     doing so can result in application failures when updating to a new Entity Framework Core release.
         /// </summary>
         [EntityFrameworkInternal]
-        IEntityGraphAttacher IDbContextDependencies.EntityGraphAttacher => DbContextDependencies.EntityGraphAttacher;
+        IEntityGraphAttacher IDbContextDependencies.EntityGraphAttacher
+            => DbContextDependencies.EntityGraphAttacher;
 
         /// <summary>
         ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
@@ -212,7 +220,8 @@ namespace Microsoft.EntityFrameworkCore
         ///     doing so can result in application failures when updating to a new Entity Framework Core release.
         /// </summary>
         [EntityFrameworkInternal]
-        IDiagnosticsLogger<DbLoggerCategory.Update> IDbContextDependencies.UpdateLogger => DbContextDependencies.UpdateLogger;
+        IDiagnosticsLogger<DbLoggerCategory.Update> IDbContextDependencies.UpdateLogger
+            => DbContextDependencies.UpdateLogger;
 
         /// <summary>
         ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
@@ -237,13 +246,38 @@ namespace Microsoft.EntityFrameworkCore
 
             if (_sets == null)
             {
-                _sets = new Dictionary<Type, object>();
+                _sets = new Dictionary<(Type Type, string Name), object>();
             }
 
-            if (!_sets.TryGetValue(type, out var set))
+            if (!_sets.TryGetValue((type, null), out var set))
             {
                 set = source.Create(this, type);
-                _sets[type] = set;
+                _sets[(type, null)] = set;
+            }
+
+            return set;
+        }
+
+        /// <summary>
+        ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+        ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+        ///     any release. You should only use it directly in your code with extreme caution and knowing that
+        ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+        /// </summary>
+        [EntityFrameworkInternal]
+        object IDbSetCache.GetOrAddSet(IDbSetSource source, string entityTypeName, Type type)
+        {
+            CheckDisposed();
+
+            if (_sets == null)
+            {
+                _sets = new Dictionary<(Type Type, string Name), object>();
+            }
+
+            if (!_sets.TryGetValue((type, entityTypeName), out var set))
+            {
+                set = source.Create(this, entityTypeName, type);
+                _sets[(type, entityTypeName)] = set;
             }
 
             return set;
@@ -258,6 +292,15 @@ namespace Microsoft.EntityFrameworkCore
             where TEntity : class
             => (DbSet<TEntity>)((IDbSetCache)this).GetOrAddSet(DbContextDependencies.SetSource, typeof(TEntity));
 
+        /// <summary>
+        ///     Creates a <see cref="DbSet{TEntity}" /> that can be used to query and save instances of <typeparamref name="TEntity" />.
+        /// </summary>
+        /// <typeparam name="TEntity"> The type of entity for which a set should be returned. </typeparam>
+        /// <returns> A set for the given entity type. </returns>
+        public virtual DbSet<TEntity> Set<TEntity>([NotNull] string name)
+            where TEntity : class
+            => (DbSet<TEntity>)((IDbSetCache)this).GetOrAddSet(DbContextDependencies.SetSource, name, typeof(TEntity));
+
         private IEntityFinder Finder(Type type)
         {
             var entityType = Model.FindEntityType(type);
@@ -266,6 +309,11 @@ namespace Microsoft.EntityFrameworkCore
                 if (Model.HasEntityTypeWithDefiningNavigation(type))
                 {
                     throw new InvalidOperationException(CoreStrings.InvalidSetTypeWeak(type.ShortDisplayName()));
+                }
+
+                if (Model.IsShared(type))
+                {
+                    throw new InvalidOperationException(CoreStrings.InvalidSetSharedType(type.ShortDisplayName()));
                 }
 
                 throw new InvalidOperationException(CoreStrings.InvalidSetType(type.ShortDisplayName()));
@@ -298,6 +346,8 @@ namespace Microsoft.EntityFrameworkCore
                 try
                 {
                     _initializing = true;
+
+                    EntityFrameworkEventSource.Log.DbContextInitializing();
 
                     var optionsBuilder = new DbContextOptionsBuilder(_options);
 
@@ -414,7 +464,8 @@ namespace Microsoft.EntityFrameworkCore
         ///     A concurrency violation occurs when an unexpected number of rows are affected during save.
         ///     This is usually because the data in the database has been modified since it was loaded into memory.
         /// </exception>
-        public virtual int SaveChanges() => SaveChanges(acceptAllChangesOnSuccess: true);
+        public virtual int SaveChanges()
+            => SaveChanges(acceptAllChangesOnSuccess: true);
 
         /// <summary>
         ///     <para>
@@ -445,27 +496,39 @@ namespace Microsoft.EntityFrameworkCore
         {
             CheckDisposed();
 
-            DbContextDependencies.UpdateLogger.SaveChangesStarting(this);
+            SavingChanges?.Invoke(this, new SavingChangesEventArgs(acceptAllChangesOnSuccess));
+
+            var interceptionResult = DbContextDependencies.UpdateLogger.SaveChangesStarting(this);
 
             TryDetectChanges();
 
             try
             {
-                var entitiesSaved = DbContextDependencies.StateManager.SaveChanges(acceptAllChangesOnSuccess);
+                var entitiesSaved = interceptionResult.HasResult
+                    ? interceptionResult.Result
+                    : DbContextDependencies.StateManager.SaveChanges(acceptAllChangesOnSuccess);
 
-                DbContextDependencies.UpdateLogger.SaveChangesCompleted(this, entitiesSaved);
+                var result = DbContextDependencies.UpdateLogger.SaveChangesCompleted(this, entitiesSaved);
 
-                return entitiesSaved;
+                SavedChanges?.Invoke(this, new SavedChangesEventArgs(acceptAllChangesOnSuccess, result));
+
+                return result;
             }
             catch (DbUpdateConcurrencyException exception)
             {
+                EntityFrameworkEventSource.Log.OptimisticConcurrencyFailure();
+
                 DbContextDependencies.UpdateLogger.OptimisticConcurrencyException(this, exception);
+
+                SaveChangesFailed?.Invoke(this, new SaveChangesFailedEventArgs(acceptAllChangesOnSuccess, exception));
 
                 throw;
             }
             catch (Exception exception)
             {
                 DbContextDependencies.UpdateLogger.SaveChangesFailed(this, exception);
+
+                SaveChangesFailed?.Invoke(this, new SaveChangesFailedEventArgs(acceptAllChangesOnSuccess, exception));
 
                 throw;
             }
@@ -554,29 +617,112 @@ namespace Microsoft.EntityFrameworkCore
         {
             CheckDisposed();
 
-            DbContextDependencies.UpdateLogger.SaveChangesStarting(this);
+            SavingChanges?.Invoke(this, new SavingChangesEventArgs(acceptAllChangesOnSuccess));
+
+            var interceptionResult = await DbContextDependencies.UpdateLogger
+                .SaveChangesStartingAsync(this, cancellationToken).ConfigureAwait(false);
 
             TryDetectChanges();
 
             try
             {
-                var entitiesSaved = await DbContextDependencies.StateManager.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+                var entitiesSaved = interceptionResult.HasResult
+                    ? interceptionResult.Result
+                    : await DbContextDependencies.StateManager
+                        .SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken)
+                        .ConfigureAwait(false);
 
-                DbContextDependencies.UpdateLogger.SaveChangesCompleted(this, entitiesSaved);
+                var result = await DbContextDependencies.UpdateLogger
+                    .SaveChangesCompletedAsync(this, entitiesSaved, cancellationToken)
+                    .ConfigureAwait(false);
 
-                return entitiesSaved;
+                SavedChanges?.Invoke(this, new SavedChangesEventArgs(acceptAllChangesOnSuccess, result));
+
+                return result;
             }
             catch (DbUpdateConcurrencyException exception)
             {
-                DbContextDependencies.UpdateLogger.OptimisticConcurrencyException(this, exception);
+                await DbContextDependencies.UpdateLogger.OptimisticConcurrencyExceptionAsync(this, exception, cancellationToken)
+                    .ConfigureAwait(false);
+
+                SaveChangesFailed?.Invoke(this, new SaveChangesFailedEventArgs(acceptAllChangesOnSuccess, exception));
 
                 throw;
             }
             catch (Exception exception)
             {
-                DbContextDependencies.UpdateLogger.SaveChangesFailed(this, exception);
+                await DbContextDependencies.UpdateLogger.SaveChangesFailedAsync(this, exception, cancellationToken).ConfigureAwait(false);
+
+                SaveChangesFailed?.Invoke(this, new SaveChangesFailedEventArgs(acceptAllChangesOnSuccess, exception));
 
                 throw;
+            }
+        }
+
+        /// <summary>
+        ///     An event fired at the beginning of a call to <see cref="M:SaveChanges" /> or <see cref="M:SaveChangesAsync" />
+        /// </summary>
+        public event EventHandler<SavingChangesEventArgs> SavingChanges;
+
+        /// <summary>
+        ///     An event fired at the end of a call to <see cref="M:SaveChanges" /> or <see cref="M:SaveChangesAsync" />
+        /// </summary>
+        public event EventHandler<SavedChangesEventArgs> SavedChanges;
+
+        /// <summary>
+        ///     An event fired if a call to <see cref="M:SaveChanges" /> or <see cref="M:SaveChangesAsync" /> fails with an exception.
+        /// </summary>
+        public event EventHandler<SaveChangesFailedEventArgs> SaveChangesFailed;
+
+        /// <summary>
+        ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+        ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+        ///     any release. You should only use it directly in your code with extreme caution and knowing that
+        ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+        /// </summary>
+        [EntityFrameworkInternal]
+        void IDbContextPoolable.ClearLease()
+            => _lease = DbContextLease.InactiveLease;
+
+        /// <summary>
+        ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+        ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+        ///     any release. You should only use it directly in your code with extreme caution and knowing that
+        ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+        /// </summary>
+        [EntityFrameworkInternal]
+        void IDbContextPoolable.SetLease(DbContextLease lease)
+        {
+            _lease = lease;
+            _disposed = false;
+            ++_leaseCount;
+
+            if (_configurationSnapshot?.AutoDetectChangesEnabled != null)
+            {
+                Check.DebugAssert(
+                    _configurationSnapshot.QueryTrackingBehavior.HasValue, "!configurationSnapshot.QueryTrackingBehavior.HasValue");
+                Check.DebugAssert(_configurationSnapshot.LazyLoadingEnabled.HasValue, "!configurationSnapshot.LazyLoadingEnabled.HasValue");
+                Check.DebugAssert(
+                    _configurationSnapshot.CascadeDeleteTiming.HasValue, "!configurationSnapshot.CascadeDeleteTiming.HasValue");
+                Check.DebugAssert(
+                    _configurationSnapshot.DeleteOrphansTiming.HasValue, "!configurationSnapshot.DeleteOrphansTiming.HasValue");
+
+                ChangeTracker.AutoDetectChangesEnabled = _configurationSnapshot.AutoDetectChangesEnabled.Value;
+                ChangeTracker.QueryTrackingBehavior = _configurationSnapshot.QueryTrackingBehavior.Value;
+                ChangeTracker.LazyLoadingEnabled = _configurationSnapshot.LazyLoadingEnabled.Value;
+                ChangeTracker.CascadeDeleteTiming = _configurationSnapshot.CascadeDeleteTiming.Value;
+                ChangeTracker.DeleteOrphansTiming = _configurationSnapshot.DeleteOrphansTiming.Value;
+            }
+            else
+            {
+                ((IResettableService)_changeTracker)?.ResetState();
+            }
+
+            if (_database != null)
+            {
+                _database.AutoTransactionsEnabled
+                    = _configurationSnapshot?.AutoTransactionsEnabled == null
+                    || _configurationSnapshot.AutoTransactionsEnabled.Value;
             }
         }
 
@@ -586,20 +732,9 @@ namespace Microsoft.EntityFrameworkCore
         ///     any release. You should only use it directly in your code with extreme caution and knowing that
         ///     doing so can result in application failures when updating to a new Entity Framework Core release.
         /// </summary>
-        void IDbContextPoolable.SetPool(IDbContextPool contextPool)
-        {
-            _dbContextPool = contextPool;
-            _lease = 1;
-        }
-
-        /// <summary>
-        ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
-        ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
-        ///     any release. You should only use it directly in your code with extreme caution and knowing that
-        ///     doing so can result in application failures when updating to a new Entity Framework Core release.
-        /// </summary>
-        DbContextPoolConfigurationSnapshot IDbContextPoolable.SnapshotConfiguration()
-            => new DbContextPoolConfigurationSnapshot(
+        [EntityFrameworkInternal]
+        void IDbContextPoolable.SnapshotConfiguration()
+            => _configurationSnapshot = new DbContextPoolConfigurationSnapshot(
                 _changeTracker?.AutoDetectChangesEnabled,
                 _changeTracker?.QueryTrackingBehavior,
                 _database?.AutoTransactionsEnabled,
@@ -613,49 +748,17 @@ namespace Microsoft.EntityFrameworkCore
         ///     any release. You should only use it directly in your code with extreme caution and knowing that
         ///     doing so can result in application failures when updating to a new Entity Framework Core release.
         /// </summary>
-        void IDbContextPoolable.Resurrect(DbContextPoolConfigurationSnapshot configurationSnapshot)
-        {
-            _disposed = false;
-            ++_lease;
-
-            if (configurationSnapshot.AutoDetectChangesEnabled != null)
-            {
-                Check.DebugAssert(configurationSnapshot.QueryTrackingBehavior.HasValue, "!configurationSnapshot.QueryTrackingBehavior.HasValue");
-                Check.DebugAssert(configurationSnapshot.LazyLoadingEnabled.HasValue, "!configurationSnapshot.LazyLoadingEnabled.HasValue");
-                Check.DebugAssert(configurationSnapshot.CascadeDeleteTiming.HasValue, "!configurationSnapshot.CascadeDeleteTiming.HasValue");
-                Check.DebugAssert(configurationSnapshot.DeleteOrphansTiming.HasValue, "!configurationSnapshot.DeleteOrphansTiming.HasValue");
-
-                ChangeTracker.AutoDetectChangesEnabled = configurationSnapshot.AutoDetectChangesEnabled.Value;
-                ChangeTracker.QueryTrackingBehavior = configurationSnapshot.QueryTrackingBehavior.Value;
-                ChangeTracker.LazyLoadingEnabled = configurationSnapshot.LazyLoadingEnabled.Value;
-                ChangeTracker.CascadeDeleteTiming = configurationSnapshot.CascadeDeleteTiming.Value;
-                ChangeTracker.DeleteOrphansTiming = configurationSnapshot.DeleteOrphansTiming.Value;
-            }
-            else
-            {
-                ((IResettableService)_changeTracker)?.ResetState();
-            }
-
-            if (_database != null)
-            {
-                _database.AutoTransactionsEnabled
-                    = configurationSnapshot.AutoTransactionsEnabled == null
-                    || configurationSnapshot.AutoTransactionsEnabled.Value;
-            }
-        }
-
-        /// <summary>
-        ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
-        ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
-        ///     any release. You should only use it directly in your code with extreme caution and knowing that
-        ///     doing so can result in application failures when updating to a new Entity Framework Core release.
-        /// </summary>
+        [EntityFrameworkInternal]
         void IResettableService.ResetState()
         {
             foreach (var service in GetResettableServices())
             {
                 service.ResetState();
             }
+
+            SavingChanges = null;
+            SavedChanges = null;
+            SaveChangesFailed = null;
 
             _disposed = true;
         }
@@ -667,11 +770,12 @@ namespace Microsoft.EntityFrameworkCore
         ///     doing so can result in application failures when updating to a new Entity Framework Core release.
         /// </summary>
         /// <param name="cancellationToken"> A <see cref="CancellationToken" /> to observe while waiting for the task to complete. </param>
+        [EntityFrameworkInternal]
         async Task IResettableService.ResetStateAsync(CancellationToken cancellationToken)
         {
             foreach (var service in GetResettableServices())
             {
-                await service.ResetStateAsync(cancellationToken);
+                await service.ResetStateAsync(cancellationToken).ConfigureAwait(false);
             }
 
             _disposed = true;
@@ -716,9 +820,18 @@ namespace Microsoft.EntityFrameworkCore
 
         private bool DisposeSync()
         {
-            if (_dbContextPool == null
-                && !_disposed)
+            if (_lease.IsActive)
             {
+                if (_lease.ContextDisposed())
+                {
+                    _disposed = true;
+                    _lease = DbContextLease.InactiveLease;
+                }
+            }
+            else if (!_disposed)
+            {
+                EntityFrameworkEventSource.Log.DbContextDisposing();
+
                 _dbContextDependencies?.InfrastructureLogger.ContextDisposed(this);
 
                 _disposed = true;
@@ -884,7 +997,8 @@ namespace Microsoft.EntityFrameworkCore
 
             var entry = EntryWithoutDetectChanges(Check.NotNull(entity, nameof(entity)));
 
-            await SetEntityStateAsync(entry.GetInfrastructure(), EntityState.Added, cancellationToken);
+            await SetEntityStateAsync(entry.GetInfrastructure(), EntityState.Added, cancellationToken)
+                .ConfigureAwait(false);
 
             return entry;
         }
@@ -1088,7 +1202,8 @@ namespace Microsoft.EntityFrameworkCore
 
             var entry = EntryWithoutDetectChanges(Check.NotNull(entity, nameof(entity)));
 
-            await SetEntityStateAsync(entry.GetInfrastructure(), EntityState.Added, cancellationToken);
+            await SetEntityStateAsync(entry.GetInfrastructure(), EntityState.Added, cancellationToken)
+                .ConfigureAwait(false);
 
             return entry;
         }
@@ -1414,9 +1529,10 @@ namespace Microsoft.EntityFrameworkCore
             foreach (var entity in entities)
             {
                 await SetEntityStateAsync(
-                    stateManager.GetOrCreateEntry(entity),
-                    EntityState.Added,
-                    cancellationToken);
+                        stateManager.GetOrCreateEntry(entity),
+                        EntityState.Added,
+                        cancellationToken)
+                    .ConfigureAwait(false);
             }
         }
 
@@ -1583,7 +1699,9 @@ namespace Microsoft.EntityFrameworkCore
         /// <param name="cancellationToken">A <see cref="CancellationToken" /> to observe while waiting for the task to complete.</param>
         /// <returns>The entity found, or null.</returns>
         public virtual ValueTask<object> FindAsync(
-            [NotNull] Type entityType, [CanBeNull] object[] keyValues, CancellationToken cancellationToken)
+            [NotNull] Type entityType,
+            [CanBeNull] object[] keyValues,
+            CancellationToken cancellationToken)
         {
             CheckDisposed();
 
@@ -1654,7 +1772,21 @@ namespace Microsoft.EntityFrameworkCore
         ///         not directly exposed in the public API surface.
         ///     </para>
         /// </summary>
-        IServiceProvider IInfrastructure<IServiceProvider>.Instance => InternalServiceProvider;
+        IServiceProvider IInfrastructure<IServiceProvider>.Instance
+            => InternalServiceProvider;
+
+        /// <summary>
+        ///     Creates a queryable for given query expression.
+        /// </summary>
+        /// <typeparam name="TResult"> The result type of the query expression. </typeparam>
+        /// <param name="expression"> The query expression to create. </param>
+        /// <returns> An <see cref="IQueryable{T}" /> representing the query. </returns>
+        public virtual IQueryable<TResult> FromExpression<TResult>([NotNull] Expression<Func<IQueryable<TResult>>> expression)
+        {
+            Check.NotNull(expression, nameof(expression));
+
+            return DbContextDependencies.QueryProvider.CreateQuery<TResult>(expression.Body);
+        }
 
         #region Hidden System.Object members
 
@@ -1663,22 +1795,25 @@ namespace Microsoft.EntityFrameworkCore
         /// </summary>
         /// <returns> A string that represents the current object. </returns>
         [EditorBrowsable(EditorBrowsableState.Never)]
-        public override string ToString() => base.ToString();
+        public override string ToString()
+            => base.ToString();
 
         /// <summary>
         ///     Determines whether the specified object is equal to the current object.
         /// </summary>
         /// <param name="obj"> The object to compare with the current object. </param>
-        /// <returns> true if the specified object is equal to the current object; otherwise, false. </returns>
+        /// <returns> <see langword="true" /> if the specified object is equal to the current object; otherwise, <see langword="false" />. </returns>
         [EditorBrowsable(EditorBrowsableState.Never)]
-        public override bool Equals(object obj) => base.Equals(obj);
+        public override bool Equals(object obj)
+            => base.Equals(obj);
 
         /// <summary>
         ///     Serves as the default hash function.
         /// </summary>
         /// <returns> A hash code for the current object. </returns>
         [EditorBrowsable(EditorBrowsableState.Never)]
-        public override int GetHashCode() => base.GetHashCode();
+        public override int GetHashCode()
+            => base.GetHashCode();
 
         #endregion
     }

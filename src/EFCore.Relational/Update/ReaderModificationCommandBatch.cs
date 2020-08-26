@@ -46,7 +46,8 @@ namespace Microsoft.EntityFrameworkCore.Update
         /// <summary>
         ///     The update SQL generator.
         /// </summary>
-        protected virtual IUpdateSqlGenerator UpdateSqlGenerator => Dependencies.UpdateSqlGenerator;
+        protected virtual IUpdateSqlGenerator UpdateSqlGenerator
+            => Dependencies.UpdateSqlGenerator;
 
         /// <summary>
         ///     Gets or sets the cached command text for the commands in the batch.
@@ -61,7 +62,8 @@ namespace Microsoft.EntityFrameworkCore.Update
         /// <summary>
         ///     The list of conceptual insert/update/delete <see cref="ModificationCommands" />s in the batch.
         /// </summary>
-        public override IReadOnlyList<ModificationCommand> ModificationCommands => _modificationCommands;
+        public override IReadOnlyList<ModificationCommand> ModificationCommands
+            => _modificationCommands;
 
         /// <summary>
         ///     The <see cref="ResultSetMapping" />s for each command in <see cref="ModificationCommands" />.
@@ -73,7 +75,7 @@ namespace Microsoft.EntityFrameworkCore.Update
         /// </summary>
         /// <param name="modificationCommand"> The command to add. </param>
         /// <returns>
-        ///     <c>True</c> if the command was successfully added; <c>false</c> if there was no
+        ///     <see langword="true" /> if the command was successfully added; <see langword="false" /> if there was no
         ///     room in the current batch to add the command and it must instead be added to a new batch.
         /// </returns>
         public override bool AddCommand(ModificationCommand modificationCommand)
@@ -118,13 +120,13 @@ namespace Microsoft.EntityFrameworkCore.Update
         ///     Checks whether or not a new command can be added to the batch.
         /// </summary>
         /// <param name="modificationCommand"> The command to potentially add. </param>
-        /// <returns> <c>True</c> if the command can be added; <c>false</c> otherwise. </returns>
+        /// <returns> <see langword="true" /> if the command can be added; <see langword="false" /> otherwise. </returns>
         protected abstract bool CanAddCommand([NotNull] ModificationCommand modificationCommand);
 
         /// <summary>
         ///     Checks whether or not the command text is valid.
         /// </summary>
-        /// <returns> <c>True</c> if the command text is valid; <c>false</c> otherwise. </returns>
+        /// <returns> <see langword="true" /> if the command text is valid; <see langword="false" /> otherwise. </returns>
         protected abstract bool IsCommandTextValid();
 
         /// <summary>
@@ -202,7 +204,8 @@ namespace Microsoft.EntityFrameworkCore.Update
                         commandBuilder.AddParameter(
                             columnModification.ParameterName,
                             Dependencies.SqlGenerationHelper.GenerateParameterName(columnModification.ParameterName),
-                            columnModification.Property);
+                            columnModification.TypeMapping,
+                            columnModification.IsNullable);
 
                         parameterValues.Add(columnModification.ParameterName, columnModification.Value);
                     }
@@ -212,7 +215,8 @@ namespace Microsoft.EntityFrameworkCore.Update
                         commandBuilder.AddParameter(
                             columnModification.OriginalParameterName,
                             Dependencies.SqlGenerationHelper.GenerateParameterName(columnModification.OriginalParameterName),
-                            columnModification.Property);
+                            columnModification.TypeMapping,
+                            columnModification.IsNullable);
 
                         parameterValues.Add(columnModification.OriginalParameterName, columnModification.OriginalValue);
                     }
@@ -278,8 +282,8 @@ namespace Microsoft.EntityFrameworkCore.Update
                         null,
                         Dependencies.CurrentContext.Context,
                         Dependencies.Logger),
-                    cancellationToken);
-                await ConsumeAsync(dataReader, cancellationToken);
+                    cancellationToken).ConfigureAwait(false);
+                await ConsumeAsync(dataReader, cancellationToken).ConfigureAwait(false);
             }
             catch (DbUpdateException)
             {
@@ -322,7 +326,7 @@ namespace Microsoft.EntityFrameworkCore.Update
                 .Create(
                     Check.NotNull(columnModifications, nameof(columnModifications))
                         .Where(c => c.IsRead)
-                        .Select(c => new TypeMaterializationInfo(c.Property.ClrType, c.Property, null))
+                        .Select(c => new TypeMaterializationInfo(c.Property.ClrType, c.Property, c.TypeMapping))
                         .ToArray());
     }
 }

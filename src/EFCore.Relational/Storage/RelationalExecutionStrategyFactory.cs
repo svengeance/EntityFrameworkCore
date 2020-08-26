@@ -4,7 +4,6 @@
 using System;
 using JetBrains.Annotations;
 using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.Storage.Internal;
 using Microsoft.EntityFrameworkCore.Utilities;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -53,11 +52,12 @@ namespace Microsoft.EntityFrameworkCore.Storage
         ///     current database provider.
         /// </summary>
         protected virtual IExecutionStrategy CreateDefaultStrategy([NotNull] ExecutionStrategyDependencies dependencies)
-            => new NoopExecutionStrategy(Dependencies);
+            => new NonRetryingExecutionStrategy(Dependencies);
 
         /// <summary>
         ///     Creates an <see cref="IExecutionStrategy" /> for the current database provider.
         /// </summary>
-        public virtual IExecutionStrategy Create() => _createExecutionStrategy(Dependencies);
+        public virtual IExecutionStrategy Create()
+            => _createExecutionStrategy(Dependencies);
     }
 }

@@ -121,12 +121,14 @@ namespace Microsoft.EntityFrameworkCore.Storage
             public int A { get; set; }
             public string B { get; set; }
 
-            private bool Equals(JustAStructWithEquality other) => A == other.A;
+            private bool Equals(JustAStructWithEquality other)
+                => A == other.A;
 
             public override bool Equals(object obj)
                 => obj is JustAStructWithEquality o && Equals(o);
 
-            public override int GetHashCode() => A;
+            public override int GetHashCode()
+                => A;
         }
 
         [ConditionalFact]
@@ -185,7 +187,8 @@ namespace Microsoft.EntityFrameworkCore.Storage
         {
             public int A { get; set; }
 
-            private bool Equals(JustAClassWithEquality other) => A == other.A;
+            private bool Equals(JustAClassWithEquality other)
+                => A == other.A;
 
             public override bool Equals(object obj)
                 => !(obj is null)
@@ -193,7 +196,8 @@ namespace Microsoft.EntityFrameworkCore.Storage
                         || obj is JustAClassWithEquality o
                         && Equals(o));
 
-            public override int GetHashCode() => A;
+            public override int GetHashCode()
+                => A;
         }
 
         [ConditionalFact]
@@ -401,6 +405,8 @@ namespace Microsoft.EntityFrameworkCore.Storage
             var keyEquals = keyComparer.EqualsExpression.Compile();
             var getHashCode = comparer.HashCodeExpression.Compile();
             var getKeyHashCode = keyComparer.HashCodeExpression.Compile();
+            var snapshot = comparer.SnapshotExpression.Compile();
+            var keySnapshot = keyComparer.SnapshotExpression.Compile();
 
             var value1a = new byte[] { 1, 2 };
             var value1b = new byte[] { 1, 2 };
@@ -416,6 +422,14 @@ namespace Microsoft.EntityFrameworkCore.Storage
 
             Assert.Equal(value1a.GetHashCode(), getHashCode(value1a));
             Assert.NotEqual(value1a.GetHashCode(), getKeyHashCode(value1a));
+
+            var copy = snapshot(value1a);
+            var keyCopy = keySnapshot(value2);
+
+            Assert.Same(value1a, copy);
+            Assert.NotSame(value2, keyCopy);
+            Assert.Equal(value1a, copy);
+            Assert.Equal(value2, keyCopy);
         }
 
         private class Binary

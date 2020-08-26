@@ -3,6 +3,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Linq;
 using System.Reflection;
@@ -18,16 +19,20 @@ using Xunit;
 // ReSharper disable UnusedMember.Local
 // ReSharper disable UnusedAutoPropertyAccessor.Local
 // ReSharper disable InconsistentNaming
+#pragma warning disable IDE0051 // Remove unused private members
+#pragma warning disable IDE0052 // Remove unread private members
 namespace Microsoft.EntityFrameworkCore
 {
     public abstract class WithConstructorsTestBase<TFixture> : IClassFixture<TFixture>
         where TFixture : WithConstructorsTestBase<TFixture>.WithConstructorsFixtureBase, new()
     {
-        protected WithConstructorsTestBase(TFixture fixture) => Fixture = fixture;
+        protected WithConstructorsTestBase(TFixture fixture)
+            => Fixture = fixture;
 
         protected TFixture Fixture { get; }
 
-        protected DbContext CreateContext() => Fixture.CreateContext();
+        protected DbContext CreateContext()
+            => Fixture.CreateContext();
 
         protected virtual void UseTransaction(DatabaseFacade facade, IDbContextTransaction transaction)
         {
@@ -738,6 +743,30 @@ namespace Microsoft.EntityFrameworkCore
             Assert.Same(blog, blog.LazyPcsPosts.Skip(1).First().LazyPcsBlog);
         }
 
+#if NET5_0
+        [ConditionalFact]
+        public virtual async Task Add_immutable_record()
+        {
+            var title = "xyzzy";
+            int blogId;
+            using (var context = CreateContext())
+            {
+                var immutableBlog = new BlogAsImmutableRecord(title);
+
+                context.Add(immutableBlog);
+                await context.SaveChangesAsync();
+
+                Assert.NotEqual(0, immutableBlog.BlogId);
+                blogId = immutableBlog.BlogId;
+            }
+
+            using (var context = CreateContext())
+            {
+                Assert.Equal(title, context.Set<BlogAsImmutableRecord>().Single(e => e.BlogId == blogId).Title);
+            }
+        }
+#endif
+
         protected class Blog
         {
             private readonly int _blogId;
@@ -878,9 +907,11 @@ namespace Microsoft.EntityFrameworkCore
             }
 
             // ReSharper disable once ConvertToAutoPropertyWithPrivateSetter
-            public bool SetterCalled => _setterCalled;
+            public bool SetterCalled
+                => _setterCalled;
 
-            public TContext GetContext() => Context;
+            public TContext GetContext()
+                => Context;
         }
 
         protected class HasEntityType
@@ -900,7 +931,8 @@ namespace Microsoft.EntityFrameworkCore
 
             public bool Filler { get; set; }
 
-            public IEntityType GetEntityType() => _entityType;
+            public IEntityType GetEntityType()
+                => _entityType;
         }
 
         protected class HasEntityTypeProperty
@@ -941,9 +973,11 @@ namespace Microsoft.EntityFrameworkCore
             }
 
             // ReSharper disable once ConvertToAutoPropertyWithPrivateSetter
-            public bool SetterCalled => _setterCalled;
+            public bool SetterCalled
+                => _setterCalled;
 
-            public IEntityType GetEntityType() => EntityType;
+            public IEntityType GetEntityType()
+                => EntityType;
         }
 
         protected class HasStateManager
@@ -963,7 +997,8 @@ namespace Microsoft.EntityFrameworkCore
 
             public bool Filler { get; set; }
 
-            public IStateManager GetStateManager() => _stateManager;
+            public IStateManager GetStateManager()
+                => _stateManager;
         }
 
         protected class HasStateManagerProperty
@@ -1005,9 +1040,11 @@ namespace Microsoft.EntityFrameworkCore
             }
 
             // ReSharper disable once ConvertToAutoPropertyWithPrivateSetter
-            public bool SetterCalled => _setterCalled;
+            public bool SetterCalled
+                => _setterCalled;
 
-            public IStateManager GetStateManager() => StateManager;
+            public IStateManager GetStateManager()
+                => StateManager;
         }
 
         protected class LazyBlog
@@ -1028,9 +1065,11 @@ namespace Microsoft.EntityFrameworkCore
 
             public bool Filler { get; set; }
 
-            public void AddPost(LazyPost post) => _lazyPosts.Add(post);
+            public void AddPost(LazyPost post)
+                => _lazyPosts.Add(post);
 
-            public IEnumerable<LazyPost> LazyPosts => _loader.Load(this, ref _lazyPosts);
+            public IEnumerable<LazyPost> LazyPosts
+                => _loader.Load(this, ref _lazyPosts);
         }
 
         protected class LazyPost
@@ -1068,9 +1107,11 @@ namespace Microsoft.EntityFrameworkCore
 
             public bool Filler { get; set; }
 
-            public void AddPost(LazyPropertyPost post) => _lazyPropertyPosts.Add(post);
+            public void AddPost(LazyPropertyPost post)
+                => _lazyPropertyPosts.Add(post);
 
-            public IEnumerable<LazyPropertyPost> LazyPropertyPosts => Loader.Load(this, ref _lazyPropertyPosts);
+            public IEnumerable<LazyPropertyPost> LazyPropertyPosts
+                => Loader.Load(this, ref _lazyPropertyPosts);
         }
 
         protected class LazyPropertyPost
@@ -1089,7 +1130,8 @@ namespace Microsoft.EntityFrameworkCore
                 set => _lazyPropertyBlog = value;
             }
 
-            public ILazyLoader GetLoader() => Loader;
+            public ILazyLoader GetLoader()
+                => Loader;
         }
 
         protected class LazyFieldBlog
@@ -1106,9 +1148,11 @@ namespace Microsoft.EntityFrameworkCore
 
             public bool Filler { get; set; }
 
-            public void AddPost(LazyFieldPost post) => _lazyFieldPosts.Add(post);
+            public void AddPost(LazyFieldPost post)
+                => _lazyFieldPosts.Add(post);
 
-            public IEnumerable<LazyFieldPost> LazyFieldPosts => _loader.Load(this, ref _lazyFieldPosts);
+            public IEnumerable<LazyFieldPost> LazyFieldPosts
+                => _loader.Load(this, ref _lazyFieldPosts);
         }
 
         protected class LazyFieldPost
@@ -1131,7 +1175,8 @@ namespace Microsoft.EntityFrameworkCore
                 set => _lazyFieldBlog = value;
             }
 
-            public ILazyLoader GetLoader() => _loader;
+            public ILazyLoader GetLoader()
+                => _loader;
         }
 
         protected class LazyPsBlog
@@ -1144,9 +1189,11 @@ namespace Microsoft.EntityFrameworkCore
 
             public bool Filler { get; set; }
 
-            public void AddPost(LazyPsPost post) => _lazyPsPosts.Add(post);
+            public void AddPost(LazyPsPost post)
+                => _lazyPsPosts.Add(post);
 
-            public IEnumerable<LazyPsPost> LazyPsPosts => LazyLoader.Load(this, ref _lazyPsPosts);
+            public IEnumerable<LazyPsPost> LazyPsPosts
+                => LazyLoader.Load(this, ref _lazyPsPosts);
         }
 
         protected class LazyPsPost
@@ -1176,7 +1223,8 @@ namespace Microsoft.EntityFrameworkCore
 
             public bool Filler { get; set; }
 
-            public void AddPost(LazyAsyncPsPost post) => _lazyAsyncPsPosts.Add(post);
+            public void AddPost(LazyAsyncPsPost post)
+                => _lazyAsyncPsPosts.Add(post);
 
             public async Task<IEnumerable<LazyAsyncPsPost>> LoadPostsAsync(CancellationToken cancellationToken = default)
             {
@@ -1185,7 +1233,8 @@ namespace Microsoft.EntityFrameworkCore
                 return LazyAsyncPsPosts;
             }
 
-            public IEnumerable<LazyAsyncPsPost> LazyAsyncPsPosts => _lazyAsyncPsPosts;
+            public IEnumerable<LazyAsyncPsPost> LazyAsyncPsPosts
+                => _lazyAsyncPsPosts;
         }
 
         protected class LazyAsyncPsPost
@@ -1237,9 +1286,11 @@ namespace Microsoft.EntityFrameworkCore
 
             public bool Filler { get; set; }
 
-            public void AddPost(LazyPcPost post) => _lazyPcPosts.Add(post);
+            public void AddPost(LazyPcPost post)
+                => _lazyPcPosts.Add(post);
 
-            public IEnumerable<LazyPcPost> LazyPcPosts => Loader.Load(this, ref _lazyPcPosts);
+            public IEnumerable<LazyPcPost> LazyPcPosts
+                => Loader.Load(this, ref _lazyPcPosts);
         }
 
         protected class LazyPcPost
@@ -1313,9 +1364,11 @@ namespace Microsoft.EntityFrameworkCore
 
             public bool Filler { get; set; }
 
-            public void AddPost(LazyPcsPost post) => _lazyPcsPosts.Add(post);
+            public void AddPost(LazyPcsPost post)
+                => _lazyPcsPosts.Add(post);
 
-            public IEnumerable<LazyPcsPost> LazyPcsPosts => LazyLoader.Load(this, ref _lazyPcsPosts);
+            public IEnumerable<LazyPcsPost> LazyPcsPosts
+                => LazyLoader.Load(this, ref _lazyPcsPosts);
         }
 
         protected class LazyPcsPost
@@ -1356,7 +1409,8 @@ namespace Microsoft.EntityFrameworkCore
                 set => _lazyPcsBlog = value;
             }
 
-            public Action<object, string> GetLoader() => _loader;
+            public Action<object, string> GetLoader()
+                => _loader;
         }
 
         protected class LazyPocoBlog
@@ -1377,9 +1431,11 @@ namespace Microsoft.EntityFrameworkCore
 
             public bool Filler { get; set; }
 
-            public void AddPost(LazyPocoPost post) => _lazyPocoPosts.Add(post);
+            public void AddPost(LazyPocoPost post)
+                => _lazyPocoPosts.Add(post);
 
-            public IEnumerable<LazyPocoPost> LazyPocoPosts => _loader.Load(this, ref _lazyPocoPosts);
+            public IEnumerable<LazyPocoPost> LazyPocoPosts
+                => _loader.Load(this, ref _lazyPocoPosts);
         }
 
         protected class LazyPocoPost
@@ -1425,7 +1481,8 @@ namespace Microsoft.EntityFrameworkCore
 
             public bool Filler { get; set; }
 
-            public void AddPost(LazyAsyncPocoPost post) => _lazyAsyncPocoPosts.Add(post);
+            public void AddPost(LazyAsyncPocoPost post)
+                => _lazyAsyncPocoPosts.Add(post);
 
             public async Task<IEnumerable<LazyAsyncPocoPost>> LoadPostsAsync(CancellationToken cancellationToken = default)
             {
@@ -1434,7 +1491,8 @@ namespace Microsoft.EntityFrameworkCore
                 return LazyAsyncPocoPosts;
             }
 
-            public IEnumerable<LazyAsyncPocoPost> LazyAsyncPocoPosts => _lazyAsyncPocoPosts;
+            public IEnumerable<LazyAsyncPocoPost> LazyAsyncPocoPosts
+                => _lazyAsyncPocoPosts;
         }
 
         protected class LazyAsyncPocoPost
@@ -1482,7 +1540,8 @@ namespace Microsoft.EntityFrameworkCore
 
             public bool Filler { get; set; }
 
-            public void AddPost(LazyAsyncPost post) => _lazyAsyncPosts.Add(post);
+            public void AddPost(LazyAsyncPost post)
+                => _lazyAsyncPosts.Add(post);
 
             public async Task<IEnumerable<LazyAsyncPost>> LoadPostsAsync(CancellationToken cancellationToken = default)
             {
@@ -1491,7 +1550,8 @@ namespace Microsoft.EntityFrameworkCore
                 return LazyAsyncPosts;
             }
 
-            public IEnumerable<LazyAsyncPost> LazyAsyncPosts => _lazyAsyncPosts;
+            public IEnumerable<LazyAsyncPost> LazyAsyncPosts
+                => _lazyAsyncPosts;
         }
 
         protected class LazyAsyncPost
@@ -1521,199 +1581,230 @@ namespace Microsoft.EntityFrameworkCore
             public LazyAsyncBlog LazyAsyncBlog { get; set; }
         }
 
-        public class OtherContext : DbContext
+#if NET5_0
+        protected record BlogAsImmutableRecord
         {
+            public BlogAsImmutableRecord(
+                string title,
+                int? monthlyRevenue = null)
+                : this(0, title, monthlyRevenue)
+            {
+            }
+
+            private BlogAsImmutableRecord(
+               int blogId,
+               string title,
+               int? monthlyRevenue)
+            {
+                BlogId = blogId;
+                Title = title;
+                MonthlyRevenue = monthlyRevenue;
+            }
+
+            [Key]
+            public int BlogId { get; init; }
+            public string Title { get; init; }
+            public int? MonthlyRevenue { get; init; }
         }
+#endif
 
-        public class WithConstructorsContext : PoolableDbContext
+    public class OtherContext : DbContext
+    {
+    }
+
+    public class WithConstructorsContext : PoolableDbContext
+    {
+        public WithConstructorsContext(DbContextOptions options)
+            : base(options)
         {
-            public WithConstructorsContext(DbContextOptions options)
-                : base(options)
-            {
-            }
-        }
-
-        public abstract class WithConstructorsFixtureBase : SharedStoreFixtureBase<WithConstructorsContext>
-        {
-            protected override string StoreName { get; } = "WithConstructors";
-
-            protected override void OnModelCreating(ModelBuilder modelBuilder, DbContext context)
-            {
-                modelBuilder.Entity<Blog>(
-                    b =>
-                    {
-                        b.HasKey("_blogId");
-                        b.Property(e => e.Title);
-                    });
-
-                modelBuilder.Entity<BlogQuery>(
-                    b =>
-                    {
-                        b.HasNoKey();
-                        b.Property(e => e.Title);
-                    });
-
-                modelBuilder.Entity<Post>(
-                    b =>
-                    {
-                        b.HasKey("_id");
-                        b.Property(e => e.Title);
-                    });
-
-                modelBuilder.Entity<HasContext<DbContext>>();
-                modelBuilder.Entity<HasContext<WithConstructorsContext>>();
-                modelBuilder.Entity<HasContext<OtherContext>>();
-
-                modelBuilder.Entity<HasContextProperty<DbContext>>();
-                modelBuilder.Entity<HasContextProperty<WithConstructorsContext>>();
-                modelBuilder.Entity<HasContextProperty<OtherContext>>();
-
-                modelBuilder.Entity<HasContextPc<DbContext>>();
-                modelBuilder.Entity<HasContextPc<WithConstructorsContext>>();
-                modelBuilder.Entity<HasContextPc<OtherContext>>();
-
-                modelBuilder.Entity<HasEntityType>();
-                modelBuilder.Entity<HasEntityTypeProperty>();
-                modelBuilder.Entity<HasEntityTypePc>();
-
-                modelBuilder.Entity<HasStateManager>();
-                modelBuilder.Entity<HasStateManagerProperty>();
-                modelBuilder.Entity<HasStateManagerPc>();
-
-                modelBuilder.Entity<LazyBlog>();
-                modelBuilder.Entity<LazyPocoBlog>();
-
-                modelBuilder.Entity<LazyAsyncBlog>();
-                modelBuilder.Entity<LazyAsyncPocoBlog>();
-
-                modelBuilder.Entity<LazyPropertyBlog>();
-                modelBuilder.Entity<LazyPcBlog>();
-                modelBuilder.Entity<LazyPsBlog>();
-                modelBuilder.Entity<LazyAsyncPsBlog>();
-                modelBuilder.Entity<LazyPcsBlog>();
-
-                // Manually configure service fields since there is no public API yet
-
-                var bindingFactories = context.GetService<IParameterBindingFactories>();
-
-                var blogServiceProperty = modelBuilder.Entity<LazyFieldBlog>().Metadata.AddServiceProperty(
-                    typeof(LazyFieldBlog).GetRuntimeFields().Single(f => f.Name == "_loader"));
-
-                blogServiceProperty.ParameterBinding =
-                    (ServiceParameterBinding)bindingFactories.FindFactory(typeof(ILazyLoader), "_loader")
-                        .Bind(blogServiceProperty.DeclaringEntityType, typeof(ILazyLoader), "_loader");
-
-                var postServiceProperty = modelBuilder.Entity<LazyFieldPost>().Metadata.AddServiceProperty(
-                    typeof(LazyFieldPost).GetRuntimeFields().Single(f => f.Name == "_loader"));
-
-                postServiceProperty.ParameterBinding =
-                    (ServiceParameterBinding)bindingFactories.FindFactory(typeof(ILazyLoader), "_loader")
-                        .Bind(postServiceProperty.DeclaringEntityType, typeof(ILazyLoader), "_loader");
-            }
-
-            protected override void Seed(WithConstructorsContext context)
-            {
-                var blog = new Blog("Puppies");
-
-                var post1 = new Post(
-                    "Golden Toasters Rock",
-                    "Smaller than the Black Library Dog, and more chewy.",
-                    blog);
-
-                var post2 = new Post(
-                    "Baxter is not a dog",
-                    "He is a cat. Who eats dog food. And wags his tail.",
-                    blog);
-
-                context.AddRange(blog, post1, post2);
-
-                context.AddRange(
-                    new HasContext<DbContext>(),
-                    new HasContext<WithConstructorsContext>(),
-                    new HasContext<OtherContext>());
-
-                context.AddRange(
-                    new HasContextProperty<DbContext>(),
-                    new HasContextProperty<WithConstructorsContext>(),
-                    new HasContextProperty<OtherContext>());
-
-                context.AddRange(
-                    new HasContextPc<DbContext>(),
-                    new HasContextPc<WithConstructorsContext>(),
-                    new HasContextPc<OtherContext>());
-
-                context.AddRange(
-                    new HasEntityType(),
-                    new HasEntityTypeProperty(),
-                    new HasEntityTypePc());
-
-                context.AddRange(
-                    new HasStateManager(),
-                    new HasStateManagerProperty(),
-                    new HasStateManagerPc());
-
-                var lazyBlog = new LazyBlog();
-                lazyBlog.AddPost(new LazyPost());
-                lazyBlog.AddPost(new LazyPost());
-
-                context.Add(lazyBlog);
-
-                var lazyAsyncBlog = new LazyAsyncBlog();
-                lazyAsyncBlog.AddPost(new LazyAsyncPost());
-                lazyAsyncBlog.AddPost(new LazyAsyncPost());
-
-                context.Add(lazyAsyncBlog);
-
-                var lazyPocoBlog = new LazyPocoBlog();
-                lazyPocoBlog.AddPost(new LazyPocoPost());
-                lazyPocoBlog.AddPost(new LazyPocoPost());
-
-                context.Add(lazyPocoBlog);
-
-                var lazyAsyncPocoBlog = new LazyAsyncPocoBlog();
-                lazyAsyncPocoBlog.AddPost(new LazyAsyncPocoPost());
-                lazyAsyncPocoBlog.AddPost(new LazyAsyncPocoPost());
-
-                context.Add(lazyAsyncPocoBlog);
-
-                var lazyPropertyBlog = new LazyPropertyBlog();
-                lazyPropertyBlog.AddPost(new LazyPropertyPost());
-                lazyPropertyBlog.AddPost(new LazyPropertyPost());
-
-                context.Add(lazyPropertyBlog);
-
-                var lazyFieldBlog = new LazyFieldBlog();
-                lazyFieldBlog.AddPost(new LazyFieldPost());
-                lazyFieldBlog.AddPost(new LazyFieldPost());
-
-                context.Add(lazyFieldBlog);
-
-                var lazyPsBlog = new LazyPsBlog();
-                lazyPsBlog.AddPost(new LazyPsPost());
-                lazyPsBlog.AddPost(new LazyPsPost());
-
-                context.Add(lazyPsBlog);
-
-                var lazyAsyncPsBlog = new LazyAsyncPsBlog();
-                lazyAsyncPsBlog.AddPost(new LazyAsyncPsPost());
-                lazyAsyncPsBlog.AddPost(new LazyAsyncPsPost());
-
-                context.Add(lazyAsyncPsBlog);
-
-                var lazyPcBlog = new LazyPcBlog();
-                lazyPcBlog.AddPost(new LazyPcPost());
-                lazyPcBlog.AddPost(new LazyPcPost());
-
-                context.Add(lazyPcBlog);
-
-                var lazyPcsBlog = new LazyPcsBlog();
-                lazyPcsBlog.AddPost(new LazyPcsPost());
-                lazyPcsBlog.AddPost(new LazyPcsPost());
-
-                context.Add(lazyPcsBlog);
-
-                context.SaveChanges();
-            }
         }
     }
+
+    public abstract class WithConstructorsFixtureBase : SharedStoreFixtureBase<WithConstructorsContext>
+    {
+        protected override string StoreName { get; } = "WithConstructors";
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder, DbContext context)
+        {
+            modelBuilder.Entity<Blog>(
+                b =>
+                {
+                    b.HasKey("_blogId");
+                    b.Property(e => e.Title);
+                });
+
+            modelBuilder.Entity<BlogQuery>(
+                b =>
+                {
+                    b.HasNoKey();
+                    b.Property(e => e.Title);
+                });
+
+            modelBuilder.Entity<Post>(
+                b =>
+                {
+                    b.HasKey("_id");
+                    b.Property(e => e.Title);
+                });
+
+            modelBuilder.Entity<HasContext<DbContext>>();
+            modelBuilder.Entity<HasContext<WithConstructorsContext>>();
+            modelBuilder.Entity<HasContext<OtherContext>>();
+
+            modelBuilder.Entity<HasContextProperty<DbContext>>();
+            modelBuilder.Entity<HasContextProperty<WithConstructorsContext>>();
+            modelBuilder.Entity<HasContextProperty<OtherContext>>();
+
+            modelBuilder.Entity<HasContextPc<DbContext>>();
+            modelBuilder.Entity<HasContextPc<WithConstructorsContext>>();
+            modelBuilder.Entity<HasContextPc<OtherContext>>();
+
+            modelBuilder.Entity<HasEntityType>();
+            modelBuilder.Entity<HasEntityTypeProperty>();
+            modelBuilder.Entity<HasEntityTypePc>();
+
+            modelBuilder.Entity<HasStateManager>();
+            modelBuilder.Entity<HasStateManagerProperty>();
+            modelBuilder.Entity<HasStateManagerPc>();
+
+            modelBuilder.Entity<LazyBlog>();
+            modelBuilder.Entity<LazyPocoBlog>();
+
+            modelBuilder.Entity<LazyAsyncBlog>();
+            modelBuilder.Entity<LazyAsyncPocoBlog>();
+
+            modelBuilder.Entity<LazyPropertyBlog>();
+            modelBuilder.Entity<LazyPcBlog>();
+            modelBuilder.Entity<LazyPsBlog>();
+            modelBuilder.Entity<LazyAsyncPsBlog>();
+            modelBuilder.Entity<LazyPcsBlog>();
+
+#if NET5_0
+            modelBuilder.Entity<BlogAsImmutableRecord>();
+#endif
+
+            // Manually configure service fields since there is no public API yet
+
+            var bindingFactories = context.GetService<IParameterBindingFactories>();
+
+            var blogServiceProperty = modelBuilder.Entity<LazyFieldBlog>().Metadata.AddServiceProperty(
+                typeof(LazyFieldBlog).GetRuntimeFields().Single(f => f.Name == "_loader"));
+
+            blogServiceProperty.ParameterBinding =
+                (ServiceParameterBinding)bindingFactories.FindFactory(typeof(ILazyLoader), "_loader")
+                    .Bind(blogServiceProperty.DeclaringEntityType, typeof(ILazyLoader), "_loader");
+
+            var postServiceProperty = modelBuilder.Entity<LazyFieldPost>().Metadata.AddServiceProperty(
+                typeof(LazyFieldPost).GetRuntimeFields().Single(f => f.Name == "_loader"));
+
+            postServiceProperty.ParameterBinding =
+                (ServiceParameterBinding)bindingFactories.FindFactory(typeof(ILazyLoader), "_loader")
+                    .Bind(postServiceProperty.DeclaringEntityType, typeof(ILazyLoader), "_loader");
+        }
+
+        protected override void Seed(WithConstructorsContext context)
+        {
+            var blog = new Blog("Puppies");
+
+            var post1 = new Post(
+                "Golden Toasters Rock",
+                "Smaller than the Black Library Dog, and more chewy.",
+                blog);
+
+            var post2 = new Post(
+                "Baxter is not a dog",
+                "He is a cat. Who eats dog food. And wags his tail.",
+                blog);
+
+            context.AddRange(blog, post1, post2);
+
+            context.AddRange(
+                new HasContext<DbContext>(),
+                new HasContext<WithConstructorsContext>(),
+                new HasContext<OtherContext>());
+
+            context.AddRange(
+                new HasContextProperty<DbContext>(),
+                new HasContextProperty<WithConstructorsContext>(),
+                new HasContextProperty<OtherContext>());
+
+            context.AddRange(
+                new HasContextPc<DbContext>(),
+                new HasContextPc<WithConstructorsContext>(),
+                new HasContextPc<OtherContext>());
+
+            context.AddRange(
+                new HasEntityType(),
+                new HasEntityTypeProperty(),
+                new HasEntityTypePc());
+
+            context.AddRange(
+                new HasStateManager(),
+                new HasStateManagerProperty(),
+                new HasStateManagerPc());
+
+            var lazyBlog = new LazyBlog();
+            lazyBlog.AddPost(new LazyPost());
+            lazyBlog.AddPost(new LazyPost());
+
+            context.Add(lazyBlog);
+
+            var lazyAsyncBlog = new LazyAsyncBlog();
+            lazyAsyncBlog.AddPost(new LazyAsyncPost());
+            lazyAsyncBlog.AddPost(new LazyAsyncPost());
+
+            context.Add(lazyAsyncBlog);
+
+            var lazyPocoBlog = new LazyPocoBlog();
+            lazyPocoBlog.AddPost(new LazyPocoPost());
+            lazyPocoBlog.AddPost(new LazyPocoPost());
+
+            context.Add(lazyPocoBlog);
+
+            var lazyAsyncPocoBlog = new LazyAsyncPocoBlog();
+            lazyAsyncPocoBlog.AddPost(new LazyAsyncPocoPost());
+            lazyAsyncPocoBlog.AddPost(new LazyAsyncPocoPost());
+
+            context.Add(lazyAsyncPocoBlog);
+
+            var lazyPropertyBlog = new LazyPropertyBlog();
+            lazyPropertyBlog.AddPost(new LazyPropertyPost());
+            lazyPropertyBlog.AddPost(new LazyPropertyPost());
+
+            context.Add(lazyPropertyBlog);
+
+            var lazyFieldBlog = new LazyFieldBlog();
+            lazyFieldBlog.AddPost(new LazyFieldPost());
+            lazyFieldBlog.AddPost(new LazyFieldPost());
+
+            context.Add(lazyFieldBlog);
+
+            var lazyPsBlog = new LazyPsBlog();
+            lazyPsBlog.AddPost(new LazyPsPost());
+            lazyPsBlog.AddPost(new LazyPsPost());
+
+            context.Add(lazyPsBlog);
+
+            var lazyAsyncPsBlog = new LazyAsyncPsBlog();
+            lazyAsyncPsBlog.AddPost(new LazyAsyncPsPost());
+            lazyAsyncPsBlog.AddPost(new LazyAsyncPsPost());
+
+            context.Add(lazyAsyncPsBlog);
+
+            var lazyPcBlog = new LazyPcBlog();
+            lazyPcBlog.AddPost(new LazyPcPost());
+            lazyPcBlog.AddPost(new LazyPcPost());
+
+            context.Add(lazyPcBlog);
+
+            var lazyPcsBlog = new LazyPcsBlog();
+            lazyPcsBlog.AddPost(new LazyPcsPost());
+            lazyPcsBlog.AddPost(new LazyPcsPost());
+
+            context.Add(lazyPcsBlog);
+
+            context.SaveChanges();
+        }
+    }
+}
 }

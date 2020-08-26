@@ -36,36 +36,75 @@ namespace Microsoft.EntityFrameworkCore.Cosmos.Diagnostics.Internal
         {
             var definition = new EventDefinition<string, string, string>(
                 diagnosticsLogger.Options,
-                CoreEventId.ProviderBaseId,
+                CosmosEventId.ExecutingSqlQuery,
                 LogLevel.Debug,
-                "CoreEventId.ProviderBaseId",
+                "CosmosEventId.ExecutingSqlQuery",
                 level => LoggerMessage.Define<string, string, string>(
                     level,
-                    CoreEventId.ProviderBaseId,
+                    CosmosEventId.ExecutingSqlQuery,
                     "Executing Sql Query [Parameters=[{parameters}]]{newLine}{commandText}"));
 
             definition.Log(
                 diagnosticsLogger,
-                FormatParameters(cosmosSqlQuery.Parameters),
+                FormatParameters(cosmosSqlQuery.Parameters, ShouldLogParameterValues(diagnosticsLogger, cosmosSqlQuery)),
                 Environment.NewLine,
                 cosmosSqlQuery.Query);
         }
 
-        private static string FormatParameters(IReadOnlyList<SqlParameter> parameters)
+        private static bool ShouldLogParameterValues(
+            IDiagnosticsLogger<DbLoggerCategory.Database.Command> diagnostics,
+            CosmosSqlQuery cosmosSqlQuery)
+            => cosmosSqlQuery.Parameters.Count > 0
+                && diagnostics.ShouldLogSensitiveData();
+
+        /// <summary>
+        ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+        ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+        ///     any release. You should only use it directly in your code with extreme caution and knowing that
+        ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+        /// </summary>
+        public static void ExecutingReadItem(
+            [NotNull] this IDiagnosticsLogger<DbLoggerCategory.Database.Command> diagnosticsLogger,
+            [NotNull] string partitionKey,
+            [NotNull] string resourceId)
+        {
+            var definition = new EventDefinition<string>(
+                diagnosticsLogger.Options,
+                CosmosEventId.ExecutingReadItem,
+                LogLevel.Debug,
+                "CosmosEventId.ExecutingReadItem",
+                level => LoggerMessage.Define<string>(
+                    level,
+                    CosmosEventId.ExecutingReadItem,
+                    "Executing Read Item [Partition Key, Resource Id=[{parameters}]]"));
+
+            definition.Log(
+                diagnosticsLogger,
+                $"{partitionKey}, {resourceId}");
+        }
+
+        private static string FormatParameters(IReadOnlyList<SqlParameter> parameters, bool shouldLogParameterValues)
         {
             return parameters.Count == 0
                 ? ""
-                : string.Join(", ", parameters.Select(FormatParameter));
+                : string.Join(", ", parameters.Select(e => FormatParameter(e, shouldLogParameterValues)));
         }
 
-        private static string FormatParameter(SqlParameter parameter)
+        private static string FormatParameter(SqlParameter parameter, bool shouldLogParameterValue)
         {
             var builder = new StringBuilder();
             builder
                 .Append(parameter.Name)
                 .Append("=");
 
-            FormatParameterValue(builder, parameter.Value);
+            if (shouldLogParameterValue)
+            {
+                FormatParameterValue(builder, parameter.Value);
+            }
+            else
+            {
+                builder.Append("?");
+            }
 
             return builder.ToString();
         }

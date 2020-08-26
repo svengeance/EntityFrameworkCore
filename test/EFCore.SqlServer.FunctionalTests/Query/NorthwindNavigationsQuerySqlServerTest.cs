@@ -7,14 +7,19 @@ using Xunit.Abstractions;
 
 namespace Microsoft.EntityFrameworkCore.Query
 {
-    public class NorthwindNavigationsQuerySqlServerTest : NorthwindNavigationsQueryTestBase<NorthwindQuerySqlServerFixture<NoopModelCustomizer>>
+    public class NorthwindNavigationsQuerySqlServerTest : NorthwindNavigationsQueryRelationalTestBase<
+        NorthwindQuerySqlServerFixture<NoopModelCustomizer>>
     {
         public NorthwindNavigationsQuerySqlServerTest(
-            NorthwindQuerySqlServerFixture<NoopModelCustomizer> fixture, ITestOutputHelper testOutputHelper)
+            NorthwindQuerySqlServerFixture<NoopModelCustomizer> fixture,
+            ITestOutputHelper testOutputHelper)
             : base(fixture)
         {
             fixture.TestSqlLoggerFactory.Clear();
         }
+
+        protected override bool CanExecuteQueryString
+            => true;
 
         public override async Task Select_Where_Navigation(bool async)
         {
@@ -35,7 +40,7 @@ WHERE [c].[City] = N'Seattle'");
                 @"SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
 FROM [Orders] AS [o]
 LEFT JOIN [Customers] AS [c] ON [o].[CustomerID] = [c].[CustomerID]
-WHERE CHARINDEX(N'Sea', [c].[City]) > 0");
+WHERE [c].[City] LIKE N'%Sea%'");
         }
 
         public override async Task Select_Where_Navigation_Deep(bool async)
@@ -62,7 +67,7 @@ ORDER BY [o].[OrderID], [o].[ProductID]");
 
 SELECT [t1].[OrderID], [t1].[CustomerID], [t1].[EmployeeID], [t1].[OrderDate]
 FROM (
-    SELECT TOP(@__p_0) [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+    SELECT TOP(@__p_0) [c].[CustomerID]
     FROM [Customers] AS [c]
     ORDER BY [c].[CustomerID]
 ) AS [t]
@@ -118,7 +123,7 @@ ORDER BY [c].[CustomerID]");
 
 SELECT [t1].[CustomerID], [t1].[OrderID], [t1].[c]
 FROM (
-    SELECT TOP(@__p_0) [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+    SELECT TOP(@__p_0) [c].[CustomerID]
     FROM [Customers] AS [c]
     WHERE [c].[CustomerID] LIKE N'F%'
     ORDER BY [c].[CustomerID]
@@ -143,7 +148,7 @@ ORDER BY [t].[CustomerID]");
 
 SELECT [t1].[CustomerID], [t1].[OrderID], [t1].[c]
 FROM (
-    SELECT TOP(@__p_0) [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+    SELECT TOP(@__p_0) [c].[CustomerID]
     FROM [Customers] AS [c]
     WHERE [c].[CustomerID] LIKE N'F%'
     ORDER BY [c].[CustomerID]
@@ -168,7 +173,7 @@ ORDER BY [t].[CustomerID]");
 
 SELECT [t1].[OrderID], [t1].[CustomerID], [t1].[EmployeeID], [t1].[OrderDate]
 FROM (
-    SELECT TOP(@__p_0) [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+    SELECT TOP(@__p_0) [c].[CustomerID]
     FROM [Customers] AS [c]
     ORDER BY [c].[CustomerID]
 ) AS [t]
@@ -187,14 +192,12 @@ ORDER BY [t].[CustomerID]");
         {
             await base.Skip_Select_Navigation(async);
 
-            if (TestEnvironment.GetFlag(nameof(SqlServerCondition.SupportsOffset)) ?? true)
-            {
-                AssertSql(
-                    @"@__p_0='20'
+            AssertSql(
+                @"@__p_0='20'
 
 SELECT [t1].[OrderID], [t1].[CustomerID], [t1].[EmployeeID], [t1].[OrderDate]
 FROM (
-    SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+    SELECT [c].[CustomerID]
     FROM [Customers] AS [c]
     ORDER BY [c].[CustomerID]
     OFFSET @__p_0 ROWS
@@ -208,7 +211,6 @@ LEFT JOIN (
     WHERE [t0].[row] <= 1
 ) AS [t1] ON [t].[CustomerID] = [t1].[CustomerID]
 ORDER BY [t].[CustomerID]");
-            }
         }
 
         public override async Task Select_Where_Navigation_Included(bool async)
@@ -293,7 +295,7 @@ WHERE ([c].[City] = N'Seattle') AND (([c].[Phone] <> N'555 555 5555') OR [c].[Ph
 
             AssertSql(
                 @"SELECT (
-    SELECT SUM(CAST([o].[Quantity] AS int))
+    SELECT COALESCE(SUM(CAST([o].[Quantity] AS int)), 0)
     FROM [Order Details] AS [o]
     WHERE [o1].[OrderID] = [o].[OrderID]) + (
     SELECT COUNT(*)
@@ -321,7 +323,7 @@ WHERE ([c].[City] = N'Seattle') AND (([c].[Phone] <> N'555 555 5555') OR [c].[Ph
                 @"SELECT [o].[CustomerID], [t].[CustomerID] AS [C2]
 FROM [Orders] AS [o]
 CROSS JOIN (
-    SELECT [o0].[OrderID], [o0].[CustomerID], [o0].[EmployeeID], [o0].[OrderDate]
+    SELECT [o0].[CustomerID]
     FROM [Orders] AS [o0]
     WHERE [o0].[OrderID] < 10400
 ) AS [t]
@@ -420,12 +422,12 @@ ORDER BY [c].[CustomerID], [o].[OrderID]");
             await base.Select_collection_navigation_multi_part(async);
 
             AssertSql(
-                @"SELECT [o].[OrderID], [o0].[OrderID], [o0].[CustomerID], [o0].[EmployeeID], [o0].[OrderDate]
+                @"SELECT [o].[OrderID], [c].[CustomerID], [o0].[OrderID], [o0].[CustomerID], [o0].[EmployeeID], [o0].[OrderDate]
 FROM [Orders] AS [o]
 LEFT JOIN [Customers] AS [c] ON [o].[CustomerID] = [c].[CustomerID]
 LEFT JOIN [Orders] AS [o0] ON [c].[CustomerID] = [o0].[CustomerID]
 WHERE [o].[CustomerID] = N'ALFKI'
-ORDER BY [o].[OrderID], [o0].[OrderID]");
+ORDER BY [o].[OrderID], [c].[CustomerID], [o0].[OrderID]");
         }
 
         public override async Task Select_collection_navigation_multi_part2(bool async)
@@ -433,13 +435,13 @@ ORDER BY [o].[OrderID], [o0].[OrderID]");
             await base.Select_collection_navigation_multi_part2(async);
 
             AssertSql(
-                @"SELECT [o].[OrderID], [o].[ProductID], [o0].[OrderID], [o1].[OrderID], [o1].[CustomerID], [o1].[EmployeeID], [o1].[OrderDate]
+                @"SELECT [o].[OrderID], [o].[ProductID], [o0].[OrderID], [c].[CustomerID], [o1].[OrderID], [o1].[CustomerID], [o1].[EmployeeID], [o1].[OrderDate]
 FROM [Order Details] AS [o]
 INNER JOIN [Orders] AS [o0] ON [o].[OrderID] = [o0].[OrderID]
 LEFT JOIN [Customers] AS [c] ON [o0].[CustomerID] = [c].[CustomerID]
 LEFT JOIN [Orders] AS [o1] ON [c].[CustomerID] = [o1].[CustomerID]
-WHERE ([o0].[CustomerID] = N'ALFKI') OR ([o0].[CustomerID] = N'ANTON')
-ORDER BY [o].[OrderID], [o].[ProductID], [o0].[OrderID], [o1].[OrderID]");
+WHERE [o0].[CustomerID] IN (N'ALFKI', N'ANTON')
+ORDER BY [o].[OrderID], [o].[ProductID], [o0].[OrderID], [c].[CustomerID], [o1].[OrderID]");
         }
 
         public override async Task Collection_select_nav_prop_any(bool async)
@@ -626,7 +628,7 @@ WHERE [o3].[CustomerID] IS NOT NULL AND ([o3].[CustomerID] LIKE N'A%')");
 
             AssertSql(
                 @"SELECT (
-    SELECT SUM([o].[OrderID])
+    SELECT COALESCE(SUM([o].[OrderID]), 0)
     FROM [Orders] AS [o]
     WHERE [c].[CustomerID] = [o].[CustomerID]) AS [Sum]
 FROM [Customers] AS [c]");
@@ -637,7 +639,11 @@ FROM [Customers] AS [c]");
             await base.Collection_select_nav_prop_sum_plus_one(async);
 
             AssertSql(
-                "");
+                @"SELECT (
+    SELECT COALESCE(SUM([o].[OrderID]), 0)
+    FROM [Orders] AS [o]
+    WHERE [c].[CustomerID] = [o].[CustomerID]) + 1 AS [Sum]
+FROM [Customers] AS [c]");
         }
 
         public override async Task Collection_where_nav_prop_sum(bool async)
@@ -648,7 +654,7 @@ FROM [Customers] AS [c]");
                 @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
 FROM [Customers] AS [c]
 WHERE (
-    SELECT SUM([o].[OrderID])
+    SELECT COALESCE(SUM([o].[OrderID]), 0)
     FROM [Orders] AS [o]
     WHERE [c].[CustomerID] = [o].[CustomerID]) > 1000");
         }
@@ -679,9 +685,9 @@ ORDER BY [c].[CustomerID]");
                 @"SELECT [t0].[CustomerID], [t0].[Address], [t0].[City], [t0].[CompanyName], [t0].[ContactName], [t0].[ContactTitle], [t0].[Country], [t0].[Fax], [t0].[Phone], [t0].[PostalCode], [t0].[Region]
 FROM [Customers] AS [c]
 LEFT JOIN (
-    SELECT [t].[CustomerID], [t].[Address], [t].[City], [t].[CompanyName], [t].[ContactName], [t].[ContactTitle], [t].[Country], [t].[Fax], [t].[Phone], [t].[PostalCode], [t].[Region], [t].[OrderID], [t].[CustomerID0]
+    SELECT [t].[CustomerID], [t].[Address], [t].[City], [t].[CompanyName], [t].[ContactName], [t].[ContactTitle], [t].[Country], [t].[Fax], [t].[Phone], [t].[PostalCode], [t].[Region], [t].[CustomerID0]
     FROM (
-        SELECT [c0].[CustomerID], [c0].[Address], [c0].[City], [c0].[CompanyName], [c0].[ContactName], [c0].[ContactTitle], [c0].[Country], [c0].[Fax], [c0].[Phone], [c0].[PostalCode], [c0].[Region], [o].[OrderID], [o].[CustomerID] AS [CustomerID0], ROW_NUMBER() OVER(PARTITION BY [o].[CustomerID] ORDER BY [o].[OrderID]) AS [row]
+        SELECT [c0].[CustomerID], [c0].[Address], [c0].[City], [c0].[CompanyName], [c0].[ContactName], [c0].[ContactTitle], [c0].[Country], [c0].[Fax], [c0].[Phone], [c0].[PostalCode], [c0].[Region], [o].[CustomerID] AS [CustomerID0], ROW_NUMBER() OVER(PARTITION BY [o].[CustomerID] ORDER BY [o].[OrderID], [c0].[CustomerID]) AS [row]
         FROM [Orders] AS [o]
         LEFT JOIN [Customers] AS [c0] ON [o].[CustomerID] = [c0].[CustomerID]
         WHERE [o].[OrderID] IN (10643, 10692, 10702, 10835, 10952, 11011)
@@ -757,7 +763,7 @@ WHERE [c0].[CustomerID] LIKE N'A%'");
                 @"SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
 FROM [Orders] AS [o]
 LEFT JOIN [Customers] AS [c] ON [o].[CustomerID] = [c].[CustomerID]
-WHERE [c].[CustomerID] IN (N'ALFKI')");
+WHERE [c].[CustomerID] = N'ALFKI'");
         }
 
         public override async Task Navigation_inside_contains(bool async)
@@ -851,7 +857,7 @@ WHERE ((
     FROM [Order Details] AS [o0]
     INNER JOIN [Orders] AS [o1] ON [o0].[OrderID] = [o1].[OrderID]
     LEFT JOIN [Customers] AS [c0] ON [o1].[CustomerID] = [c0].[CustomerID]
-    WHERE ([c].[Country] = [c0].[Country]) OR ([c].[Country] IS NULL AND [c0].[Country] IS NULL)) > 0) AND (([o].[OrderID] = 10643) OR ([o].[OrderID] = 10692))");
+    WHERE ([c].[Country] = [c0].[Country]) OR ([c].[Country] IS NULL AND [c0].[Country] IS NULL)) > 0) AND [o].[OrderID] IN (10643, 10692)");
         }
 
         public override async Task Project_single_scalar_value_subquery_is_properly_inlined(bool async)
@@ -893,14 +899,18 @@ ORDER BY [c].[CustomerID]");
             AssertSql(
                 @"@__p_0='3'
 
-SELECT TOP(@__p_0) [o0].[OrderID], (
+SELECT [t].[OrderID], COALESCE((
     SELECT TOP(1) [o].[OrderID]
     FROM [Order Details] AS [o]
-    WHERE [o0].[OrderID] = [o].[OrderID]
-    ORDER BY [o].[OrderID], [o].[ProductID]) AS [OrderDetail], [c].[City]
-FROM [Orders] AS [o0]
-LEFT JOIN [Customers] AS [c] ON [o0].[CustomerID] = [c].[CustomerID]
-ORDER BY [o0].[OrderID]");
+    WHERE [t].[OrderID] = [o].[OrderID]
+    ORDER BY [o].[OrderID], [o].[ProductID]), 0) AS [OrderDetail], [c].[City]
+FROM (
+    SELECT TOP(@__p_0) [o0].[OrderID], [o0].[CustomerID]
+    FROM [Orders] AS [o0]
+    ORDER BY [o0].[OrderID]
+) AS [t]
+LEFT JOIN [Customers] AS [c] ON [t].[CustomerID] = [c].[CustomerID]
+ORDER BY [t].[OrderID]");
         }
 
         public override async Task GroupJoin_with_complex_subquery_and_LOJ_gets_flattened(bool async)

@@ -4,7 +4,6 @@
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.EntityFrameworkCore.TestUtilities;
-using Xunit;
 
 namespace Microsoft.EntityFrameworkCore
 {
@@ -20,14 +19,14 @@ namespace Microsoft.EntityFrameworkCore
 
         public class WithConstructorsSqlServerFixture : WithConstructorsFixtureBase
         {
-            protected override ITestStoreFactory TestStoreFactory => SqlServerTestStoreFactory.Instance;
+            protected override ITestStoreFactory TestStoreFactory
+                => SqlServerTestStoreFactory.Instance;
 
             protected override void OnModelCreating(ModelBuilder modelBuilder, DbContext context)
             {
                 base.OnModelCreating(modelBuilder, context);
 
-                modelBuilder.Entity<BlogQuery>().HasNoKey().ToQuery(
-                    () => context.Set<BlogQuery>().FromSqlRaw("SELECT * FROM Blog"));
+                modelBuilder.Entity<BlogQuery>().HasNoKey().ToSqlQuery("SELECT * FROM Blog");
             }
         }
     }

@@ -34,6 +34,16 @@ namespace Microsoft.EntityFrameworkCore.Storage
         string BatchTerminator { get; }
 
         /// <summary>
+        ///     Gets the SQL for a START TRANSACTION statement.
+        /// </summary>
+        string StartTransactionStatement { get; }
+
+        /// <summary>
+        ///     Gets the SQL for a COMMIT statement.
+        /// </summary>
+        string CommitTransactionStatement { get; }
+
+        /// <summary>
         ///     The default single-line comment prefix.
         /// </summary>
         string SingleLineCommentToken { get; }

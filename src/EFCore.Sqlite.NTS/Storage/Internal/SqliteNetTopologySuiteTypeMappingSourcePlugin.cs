@@ -32,13 +32,37 @@ namespace Microsoft.EntityFrameworkCore.Sqlite.Storage.Internal
             = new Dictionary<string, Type>(StringComparer.OrdinalIgnoreCase)
             {
                 { "GEOMETRY", typeof(Geometry) },
+                { "GEOMETRYZ", typeof(Geometry) },
+                { "GEOMETRYM", typeof(Geometry) },
+                { "GEOMETRYZM", typeof(Geometry) },
                 { "GEOMETRYCOLLECTION", typeof(GeometryCollection) },
+                { "GEOMETRYCOLLECTIONZ", typeof(GeometryCollection) },
+                { "GEOMETRYCOLLECTIONM", typeof(GeometryCollection) },
+                { "GEOMETRYCOLLECTIONZM", typeof(GeometryCollection) },
                 { "LINESTRING", typeof(LineString) },
+                { "LINESTRINGZ", typeof(LineString) },
+                { "LINESTRINGM", typeof(LineString) },
+                { "LINESTRINGZM", typeof(LineString) },
                 { "MULTILINESTRING", typeof(MultiLineString) },
+                { "MULTILINESTRINGZ", typeof(MultiLineString) },
+                { "MULTILINESTRINGM", typeof(MultiLineString) },
+                { "MULTILINESTRINGZM", typeof(MultiLineString) },
                 { "MULTIPOINT", typeof(MultiPoint) },
+                { "MULTIPOINTZ", typeof(MultiPoint) },
+                { "MULTIPOINTM", typeof(MultiPoint) },
+                { "MULTIPOINTZM", typeof(MultiPoint) },
                 { "MULTIPOLYGON", typeof(MultiPolygon) },
+                { "MULTIPOLYGONZ", typeof(MultiPolygon) },
+                { "MULTIPOLYGONM", typeof(MultiPolygon) },
+                { "MULTIPOLYGONZM", typeof(MultiPolygon) },
                 { "POINT", typeof(Point) },
-                { "POLYGON", typeof(Polygon) }
+                { "POINTZ", typeof(Point) },
+                { "POINTM", typeof(Point) },
+                { "POINTZM", typeof(Point) },
+                { "POLYGON", typeof(Polygon) },
+                { "POLYGONZ", typeof(Polygon) },
+                { "POLYGONM", typeof(Polygon) },
+                { "POLYGONZM", typeof(Polygon) }
             };
 
         private readonly NtsGeometryServices _geometryServices;
@@ -80,37 +104,37 @@ namespace Microsoft.EntityFrameworkCore.Sqlite.Storage.Internal
                     : null;
         }
 
-        private static bool TryGetDefaultStoreType(Type clrType, out string defaultStoreType)
+        private static bool TryGetDefaultStoreType(Type type, out string defaultStoreType)
         {
-            if (typeof(LineString).IsAssignableFrom(clrType))
+            if (typeof(LineString).IsAssignableFrom(type))
             {
                 defaultStoreType = "LINESTRING";
             }
-            else if (typeof(MultiLineString).IsAssignableFrom(clrType))
+            else if (typeof(MultiLineString).IsAssignableFrom(type))
             {
                 defaultStoreType = "MULTILINESTRING";
             }
-            else if (typeof(MultiPoint).IsAssignableFrom(clrType))
+            else if (typeof(MultiPoint).IsAssignableFrom(type))
             {
                 defaultStoreType = "MULTIPOINT";
             }
-            else if (typeof(MultiPolygon).IsAssignableFrom(clrType))
+            else if (typeof(MultiPolygon).IsAssignableFrom(type))
             {
                 defaultStoreType = "MULTIPOLYGON";
             }
-            else if (typeof(Point).IsAssignableFrom(clrType))
+            else if (typeof(Point).IsAssignableFrom(type))
             {
                 defaultStoreType = "POINT";
             }
-            else if (typeof(Polygon).IsAssignableFrom(clrType))
+            else if (typeof(Polygon).IsAssignableFrom(type))
             {
                 defaultStoreType = "POLYGON";
             }
-            else if (typeof(GeometryCollection).IsAssignableFrom(clrType))
+            else if (typeof(GeometryCollection).IsAssignableFrom(type))
             {
                 defaultStoreType = "GEOMETRYCOLLECTION";
             }
-            else if (typeof(Geometry).IsAssignableFrom(clrType))
+            else if (typeof(Geometry).IsAssignableFrom(type))
             {
                 defaultStoreType = "GEOMETRY";
             }

@@ -123,9 +123,7 @@ namespace Microsoft.EntityFrameworkCore.Internal
                 : Task.CompletedTask;
         }
 
-        private bool ShouldLoad(
-            object entity, string navigationName,
-            out NavigationEntry navigationEntry)
+        private bool ShouldLoad(object entity, string navigationName, out NavigationEntry navigationEntry)
         {
             if (_loadedStates != null
                 && _loadedStates.TryGetValue(navigationName, out var loaded)
@@ -141,6 +139,9 @@ namespace Microsoft.EntityFrameworkCore.Internal
             }
             else if (Context.ChangeTracker.LazyLoadingEnabled)
             {
+                // Set early to avoid recursive loading overflow
+                SetLoaded(entity, navigationName, loaded: true);
+
                 var entityEntry = Context.Entry(entity); // Will use local-DetectChanges, if enabled.
                 var tempNavigationEntry = entityEntry.Navigation(navigationName);
 
@@ -153,6 +154,7 @@ namespace Microsoft.EntityFrameworkCore.Internal
                     Logger.NavigationLazyLoading(Context, entity, navigationName);
 
                     navigationEntry = tempNavigationEntry;
+
                     return true;
                 }
             }
@@ -167,6 +169,7 @@ namespace Microsoft.EntityFrameworkCore.Internal
         ///     any release. You should only use it directly in your code with extreme caution and knowing that
         ///     doing so can result in application failures when updating to a new Entity Framework Core release.
         /// </summary>
-        public virtual void Dispose() => _disposed = true;
+        public virtual void Dispose()
+            => _disposed = true;
     }
 }

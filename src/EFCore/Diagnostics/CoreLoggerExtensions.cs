@@ -7,6 +7,8 @@ using System.Diagnostics;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
+using System.Threading;
+using System.Threading.Tasks;
 using JetBrains.Annotations;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.ChangeTracking.Internal;
@@ -55,17 +57,64 @@ namespace Microsoft.EntityFrameworkCore.Diagnostics
                     exception);
             }
 
-            if (diagnostics.NeedsEventData(definition, out var diagnosticSourceEnabled, out var simpleLogEnabled))
+            if (diagnostics.NeedsEventData<ISaveChangesInterceptor>(
+                definition,
+                out var interceptor, out var diagnosticSourceEnabled, out var simpleLogEnabled))
             {
-                var eventData = new DbContextErrorEventData(
-                    definition,
-                    SaveChangesFailed,
-                    context,
-                    exception);
+                var eventData = CreateDbContextErrorEventData(context, exception, definition);
 
                 diagnostics.DispatchEventData(definition, eventData, diagnosticSourceEnabled, simpleLogEnabled);
+
+                interceptor?.SaveChangesFailed(eventData);
             }
         }
+
+        /// <summary>
+        ///     Logs for the <see cref="CoreEventId.SaveChangesFailed" /> event.
+        /// </summary>
+        /// <param name="diagnostics"> The diagnostics logger to use. </param>
+        /// <param name="context"> The context in use. </param>
+        /// <param name="exception"> The exception that caused this event. </param>
+        /// <param name="cancellationToken"> The cancellation token. </param>
+        /// <returns> A <see cref="Task" /> for the async result. </returns>
+        public static Task SaveChangesFailedAsync(
+            [NotNull] this IDiagnosticsLogger<DbLoggerCategory.Update> diagnostics,
+            [NotNull] DbContext context,
+            [NotNull] Exception exception,
+            CancellationToken cancellationToken = default)
+        {
+            var definition = CoreResources.LogExceptionDuringSaveChanges(diagnostics);
+
+            if (diagnostics.ShouldLog(definition))
+            {
+                definition.Log(
+                    diagnostics,
+                    context.GetType(), Environment.NewLine, exception,
+                    exception);
+            }
+
+            if (diagnostics.NeedsEventData<ISaveChangesInterceptor>(
+                definition,
+                out var interceptor, out var diagnosticSourceEnabled, out var simpleLogEnabled))
+            {
+                var eventData = CreateDbContextErrorEventData(context, exception, definition);
+
+                diagnostics.DispatchEventData(definition, eventData, diagnosticSourceEnabled, simpleLogEnabled);
+
+                if (interceptor != null)
+                {
+                    return interceptor.SaveChangesFailedAsync(eventData, cancellationToken);
+                }
+            }
+
+            return Task.CompletedTask;
+        }
+
+        private static DbContextErrorEventData CreateDbContextErrorEventData(
+            DbContext context,
+            Exception exception,
+            EventDefinition<Type, string, Exception> definition)
+            => new DbContextErrorEventData(definition, SaveChangesFailed, context, exception);
 
         private static string SaveChangesFailed(EventDefinitionBase definition, EventData payload)
         {
@@ -92,17 +141,65 @@ namespace Microsoft.EntityFrameworkCore.Diagnostics
                 definition.Log(diagnostics, exception);
             }
 
-            if (diagnostics.NeedsEventData(definition, out var diagnosticSourceEnabled, out var simpleLogEnabled))
+            if (diagnostics.NeedsEventData<ISaveChangesInterceptor>(
+                definition,
+                out var interceptor, out var diagnosticSourceEnabled, out var simpleLogEnabled))
             {
-                var eventData = new DbContextErrorEventData(
-                    definition,
-                    OptimisticConcurrencyException,
-                    context,
-                    exception);
+                var eventData = CreateDbContextErrorEventData(context, exception, definition);
 
                 diagnostics.DispatchEventData(definition, eventData, diagnosticSourceEnabled, simpleLogEnabled);
+
+                interceptor?.SaveChangesFailed(eventData);
             }
         }
+
+        /// <summary>
+        ///     Logs for the <see cref="CoreEventId.OptimisticConcurrencyException" /> event.
+        /// </summary>
+        /// <param name="diagnostics"> The diagnostics logger to use. </param>
+        /// <param name="context"> The context in use. </param>
+        /// <param name="exception"> The exception that caused this event. </param>
+        /// <param name="cancellationToken"> The cancellation token. </param>
+        /// <returns> A <see cref="Task" /> for the async result. </returns>
+        public static Task OptimisticConcurrencyExceptionAsync(
+            [NotNull] this IDiagnosticsLogger<DbLoggerCategory.Update> diagnostics,
+            [NotNull] DbContext context,
+            [NotNull] Exception exception,
+            CancellationToken cancellationToken = default)
+        {
+            var definition = CoreResources.LogOptimisticConcurrencyException(diagnostics);
+
+            if (diagnostics.ShouldLog(definition))
+            {
+                definition.Log(diagnostics, exception);
+            }
+
+            if (diagnostics.NeedsEventData<ISaveChangesInterceptor>(
+                definition,
+                out var interceptor, out var diagnosticSourceEnabled, out var simpleLogEnabled))
+            {
+                var eventData = CreateDbContextErrorEventData(context, exception, definition);
+
+                diagnostics.DispatchEventData(definition, eventData, diagnosticSourceEnabled, simpleLogEnabled);
+
+                if (interceptor != null)
+                {
+                    return interceptor.SaveChangesFailedAsync(eventData, cancellationToken);
+                }
+            }
+
+            return Task.CompletedTask;
+        }
+
+        private static DbContextErrorEventData CreateDbContextErrorEventData(
+            DbContext context,
+            Exception exception,
+            EventDefinition<Exception> definition)
+            => new DbContextErrorEventData(
+                definition,
+                OptimisticConcurrencyException,
+                context,
+                exception);
 
         private static string OptimisticConcurrencyException(EventDefinitionBase definition, EventData payload)
         {
@@ -126,7 +223,7 @@ namespace Microsoft.EntityFrameworkCore.Diagnostics
 
             if (diagnostics.ShouldLog(definition))
             {
-                definition.Log(diagnostics,dependent1.DisplayName(), dependent2.DisplayName());
+                definition.Log(diagnostics, dependent1.DisplayName(), dependent2.DisplayName());
             }
 
             if (diagnostics.NeedsEventData(definition, out var diagnosticSourceEnabled, out var simpleLogEnabled))
@@ -188,196 +285,136 @@ namespace Microsoft.EntityFrameworkCore.Diagnostics
             return d.GenerateMessage(p.ContextType, Environment.NewLine, p.Exception);
         }
 
-        // TODO: Commenting this since we need to add similar logging in ExpressionTrees
-        ///// <summary>
-        /////     Logs for the <see cref="CoreEventId.QueryModelCompiling" /> event.
-        ///// </summary>
-        ///// <param name="diagnostics"> The diagnostics logger to use. </param>
-        ///// <param name="queryModel"> The query model. </param>
-        //public static void QueryModelCompiling(
-        //    [NotNull] this IDiagnosticsLogger<DbLoggerCategory.Query> diagnostics,
-        //    [NotNull] QueryModel queryModel)
-        //{
-        //    var definition = CoreResources.LogCompilingQueryModel(diagnostics);
+        /// <summary>
+        ///     Logs for the <see cref="CoreEventId.QueryCompilationStarting" /> event.
+        /// </summary>
+        /// <param name="diagnostics"> The diagnostics logger to use. </param>
+        /// <param name="expressionPrinter"> Used to create a human-readable representation of the expression tree. </param>
+        /// <param name="queryExpression"> The query expression tree. </param>
+        public static void QueryCompilationStarting(
+            [NotNull] this IDiagnosticsLogger<DbLoggerCategory.Query> diagnostics,
+            [NotNull] ExpressionPrinter expressionPrinter,
+            [NotNull] Expression queryExpression)
+        {
+            var definition = CoreResources.LogQueryCompilationStarting(diagnostics);
 
-        //    var warningBehavior = definition.GetLogBehavior(diagnostics);
-        //    if (warningBehavior != WarningBehavior.Ignore)
-        //    {
-        //        definition.Log(
-        //            diagnostics,
-        //            warningBehavior,
-        //            Environment.NewLine, queryModel.Print());
-        //    }
+            if (diagnostics.ShouldLog(definition))
+            {
+                definition.Log(diagnostics, Environment.NewLine, expressionPrinter.Print(queryExpression));
+            }
 
-        //    if (diagnostics.DiagnosticSource.IsEnabled(definition.EventId.Name))
-        //    {
-        //        diagnostics.DiagnosticSource.Write(
-        //            definition.EventId.Name,
-        //            new QueryModelEventData(
-        //                definition,
-        //                QueryModelCompiling,
-        //                queryModel));
-        //    }
-        //}
+            if (diagnostics.NeedsEventData(definition, out var diagnosticSourceEnabled, out var simpleLogEnabled))
+            {
+                var eventData = new QueryExpressionEventData(
+                    definition,
+                    QueryCompilationStarting,
+                    queryExpression,
+                    expressionPrinter);
 
-        //private static string QueryModelCompiling(EventDefinitionBase definition, EventData payload)
-        //{
-        //    var d = (EventDefinition<string, string>)definition;
-        //    var p = (QueryModelEventData)payload;
-        //    return d.GenerateMessage(Environment.NewLine, p.QueryModel.Print());
-        //}
+                diagnostics.DispatchEventData(definition, eventData, diagnosticSourceEnabled, simpleLogEnabled);
+            }
+        }
 
-        ///// <summary>
-        /////     Logs for the <see cref="CoreEventId.RowLimitingOperationWithoutOrderByWarning" /> event.
-        ///// </summary>
-        ///// <param name="diagnostics"> The diagnostics logger to use. </param>
-        ///// <param name="queryModel"> The query model. </param>
-        //public static void RowLimitingOperationWithoutOrderByWarning(
-        //    [NotNull] this IDiagnosticsLogger<DbLoggerCategory.Query> diagnostics,
-        //    [NotNull] QueryModel queryModel)
-        //{
-        //    var definition = CoreResources.LogRowLimitingOperationWithoutOrderBy(diagnostics);
+        private static string QueryCompilationStarting(EventDefinitionBase definition, EventData payload)
+        {
+            var d = (EventDefinition<string, string>)definition;
+            var p = (QueryExpressionEventData)payload;
+            return d.GenerateMessage(Environment.NewLine, p.ExpressionPrinter.Print(p.Expression));
+        }
 
-        //    var warningBehavior = definition.GetLogBehavior(diagnostics);
-        //    if (warningBehavior != WarningBehavior.Ignore)
-        //    {
-        //        definition.Log(
-        //            diagnostics,
-        //            warningBehavior,
-        //            queryModel.Print(removeFormatting: true, characterLimit: QueryModelStringLengthLimit));
-        //    }
+        /// <summary>
+        ///     Logs for the <see cref="CoreEventId.FirstWithoutOrderByAndFilterWarning" /> event.
+        /// </summary>
+        /// <param name="diagnostics"> The diagnostics logger to use. </param>
+        public static void FirstWithoutOrderByAndFilterWarning(
+            [NotNull] this IDiagnosticsLogger<DbLoggerCategory.Query> diagnostics)
+        {
+            var definition = CoreResources.LogFirstWithoutOrderByAndFilter(diagnostics);
 
-        //    if (diagnostics.DiagnosticSource.IsEnabled(definition.EventId.Name))
-        //    {
-        //        diagnostics.DiagnosticSource.Write(
-        //            definition.EventId.Name,
-        //            new QueryModelEventData(
-        //                definition,
-        //                RowLimitingOperationWithoutOrderByWarning,
-        //                queryModel));
-        //    }
-        //}
+            if (diagnostics.ShouldLog(definition))
+            {
+                definition.Log(diagnostics);
+            }
 
-        //private static string RowLimitingOperationWithoutOrderByWarning(EventDefinitionBase definition, EventData payload)
-        //{
-        //    var d = (EventDefinition<string>)definition;
-        //    var p = (QueryModelEventData)payload;
-        //    return d.GenerateMessage(p.QueryModel.Print(removeFormatting: true, characterLimit: QueryModelStringLengthLimit));
-        //}
+            if (diagnostics.NeedsEventData(definition, out var diagnosticSourceEnabled, out var simpleLogEnabled))
+            {
+                var eventData = new EventData(
+                    definition,
+                    FirstWithoutOrderByAndFilterWarning);
 
-        ///// <summary>
-        /////     Logs for the <see cref="CoreEventId.FirstWithoutOrderByAndFilterWarning" /> event.
-        ///// </summary>
-        ///// <param name="diagnostics"> The diagnostics logger to use. </param>
-        ///// <param name="queryModel"> The query model. </param>
-        //public static void FirstWithoutOrderByAndFilterWarning(
-        //    [NotNull] this IDiagnosticsLogger<DbLoggerCategory.Query> diagnostics,
-        //    [NotNull] QueryModel queryModel)
-        //{
-        //    var definition = CoreResources.LogFirstWithoutOrderByAndFilter(diagnostics);
+                diagnostics.DispatchEventData(definition, eventData, diagnosticSourceEnabled, simpleLogEnabled);
+            }
+        }
 
-        //    var warningBehavior = definition.GetLogBehavior(diagnostics);
-        //    if (warningBehavior != WarningBehavior.Ignore)
-        //    {
-        //        definition.Log(
-        //            diagnostics,
-        //            warningBehavior,
-        //            queryModel.Print(removeFormatting: true, characterLimit: QueryModelStringLengthLimit));
-        //    }
+        private static string FirstWithoutOrderByAndFilterWarning(EventDefinitionBase definition, EventData payload)
+        {
+            var d = (EventDefinition)definition;
+            return d.GenerateMessage();
+        }
 
-        //    if (diagnostics.DiagnosticSource.IsEnabled(definition.EventId.Name))
-        //    {
-        //        diagnostics.DiagnosticSource.Write(
-        //            definition.EventId.Name,
-        //            new QueryModelEventData(
-        //                definition,
-        //                FirstWithoutOrderByAndFilterWarning,
-        //                queryModel));
-        //    }
-        //}
+        /// <summary>
+        ///     Logs for the <see cref="CoreEventId.RowLimitingOperationWithoutOrderByWarning" /> event.
+        /// </summary>
+        /// <param name="diagnostics"> The diagnostics logger to use. </param>
+        public static void RowLimitingOperationWithoutOrderByWarning(
+            [NotNull] this IDiagnosticsLogger<DbLoggerCategory.Query> diagnostics)
+        {
+            var definition = CoreResources.LogRowLimitingOperationWithoutOrderBy(diagnostics);
 
-        //private static string FirstWithoutOrderByAndFilterWarning(EventDefinitionBase definition, EventData payload)
-        //{
-        //    var d = (EventDefinition<string>)definition;
-        //    var p = (QueryModelEventData)payload;
-        //    return d.GenerateMessage(p.QueryModel.Print(removeFormatting: true, characterLimit: QueryModelStringLengthLimit));
-        //}
+            if (diagnostics.ShouldLog(definition))
+            {
+                definition.Log(diagnostics);
+            }
 
-        ///// <summary>
-        /////     Logs for the <see cref="CoreEventId.QueryModelOptimized" /> event.
-        ///// </summary>
-        ///// <param name="diagnostics"> The diagnostics logger to use. </param>
-        ///// <param name="queryModel"> The query model. </param>
-        //public static void QueryModelOptimized(
-        //    [NotNull] this IDiagnosticsLogger<DbLoggerCategory.Query> diagnostics,
-        //    [NotNull] QueryModel queryModel)
-        //{
-        //    var definition = CoreResources.LogOptimizedQueryModel(diagnostics);
+            if (diagnostics.NeedsEventData(definition, out var diagnosticSourceEnabled, out var simpleLogEnabled))
+            {
+                var eventData = new EventData(
+                    definition,
+                    RowLimitingOperationWithoutOrderByWarning);
 
-        //    var warningBehavior = definition.GetLogBehavior(diagnostics);
-        //    if (warningBehavior != WarningBehavior.Ignore)
-        //    {
-        //        definition.Log(
-        //            diagnostics,
-        //            warningBehavior,
-        //            Environment.NewLine, queryModel.Print());
-        //    }
+                diagnostics.DispatchEventData(definition, eventData, diagnosticSourceEnabled, simpleLogEnabled);
+            }
+        }
 
-        //    if (diagnostics.DiagnosticSource.IsEnabled(definition.EventId.Name))
-        //    {
-        //        diagnostics.DiagnosticSource.Write(
-        //            definition.EventId.Name,
-        //            new QueryModelEventData(
-        //                definition,
-        //                QueryModelOptimized,
-        //                queryModel));
-        //    }
-        //}
+        private static string RowLimitingOperationWithoutOrderByWarning(EventDefinitionBase definition, EventData payload)
+        {
+            var d = (EventDefinition)definition;
+            return d.GenerateMessage();
+        }
 
-        //private static string QueryModelOptimized(EventDefinitionBase definition, EventData payload)
-        //{
-        //    var d = (EventDefinition<string, string>)definition;
-        //    var p = (QueryModelEventData)payload;
-        //    return d.GenerateMessage(Environment.NewLine, p.QueryModel.Print());
-        //}
+        /// <summary>
+        ///     Logs for the <see cref="CoreEventId.NavigationBaseIncluded" /> event.
+        /// </summary>
+        /// <param name="diagnostics"> The diagnostics logger to use. </param>
+        /// <param name="navigation"> The navigation being included. </param>
+        public static void NavigationBaseIncluded(
+            [NotNull] this IDiagnosticsLogger<DbLoggerCategory.Query> diagnostics,
+            [NotNull] INavigationBase navigation)
+        {
+            var definition = CoreResources.LogNavigationBaseIncluded(diagnostics);
 
-        ///// <summary>
-        /////     Logs for the <see cref="CoreEventId.NavigationIncluded" /> event.
-        ///// </summary>
-        ///// <param name="diagnostics"> The diagnostics logger to use. </param>
-        ///// <param name="includeResultOperator"> The result operator for the Include. </param>
-        //public static void NavigationIncluded(
-        //    [NotNull] this IDiagnosticsLogger<DbLoggerCategory.Query> diagnostics,
-        //    [NotNull] IncludeResultOperator includeResultOperator)
-        //{
-        //    var definition = CoreResources.LogIncludingNavigation(diagnostics);
+            if (diagnostics.ShouldLog(definition))
+            {
+                definition.Log(diagnostics, navigation.DeclaringEntityType.ShortName() + "." + navigation.Name);
+            }
 
-        //    var warningBehavior = definition.GetLogBehavior(diagnostics);
-        //    if (warningBehavior != WarningBehavior.Ignore)
-        //    {
-        //        definition.Log(
-        //            diagnostics,
-        //            warningBehavior,
-        //            includeResultOperator.DisplayString());
-        //    }
+            if (diagnostics.NeedsEventData(definition, out var diagnosticSourceEnabled, out var simpleLogEnabled))
+            {
+                var eventData = new NavigationBaseEventData(
+                    definition,
+                    NavigationBaseIncluded,
+                    navigation);
 
-        //    if (diagnostics.DiagnosticSource.IsEnabled(definition.EventId.Name))
-        //    {
-        //        diagnostics.DiagnosticSource.Write(
-        //            definition.EventId.Name,
-        //            new IncludeEventData(
-        //                definition,
-        //                NavigationIncluded,
-        //                includeResultOperator));
-        //    }
-        //}
+                diagnostics.DispatchEventData(definition, eventData, diagnosticSourceEnabled, simpleLogEnabled);
+            }
+        }
 
-        //private static string NavigationIncluded(EventDefinitionBase definition, EventData payload)
-        //{
-        //    var d = (EventDefinition<string>)definition;
-        //    var p = (IncludeEventData)payload;
-        //    return d.GenerateMessage(p.IncludeResultOperator.DisplayString());
-        //}
+        private static string NavigationBaseIncluded(EventDefinitionBase definition, EventData payload)
+        {
+            var d = (EventDefinition<string>)definition;
+            var p = (NavigationBaseEventData)payload;
+            return d.GenerateMessage(p.NavigationBase.DeclaringEntityType.ShortName() + "." + p.NavigationBase.Name);
+        }
 
         /// <summary>
         ///     Logs for the <see cref="CoreEventId.QueryExecutionPlanned" /> event.
@@ -495,7 +532,7 @@ namespace Microsoft.EntityFrameworkCore.Diagnostics
             {
                 definition.Log(
                     diagnostics,
-                    $"{navigation.DeclaringEntityType.Name}.{navigation.GetTargetType().Name}");
+                    $"{navigation.DeclaringEntityType.DisplayName()}.{navigation.Name}");
             }
 
             if (diagnostics.NeedsEventData(definition, out var diagnosticSourceEnabled, out var simpleLogEnabled))
@@ -513,7 +550,7 @@ namespace Microsoft.EntityFrameworkCore.Diagnostics
         {
             var d = (EventDefinition<string>)definition;
             var p = (NavigationEventData)payload;
-            return d.GenerateMessage($"{p.Navigation.DeclaringEntityType.Name}.{p.Navigation.GetTargetType().Name}");
+            return d.GenerateMessage($"{p.Navigation.DeclaringEntityType.DisplayName()}.{p.Navigation.Name}");
         }
 
         /// <summary>
@@ -531,7 +568,7 @@ namespace Microsoft.EntityFrameworkCore.Diagnostics
 
             if (diagnostics.ShouldLog(definition))
             {
-                definition.Log(diagnostics,left, right);
+                definition.Log(diagnostics, left, right);
             }
 
             if (diagnostics.NeedsEventData(definition, out var diagnosticSourceEnabled, out var simpleLogEnabled))
@@ -551,6 +588,46 @@ namespace Microsoft.EntityFrameworkCore.Diagnostics
             var d = (EventDefinition<object, object>)definition;
             var p = (BinaryExpressionEventData)payload;
             return d.GenerateMessage(p.Left, p.Right);
+        }
+
+        /// <summary>
+        ///     Logs for the <see cref="CoreEventId.InvalidIncludePathError" /> event.
+        /// </summary>
+        /// <param name="diagnostics"> The diagnostics logger to use. </param>
+        /// <param name="navigationChain">
+        ///     The navigation chain used in the
+        ///     <see cref="EntityFrameworkQueryableExtensions.Include{TEntity}(IQueryable{TEntity}, string)" />
+        /// </param>
+        /// <param name="navigationName"> The navigation name which was not found in the model. </param>
+        public static void InvalidIncludePathError(
+            [NotNull] this IDiagnosticsLogger<DbLoggerCategory.Query> diagnostics,
+            [NotNull] string navigationChain,
+            [NotNull] string navigationName)
+        {
+            var definition = CoreResources.LogInvalidIncludePath(diagnostics);
+            if (diagnostics.ShouldLog(definition))
+            {
+                definition.Log(diagnostics, navigationChain, navigationName);
+            }
+
+            if (diagnostics.NeedsEventData(definition, out var diagnosticSourceEnabled, out var simpleLogEnabled))
+            {
+                var eventData = new InvalidIncludePathEventData(
+                    definition,
+                    InvalidIncludePathError,
+                    navigationChain,
+                    navigationName);
+
+                diagnostics.DispatchEventData(definition, eventData, diagnosticSourceEnabled, simpleLogEnabled);
+            }
+        }
+
+        private static string InvalidIncludePathError(EventDefinitionBase definition, EventData payload)
+        {
+            var d = (EventDefinition<object, object>)definition;
+            var p = (InvalidIncludePathEventData)payload;
+
+            return d.GenerateMessage(p.NavigationChain, p.NavigationName);
         }
 
         /// <summary>
@@ -796,7 +873,7 @@ namespace Microsoft.EntityFrameworkCore.Diagnostics
 
             if (diagnostics.ShouldLog(definition))
             {
-                definition.Log(diagnostics,navigationName, entityType.GetType().ShortDisplayName());
+                definition.Log(diagnostics, navigationName, entityType.GetType().ShortDisplayName());
             }
 
             if (diagnostics.NeedsEventData(definition, out var diagnosticSourceEnabled, out var simpleLogEnabled))
@@ -836,7 +913,7 @@ namespace Microsoft.EntityFrameworkCore.Diagnostics
 
             if (diagnostics.ShouldLog(definition))
             {
-                definition.Log(diagnostics,navigationName, entityType.GetType().ShortDisplayName());
+                definition.Log(diagnostics, navigationName, entityType.GetType().ShortDisplayName());
             }
 
             if (diagnostics.NeedsEventData(definition, out var diagnosticSourceEnabled, out var simpleLogEnabled))
@@ -876,7 +953,7 @@ namespace Microsoft.EntityFrameworkCore.Diagnostics
 
             if (diagnostics.ShouldLog(definition))
             {
-                definition.Log(diagnostics,navigationName, entityType.GetType().ShortDisplayName());
+                definition.Log(diagnostics, navigationName, entityType.GetType().ShortDisplayName());
             }
 
             if (diagnostics.NeedsEventData(definition, out var diagnosticSourceEnabled, out var simpleLogEnabled))
@@ -918,9 +995,9 @@ namespace Microsoft.EntityFrameworkCore.Diagnostics
             if (diagnostics.NeedsEventData(definition, out var diagnosticSourceEnabled, out var simpleLogEnabled))
             {
                 var eventData = new ServiceProviderEventData(
-                        definition,
-                        (d, p) => ((EventDefinition)d).GenerateMessage(),
-                        serviceProvider);
+                    definition,
+                    (d, p) => ((EventDefinition)d).GenerateMessage(),
+                    serviceProvider);
 
                 diagnostics.DispatchEventData(definition, eventData, diagnosticSourceEnabled, simpleLogEnabled);
             }
@@ -939,7 +1016,7 @@ namespace Microsoft.EntityFrameworkCore.Diagnostics
 
             if (diagnostics.ShouldLog(definition))
             {
-                definition.Log(diagnostics,property.Name, property.DeclaringEntityType.DisplayName());
+                definition.Log(diagnostics, property.Name, property.DeclaringEntityType.DisplayName());
             }
 
             if (diagnostics.NeedsEventData(definition, out var diagnosticSourceEnabled, out var simpleLogEnabled))
@@ -973,7 +1050,7 @@ namespace Microsoft.EntityFrameworkCore.Diagnostics
 
             if (diagnostics.ShouldLog(definition))
             {
-                definition.Log(diagnostics,property.Name, property.DeclaringEntityType.DisplayName());
+                definition.Log(diagnostics, property.Name, property.DeclaringEntityType.DisplayName());
             }
 
             if (diagnostics.NeedsEventData(definition, out var diagnosticSourceEnabled, out var simpleLogEnabled))
@@ -1081,10 +1158,20 @@ namespace Microsoft.EntityFrameworkCore.Diagnostics
         ///     Logs for the <see cref="CoreEventId.IncompatibleMatchingForeignKeyProperties" /> event.
         /// </summary>
         /// <param name="diagnostics"> The diagnostics logger to use. </param>
+        /// <param name="dependentToPrincipalNavigationSpecification">
+        ///     The name of the navigation property or entity type on the dependent end of the
+        ///     relationship.
+        /// </param>
+        /// <param name="principalToDependentNavigationSpecification">
+        ///     The name of the navigation property or entity type on the principal end of the
+        ///     relationship.
+        /// </param>
         /// <param name="foreignKeyProperties"> The properties that make up the foreign key. </param>
         /// <param name="principalKeyProperties"> The corresponding keys on the principal side. </param>
         public static void IncompatibleMatchingForeignKeyProperties(
             [NotNull] this IDiagnosticsLogger<DbLoggerCategory.Model> diagnostics,
+            [NotNull] string dependentToPrincipalNavigationSpecification,
+            [NotNull] string principalToDependentNavigationSpecification,
             [NotNull] IReadOnlyList<IPropertyBase> foreignKeyProperties,
             [NotNull] IReadOnlyList<IPropertyBase> principalKeyProperties)
         {
@@ -1094,15 +1181,19 @@ namespace Microsoft.EntityFrameworkCore.Diagnostics
             {
                 definition.Log(
                     diagnostics,
+                    dependentToPrincipalNavigationSpecification,
+                    principalToDependentNavigationSpecification,
                     foreignKeyProperties.Format(includeTypes: true),
                     principalKeyProperties.Format(includeTypes: true));
             }
 
             if (diagnostics.NeedsEventData(definition, out var diagnosticSourceEnabled, out var simpleLogEnabled))
             {
-                var eventData = new TwoPropertyBaseCollectionsEventData(
+                var eventData = new ForeignKeyCandidateEventData(
                     definition,
                     IncompatibleMatchingForeignKeyProperties,
+                    dependentToPrincipalNavigationSpecification,
+                    principalToDependentNavigationSpecification,
                     foreignKeyProperties,
                     principalKeyProperties);
 
@@ -1112,11 +1203,52 @@ namespace Microsoft.EntityFrameworkCore.Diagnostics
 
         private static string IncompatibleMatchingForeignKeyProperties(EventDefinitionBase definition, EventData payload)
         {
-            var d = (EventDefinition<string, string>)definition;
-            var p = (TwoPropertyBaseCollectionsEventData)payload;
+            var d = (EventDefinition<string, string, string, string>)definition;
+            var p = (ForeignKeyCandidateEventData)payload;
             return d.GenerateMessage(
+                p.DependentToPrincipalNavigationSpecification,
+                p.PrincipalToDependentNavigationSpecification,
                 p.FirstPropertyCollection.Format(includeTypes: true),
                 p.SecondPropertyCollection.Format(includeTypes: true));
+        }
+
+        /// <summary>
+        ///     Logs for the <see cref="CoreEventId.AmbiguousEndRequiredWarning" /> event.
+        /// </summary>
+        /// <param name="diagnostics"> The diagnostics logger to use. </param>
+        /// <param name="foreignKey"> The foreign key. </param>
+        public static void AmbiguousEndRequiredWarning(
+            [NotNull] this IDiagnosticsLogger<DbLoggerCategory.Model> diagnostics,
+            [NotNull] IForeignKey foreignKey)
+        {
+            var definition = CoreResources.LogAmbiguousEndRequired(diagnostics);
+
+            if (diagnostics.ShouldLog(definition))
+            {
+                definition.Log(
+                    diagnostics,
+                    foreignKey.Properties.Format(),
+                    foreignKey.DeclaringEntityType.DisplayName());
+            }
+
+            if (diagnostics.NeedsEventData(definition, out var diagnosticSourceEnabled, out var simpleLogEnabled))
+            {
+                var eventData = new ForeignKeyEventData(
+                    definition,
+                    AmbiguousEndRequiredWarning,
+                    foreignKey);
+
+                diagnostics.DispatchEventData(definition, eventData, diagnosticSourceEnabled, simpleLogEnabled);
+            }
+        }
+
+        private static string AmbiguousEndRequiredWarning(EventDefinitionBase definition, EventData payload)
+        {
+            var d = (EventDefinition<string, string>)definition;
+            var p = (ForeignKeyEventData)payload;
+            return d.GenerateMessage(
+                p.ForeignKey.Properties.Format(),
+                p.ForeignKey.DeclaringEntityType.DisplayName());
         }
 
         /// <summary>
@@ -1124,6 +1256,7 @@ namespace Microsoft.EntityFrameworkCore.Diagnostics
         /// </summary>
         /// <param name="diagnostics"> The diagnostics logger to use. </param>
         /// <param name="navigation"> The navigation property. </param>
+        [Obsolete]
         public static void RequiredAttributeInverted(
             [NotNull] this IDiagnosticsLogger<DbLoggerCategory.Model> diagnostics,
             [NotNull] INavigation navigation)
@@ -1132,7 +1265,7 @@ namespace Microsoft.EntityFrameworkCore.Diagnostics
 
             if (diagnostics.ShouldLog(definition))
             {
-                definition.Log(diagnostics,navigation.Name, navigation.DeclaringEntityType.DisplayName());
+                definition.Log(diagnostics, navigation.Name, navigation.DeclaringEntityType.DisplayName());
             }
 
             if (diagnostics.NeedsEventData(definition, out var diagnosticSourceEnabled, out var simpleLogEnabled))
@@ -1146,6 +1279,7 @@ namespace Microsoft.EntityFrameworkCore.Diagnostics
             }
         }
 
+        [Obsolete]
         private static string RequiredAttributeInverted(EventDefinitionBase definition, EventData payload)
         {
             var d = (EventDefinition<string, string>)definition;
@@ -1158,6 +1292,7 @@ namespace Microsoft.EntityFrameworkCore.Diagnostics
         /// </summary>
         /// <param name="diagnostics"> The diagnostics logger to use. </param>
         /// <param name="navigation"> The navigation property. </param>
+        [Obsolete]
         public static void NonNullableInverted(
             [NotNull] this IDiagnosticsLogger<DbLoggerCategory.Model> diagnostics,
             [NotNull] INavigation navigation)
@@ -1166,7 +1301,7 @@ namespace Microsoft.EntityFrameworkCore.Diagnostics
 
             if (diagnostics.ShouldLog(definition))
             {
-                definition.Log(diagnostics,navigation.Name, navigation.DeclaringEntityType.DisplayName());
+                definition.Log(diagnostics, navigation.Name, navigation.DeclaringEntityType.DisplayName());
             }
 
             if (diagnostics.NeedsEventData(definition, out var diagnosticSourceEnabled, out var simpleLogEnabled))
@@ -1180,6 +1315,7 @@ namespace Microsoft.EntityFrameworkCore.Diagnostics
             }
         }
 
+        [Obsolete]
         private static string NonNullableInverted(EventDefinitionBase definition, EventData payload)
         {
             var d = (EventDefinition<string, string>)definition;
@@ -1193,6 +1329,7 @@ namespace Microsoft.EntityFrameworkCore.Diagnostics
         /// <param name="diagnostics"> The diagnostics logger to use. </param>
         /// <param name="firstNavigation"> The first navigation property. </param>
         /// <param name="secondNavigation"> The second navigation property. </param>
+        [Obsolete]
         public static void RequiredAttributeOnBothNavigations(
             [NotNull] this IDiagnosticsLogger<DbLoggerCategory.Model> diagnostics,
             [NotNull] INavigation firstNavigation,
@@ -1222,6 +1359,7 @@ namespace Microsoft.EntityFrameworkCore.Diagnostics
             }
         }
 
+        [Obsolete]
         private static string RequiredAttributeOnBothNavigations(EventDefinitionBase definition, EventData payload)
         {
             var d = (EventDefinition<string, string, string, string>)definition;
@@ -1241,6 +1379,7 @@ namespace Microsoft.EntityFrameworkCore.Diagnostics
         /// <param name="diagnostics"> The diagnostics logger to use. </param>
         /// <param name="firstNavigation"> The first navigation property. </param>
         /// <param name="secondNavigation"> The second navigation property. </param>
+        [Obsolete]
         public static void NonNullableReferenceOnBothNavigations(
             [NotNull] this IDiagnosticsLogger<DbLoggerCategory.Model> diagnostics,
             [NotNull] INavigation firstNavigation,
@@ -1270,6 +1409,7 @@ namespace Microsoft.EntityFrameworkCore.Diagnostics
             }
         }
 
+        [Obsolete]
         private static string NonNullableReferenceOnBothNavigations(EventDefinitionBase definition, EventData payload)
         {
             var d = (EventDefinition<string, string, string, string>)definition;
@@ -1288,6 +1428,7 @@ namespace Microsoft.EntityFrameworkCore.Diagnostics
         /// </summary>
         /// <param name="diagnostics"> The diagnostics logger to use. </param>
         /// <param name="navigation"> The navigation property. </param>
+        [Obsolete]
         public static void RequiredAttributeOnDependent(
             [NotNull] this IDiagnosticsLogger<DbLoggerCategory.Model> diagnostics,
             [NotNull] INavigation navigation)
@@ -1298,7 +1439,7 @@ namespace Microsoft.EntityFrameworkCore.Diagnostics
             {
                 definition.Log(
                     diagnostics,
-                    navigation.Name, navigation.DeclaringEntityType.DisplayName());
+                    navigation.DeclaringEntityType.DisplayName(), navigation.Name);
             }
 
             if (diagnostics.NeedsEventData(definition, out var diagnosticSourceEnabled, out var simpleLogEnabled))
@@ -1312,11 +1453,12 @@ namespace Microsoft.EntityFrameworkCore.Diagnostics
             }
         }
 
+        [Obsolete]
         private static string RequiredAttributeOnDependent(EventDefinitionBase definition, EventData payload)
         {
             var d = (EventDefinition<string, string>)definition;
             var p = (NavigationEventData)payload;
-            return d.GenerateMessage(p.Navigation.Name, p.Navigation.DeclaringEntityType.DisplayName());
+            return d.GenerateMessage(p.Navigation.DeclaringEntityType.DisplayName(), p.Navigation.Name);
         }
 
         /// <summary>
@@ -1324,6 +1466,7 @@ namespace Microsoft.EntityFrameworkCore.Diagnostics
         /// </summary>
         /// <param name="diagnostics"> The diagnostics logger to use. </param>
         /// <param name="navigation"> The navigation property. </param>
+        [Obsolete]
         public static void NonNullableReferenceOnDependent(
             [NotNull] this IDiagnosticsLogger<DbLoggerCategory.Model> diagnostics,
             [NotNull] INavigation navigation)
@@ -1334,8 +1477,8 @@ namespace Microsoft.EntityFrameworkCore.Diagnostics
             {
                 definition.Log(
                     diagnostics,
-                    navigation.Name,
-                    navigation.DeclaringEntityType.DisplayName());
+                    navigation.DeclaringEntityType.DisplayName(),
+                    navigation.Name);
             }
 
             if (diagnostics.NeedsEventData(definition, out var diagnosticSourceEnabled, out var simpleLogEnabled))
@@ -1349,11 +1492,12 @@ namespace Microsoft.EntityFrameworkCore.Diagnostics
             }
         }
 
+        [Obsolete]
         private static string NonNullableReferenceOnDependent(EventDefinitionBase definition, EventData payload)
         {
             var d = (EventDefinition<string, string>)definition;
             var p = (NavigationEventData)payload;
-            return d.GenerateMessage(p.Navigation.Name, p.Navigation.DeclaringEntityType.DisplayName());
+            return d.GenerateMessage(p.Navigation.DeclaringEntityType.DisplayName(), p.Navigation.Name);
         }
 
         /// <summary>
@@ -1369,7 +1513,7 @@ namespace Microsoft.EntityFrameworkCore.Diagnostics
 
             if (diagnostics.ShouldLog(definition))
             {
-                definition.Log(diagnostics,navigation.Name,navigation.DeclaringEntityType.DisplayName());
+                definition.Log(diagnostics, navigation.DeclaringEntityType.DisplayName(), navigation.Name);
             }
 
             if (diagnostics.NeedsEventData(definition, out var diagnosticSourceEnabled, out var simpleLogEnabled))
@@ -1387,7 +1531,41 @@ namespace Microsoft.EntityFrameworkCore.Diagnostics
         {
             var d = (EventDefinition<string, string>)definition;
             var p = (NavigationEventData)payload;
-            return d.GenerateMessage(p.Navigation.Name, p.Navigation.DeclaringEntityType.DisplayName());
+            return d.GenerateMessage(p.Navigation.DeclaringEntityType.DisplayName(), p.Navigation.Name);
+        }
+
+        /// <summary>
+        ///     Logs for the <see cref="CoreEventId.RequiredAttributeOnSkipNavigation" /> event.
+        /// </summary>
+        /// <param name="diagnostics"> The diagnostics logger to use. </param>
+        /// <param name="navigation"> The navigation property. </param>
+        public static void RequiredAttributeOnSkipNavigation(
+            [NotNull] this IDiagnosticsLogger<DbLoggerCategory.Model> diagnostics,
+            [NotNull] ISkipNavigation navigation)
+        {
+            var definition = CoreResources.LogRequiredAttributeOnSkipNavigation(diagnostics);
+
+            if (diagnostics.ShouldLog(definition))
+            {
+                definition.Log(diagnostics, navigation.DeclaringEntityType.DisplayName(), navigation.Name);
+            }
+
+            if (diagnostics.NeedsEventData(definition, out var diagnosticSourceEnabled, out var simpleLogEnabled))
+            {
+                var eventData = new SkipNavigationEventData(
+                    definition,
+                    RequiredAttributeOnSkipNavigation,
+                    navigation);
+
+                diagnostics.DispatchEventData(definition, eventData, diagnosticSourceEnabled, simpleLogEnabled);
+            }
+        }
+
+        private static string RequiredAttributeOnSkipNavigation(EventDefinitionBase definition, EventData payload)
+        {
+            var d = (EventDefinition<string, string>)definition;
+            var p = (SkipNavigationEventData)payload;
+            return d.GenerateMessage(p.Navigation.DeclaringEntityType.DisplayName(), p.Navigation.Name);
         }
 
         /// <summary>
@@ -1835,10 +2013,7 @@ namespace Microsoft.EntityFrameworkCore.Diagnostics
                 var eventData = new TwoUnmappedPropertyCollectionsEventData(
                     definition,
                     ConflictingForeignKeyAttributesOnNavigationAndPropertyWarning,
-                    new[]
-                    {
-                        new Tuple<MemberInfo, Type>(navigation.GetIdentifyingMemberInfo(), navigation.DeclaringEntityType.ClrType)
-                    },
+                    new[] { new Tuple<MemberInfo, Type>(navigation.GetIdentifyingMemberInfo(), navigation.DeclaringEntityType.ClrType) },
                     new[] { new Tuple<MemberInfo, Type>(property, property.DeclaringType) });
 
                 diagnostics.DispatchEventData(definition, eventData, diagnosticSourceEnabled, simpleLogEnabled);
@@ -1846,7 +2021,8 @@ namespace Microsoft.EntityFrameworkCore.Diagnostics
         }
 
         private static string ConflictingForeignKeyAttributesOnNavigationAndPropertyWarning(
-            EventDefinitionBase definition, EventData payload)
+            EventDefinitionBase definition,
+            EventData payload)
         {
             var d = (EventDefinition<string, string, string, string>)definition;
             var p = (TwoUnmappedPropertyCollectionsEventData)payload;
@@ -1906,7 +2082,7 @@ namespace Microsoft.EntityFrameworkCore.Diagnostics
 
             if (diagnostics.ShouldLog(definition))
             {
-                definition.Log(diagnostics,context.GetType().ShortDisplayName());
+                definition.Log(diagnostics, context.GetType().ShortDisplayName());
             }
 
             if (diagnostics.NeedsEventData(definition, out var diagnosticSourceEnabled, out var simpleLogEnabled))
@@ -1946,7 +2122,7 @@ namespace Microsoft.EntityFrameworkCore.Diagnostics
 
             if (diagnostics.ShouldLog(definition))
             {
-                definition.Log(diagnostics,property.DeclaringEntityType.ShortName(),property.Name);
+                definition.Log(diagnostics, property.DeclaringEntityType.ShortName(), property.Name);
             }
 
             if (diagnostics.NeedsEventData(definition, out var diagnosticSourceEnabled, out var simpleLogEnabled))
@@ -2235,6 +2411,112 @@ namespace Microsoft.EntityFrameworkCore.Diagnostics
         }
 
         /// <summary>
+        ///     Logs for the <see cref="CoreEventId.CollectionChangeDetected" /> event.
+        /// </summary>
+        /// <param name="diagnostics"> The diagnostics logger to use. </param>
+        /// <param name="internalEntityEntry"> The internal entity entry. </param>
+        /// <param name="navigation"> The navigation property. </param>
+        /// <param name="added"> The added values. </param>
+        /// <param name="removed"> The removed values. </param>
+        public static void SkipCollectionChangeDetected(
+            [NotNull] this IDiagnosticsLogger<DbLoggerCategory.ChangeTracking> diagnostics,
+            [NotNull] InternalEntityEntry internalEntityEntry,
+            [NotNull] ISkipNavigation navigation,
+            [NotNull] ISet<object> added,
+            [NotNull] ISet<object> removed)
+        {
+            var definition = CoreResources.LogSkipCollectionChangeDetected(diagnostics);
+
+            if (diagnostics.ShouldLog(definition))
+            {
+                definition.Log(
+                    diagnostics,
+                    added.Count,
+                    removed.Count,
+                    navigation.DeclaringEntityType.ShortName(),
+                    navigation.Name);
+            }
+
+            if (diagnostics.NeedsEventData(definition, out var diagnosticSourceEnabled, out var simpleLogEnabled))
+            {
+                var eventData = new SkipCollectionChangedEventData(
+                    definition,
+                    SkipCollectionChangeDetected,
+                    new EntityEntry(internalEntityEntry),
+                    navigation,
+                    added,
+                    removed);
+
+                diagnostics.DispatchEventData(definition, eventData, diagnosticSourceEnabled, simpleLogEnabled);
+            }
+        }
+
+        private static string SkipCollectionChangeDetected(EventDefinitionBase definition, EventData payload)
+        {
+            var d = (EventDefinition<int, int, string, string>)definition;
+            var p = (SkipCollectionChangedEventData)payload;
+            return d.GenerateMessage(
+                p.Added.Count(),
+                p.Removed.Count(),
+                p.Navigation.DeclaringEntityType.ShortName(),
+                p.Navigation.Name);
+        }
+
+        /// <summary>
+        ///     Logs for the <see cref="CoreEventId.CollectionChangeDetected" /> event.
+        /// </summary>
+        /// <param name="diagnostics"> The diagnostics logger to use. </param>
+        /// <param name="internalEntityEntry"> The internal entity entry. </param>
+        /// <param name="navigation"> The navigation property. </param>
+        /// <param name="added"> The added values. </param>
+        /// <param name="removed"> The removed values. </param>
+        public static void SkipCollectionChangeDetectedSensitive(
+            [NotNull] this IDiagnosticsLogger<DbLoggerCategory.ChangeTracking> diagnostics,
+            [NotNull] InternalEntityEntry internalEntityEntry,
+            [NotNull] ISkipNavigation navigation,
+            [NotNull] ISet<object> added,
+            [NotNull] ISet<object> removed)
+        {
+            var definition = CoreResources.LogSkipCollectionChangeDetectedSensitive(diagnostics);
+
+            if (diagnostics.ShouldLog(definition))
+            {
+                definition.Log(
+                    diagnostics,
+                    added.Count,
+                    removed.Count,
+                    navigation.DeclaringEntityType.ShortName(),
+                    navigation.Name,
+                    internalEntityEntry.BuildCurrentValuesString(navigation.DeclaringEntityType.FindPrimaryKey().Properties));
+            }
+
+            if (diagnostics.NeedsEventData(definition, out var diagnosticSourceEnabled, out var simpleLogEnabled))
+            {
+                var eventData = new SkipCollectionChangedEventData(
+                    definition,
+                    SkipCollectionChangeDetectedSensitive,
+                    new EntityEntry(internalEntityEntry),
+                    navigation,
+                    added,
+                    removed);
+
+                diagnostics.DispatchEventData(definition, eventData, diagnosticSourceEnabled, simpleLogEnabled);
+            }
+        }
+
+        private static string SkipCollectionChangeDetectedSensitive(EventDefinitionBase definition, EventData payload)
+        {
+            var d = (EventDefinition<int, int, string, string, string>)definition;
+            var p = (SkipCollectionChangedEventData)payload;
+            return d.GenerateMessage(
+                p.Added.Count(),
+                p.Removed.Count(),
+                p.Navigation.DeclaringEntityType.ShortName(),
+                p.Navigation.Name,
+                p.EntityEntry.GetInfrastructure().BuildCurrentValuesString(p.Navigation.DeclaringEntityType.FindPrimaryKey().Properties));
+        }
+
+        /// <summary>
         ///     Logs for the <see cref="CoreEventId.ReferenceChangeDetected" /> event.
         /// </summary>
         /// <param name="diagnostics"> The diagnostics logger to use. </param>
@@ -2253,7 +2535,7 @@ namespace Microsoft.EntityFrameworkCore.Diagnostics
 
             if (diagnostics.ShouldLog(definition))
             {
-                definition.Log(diagnostics,navigation.DeclaringEntityType.ShortName(),navigation.Name);
+                definition.Log(diagnostics, navigation.DeclaringEntityType.ShortName(), navigation.Name);
             }
 
             if (diagnostics.NeedsEventData(definition, out var diagnosticSourceEnabled, out var simpleLogEnabled))
@@ -2812,7 +3094,8 @@ namespace Microsoft.EntityFrameworkCore.Diagnostics
         /// </summary>
         /// <param name="diagnostics"> The diagnostics logger to use. </param>
         /// <param name="context"> The context being used. </param>
-        public static void SaveChangesStarting(
+        /// <returns> The, possibly intercepted, result. </returns>
+        public static InterceptionResult<int> SaveChangesStarting(
             [NotNull] this IDiagnosticsLogger<DbLoggerCategory.Update> diagnostics,
             [NotNull] DbContext context)
         {
@@ -2820,19 +3103,67 @@ namespace Microsoft.EntityFrameworkCore.Diagnostics
 
             if (diagnostics.ShouldLog(definition))
             {
-                definition.Log(diagnostics,context.GetType().ShortDisplayName());
+                definition.Log(diagnostics, context.GetType().ShortDisplayName());
             }
 
-            if (diagnostics.NeedsEventData(definition, out var diagnosticSourceEnabled, out var simpleLogEnabled))
+            if (diagnostics.NeedsEventData<ISaveChangesInterceptor>(
+                definition,
+                out var interceptor, out var diagnosticSourceEnabled, out var simpleLogEnabled))
             {
-                var eventData = new DbContextEventData(
-                    definition,
-                    SaveChangesStarting,
-                    context);
+                var eventData = CreateSaveChangesStartingEventData(context, definition);
 
                 diagnostics.DispatchEventData(definition, eventData, diagnosticSourceEnabled, simpleLogEnabled);
+
+                if (interceptor != null)
+                {
+                    return interceptor.SavingChanges(eventData, default);
+                }
             }
+
+            return default;
         }
+
+        /// <summary>
+        ///     Logs for the <see cref="CoreEventId.SaveChangesStarting" /> event.
+        /// </summary>
+        /// <param name="diagnostics"> The diagnostics logger to use. </param>
+        /// <param name="context"> The context being used. </param>
+        /// <param name="cancellationToken"> The cancellation token. </param>
+        /// <returns> The, possibly intercepted, result. </returns>
+        public static ValueTask<InterceptionResult<int>> SaveChangesStartingAsync(
+            [NotNull] this IDiagnosticsLogger<DbLoggerCategory.Update> diagnostics,
+            [NotNull] DbContext context,
+            CancellationToken cancellationToken = default)
+        {
+            var definition = CoreResources.LogSaveChangesStarting(diagnostics);
+
+            if (diagnostics.ShouldLog(definition))
+            {
+                definition.Log(diagnostics, context.GetType().ShortDisplayName());
+            }
+
+            if (diagnostics.NeedsEventData<ISaveChangesInterceptor>(
+                definition,
+                out var interceptor, out var diagnosticSourceEnabled, out var simpleLogEnabled))
+            {
+                var eventData = CreateSaveChangesStartingEventData(context, definition);
+
+                diagnostics.DispatchEventData(definition, eventData, diagnosticSourceEnabled, simpleLogEnabled);
+
+                if (interceptor != null)
+                {
+                    return interceptor.SavingChangesAsync(eventData, default, cancellationToken);
+                }
+            }
+
+            return default;
+        }
+
+        private static DbContextEventData CreateSaveChangesStartingEventData(DbContext context, EventDefinition<string> definition)
+            => new DbContextEventData(
+                definition,
+                SaveChangesStarting,
+                context);
 
         private static string SaveChangesStarting(EventDefinitionBase definition, EventData payload)
         {
@@ -2847,28 +3178,83 @@ namespace Microsoft.EntityFrameworkCore.Diagnostics
         /// <param name="diagnostics"> The diagnostics logger to use. </param>
         /// <param name="context"> The context being used. </param>
         /// <param name="entitiesSavedCount"> The number of entities saved. </param>
-        public static void SaveChangesCompleted(
+        /// <returns> The, possibly intercepted, result. </returns>
+        public static int SaveChangesCompleted(
             [NotNull] this IDiagnosticsLogger<DbLoggerCategory.Update> diagnostics,
             [NotNull] DbContext context,
             int entitiesSavedCount)
         {
             var definition = CoreResources.LogSaveChangesCompleted(diagnostics);
 
+            if (diagnostics.ShouldLog(definition))
             {
-                definition.Log(diagnostics,context.GetType().ShortDisplayName(), entitiesSavedCount);
+                definition.Log(diagnostics, context.GetType().ShortDisplayName(), entitiesSavedCount);
             }
 
-            if (diagnostics.NeedsEventData(definition, out var diagnosticSourceEnabled, out var simpleLogEnabled))
+            if (diagnostics.NeedsEventData<ISaveChangesInterceptor>(
+                definition,
+                out var interceptor, out var diagnosticSourceEnabled, out var simpleLogEnabled))
             {
-                var eventData = new SaveChangesCompletedEventData(
-                    definition,
-                    SaveChangesCompleted,
-                    context,
-                    entitiesSavedCount);
+                var eventData = CreateSaveChangesCompletedEventData(context, entitiesSavedCount, definition);
 
                 diagnostics.DispatchEventData(definition, eventData, diagnosticSourceEnabled, simpleLogEnabled);
+
+                if (interceptor != null)
+                {
+                    return interceptor.SavedChanges(eventData, entitiesSavedCount);
+                }
             }
+
+            return entitiesSavedCount;
         }
+
+        /// <summary>
+        ///     Logs for the <see cref="CoreEventId.SaveChangesCompleted" /> event.
+        /// </summary>
+        /// <param name="diagnostics"> The diagnostics logger to use. </param>
+        /// <param name="context"> The context being used. </param>
+        /// <param name="entitiesSavedCount"> The number of entities saved. </param>
+        /// <param name="cancellationToken"> The cancellation token. </param>
+        /// <returns> The, possibly intercepted, result. </returns>
+        public static ValueTask<int> SaveChangesCompletedAsync(
+            [NotNull] this IDiagnosticsLogger<DbLoggerCategory.Update> diagnostics,
+            [NotNull] DbContext context,
+            int entitiesSavedCount,
+            CancellationToken cancellationToken = default)
+        {
+            var definition = CoreResources.LogSaveChangesCompleted(diagnostics);
+
+            if (diagnostics.ShouldLog(definition))
+            {
+                definition.Log(diagnostics, context.GetType().ShortDisplayName(), entitiesSavedCount);
+            }
+
+            if (diagnostics.NeedsEventData<ISaveChangesInterceptor>(
+                definition,
+                out var interceptor, out var diagnosticSourceEnabled, out var simpleLogEnabled))
+            {
+                var eventData = CreateSaveChangesCompletedEventData(context, entitiesSavedCount, definition);
+
+                diagnostics.DispatchEventData(definition, eventData, diagnosticSourceEnabled, simpleLogEnabled);
+
+                if (interceptor != null)
+                {
+                    return interceptor.SavedChangesAsync(eventData, entitiesSavedCount, cancellationToken);
+                }
+            }
+
+            return new ValueTask<int>(entitiesSavedCount);
+        }
+
+        private static SaveChangesCompletedEventData CreateSaveChangesCompletedEventData(
+            DbContext context,
+            int entitiesSavedCount,
+            EventDefinition<string, int> definition)
+            => new SaveChangesCompletedEventData(
+                definition,
+                SaveChangesCompleted,
+                context,
+                entitiesSavedCount);
 
         private static string SaveChangesCompleted(EventDefinitionBase definition, EventData payload)
         {
@@ -2892,7 +3278,7 @@ namespace Microsoft.EntityFrameworkCore.Diagnostics
 
             if (diagnostics.ShouldLog(definition))
             {
-                definition.Log(diagnostics,context.GetType().ShortDisplayName());
+                definition.Log(diagnostics, context.GetType().ShortDisplayName());
             }
 
             if (diagnostics.NeedsEventData(definition, out var diagnosticSourceEnabled, out var simpleLogEnabled))
@@ -2911,6 +3297,83 @@ namespace Microsoft.EntityFrameworkCore.Diagnostics
             var d = (EventDefinition<string>)definition;
             var p = (DbContextEventData)payload;
             return d.GenerateMessage(p.Context.GetType().ShortDisplayName());
+        }
+
+        /// <summary>
+        ///     Logs for the <see cref="CoreEventId.ConflictingKeylessAndKeyAttributesWarning" /> event.
+        /// </summary>
+        /// <param name="diagnostics"> The diagnostics logger to use. </param>
+        /// <param name="property"> The property which is being defined as part of a key. </param>
+        public static void ConflictingKeylessAndKeyAttributesWarning(
+            [NotNull] this IDiagnosticsLogger<DbLoggerCategory.Model> diagnostics,
+            [NotNull] IProperty property)
+        {
+            var definition = CoreResources.LogConflictingKeylessAndKeyAttributes(diagnostics);
+
+            if (diagnostics.ShouldLog(definition))
+            {
+                definition.Log(diagnostics, property.Name, property.DeclaringEntityType.DisplayName());
+            }
+
+            if (diagnostics.NeedsEventData(definition, out var diagnosticSourceEnabled, out var simpleLogEnabled))
+            {
+                var eventData = new PropertyEventData(
+                    definition,
+                    ConflictingKeylessAndKeyAttributesWarning,
+                    property);
+
+                diagnostics.DispatchEventData(definition, eventData, diagnosticSourceEnabled, simpleLogEnabled);
+            }
+        }
+
+        private static string ConflictingKeylessAndKeyAttributesWarning(EventDefinitionBase definition, EventData payload)
+        {
+            var d = (EventDefinition<string, string>)definition;
+            var p = (PropertyEventData)payload;
+            return d.GenerateMessage(
+                p.Property.Name,
+                p.Property.DeclaringEntityType.DisplayName());
+        }
+
+        /// <summary>
+        ///     Logs for the <see cref="CoreEventId.PossibleIncorrectRequiredNavigationWithQueryFilterInteractionWarning" /> event.
+        /// </summary>
+        /// <param name="diagnostics"> The diagnostics logger to use. </param>
+        /// <param name="foreignKey"> Foreign key which is used in the incorrectly setup navigation. </param>
+        public static void PossibleIncorrectRequiredNavigationWithQueryFilterInteractionWarning(
+            [NotNull] this IDiagnosticsLogger<DbLoggerCategory.Model.Validation> diagnostics,
+            [NotNull] IForeignKey foreignKey)
+        {
+            var definition = CoreResources.LogPossibleIncorrectRequiredNavigationWithQueryFilterInteraction(diagnostics);
+
+            if (diagnostics.ShouldLog(definition))
+            {
+                definition.Log(
+                    diagnostics,
+                    foreignKey.PrincipalEntityType.DisplayName(),
+                    foreignKey.DeclaringEntityType.DisplayName());
+            }
+
+            if (diagnostics.NeedsEventData(definition, out var diagnosticSourceEnabled, out var simpleLogEnabled))
+            {
+                var eventData = new ForeignKeyEventData(
+                    definition,
+                    PossibleIncorrectRequiredNavigationWithQueryFilterInteractionWarning,
+                    foreignKey);
+
+                diagnostics.DispatchEventData(definition, eventData, diagnosticSourceEnabled, simpleLogEnabled);
+            }
+        }
+
+        private static string PossibleIncorrectRequiredNavigationWithQueryFilterInteractionWarning(
+            EventDefinitionBase definition,
+            EventData payload)
+        {
+            var d = (EventDefinition<string, string>)definition;
+            var p = (ForeignKeyEventData)payload;
+            return d.GenerateMessage(
+                p.ForeignKey.PrincipalEntityType.DisplayName(),
+                p.ForeignKey.DeclaringEntityType.DisplayName());
         }
     }
 }

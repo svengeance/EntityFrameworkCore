@@ -43,7 +43,7 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Builders
         /// </summary>
         [EntityFrameworkInternal]
         protected OwnershipBuilder(
-            [NotNull] InternalRelationshipBuilder builder,
+            [NotNull] InternalForeignKeyBuilder builder,
             [CanBeNull] OwnershipBuilder oldBuilder,
             bool foreignKeySet = false,
             bool principalKeySet = false,
@@ -60,7 +60,8 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Builders
         /// <param name="value"> The value to be stored in the annotation. </param>
         /// <returns> The same builder instance so that multiple configuration calls can be chained. </returns>
         public new virtual OwnershipBuilder<TEntity, TDependentEntity> HasAnnotation(
-            [NotNull] string annotation, [NotNull] object value)
+            [NotNull] string annotation,
+            [NotNull] object value)
             => (OwnershipBuilder<TEntity, TDependentEntity>)base.HasAnnotation(annotation, value);
 
         /// <summary>
@@ -131,7 +132,7 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Builders
             [NotNull] Expression<Func<TDependentEntity, object>> foreignKeyExpression)
         {
             Builder = Builder.HasForeignKey(
-                Check.NotNull(foreignKeyExpression, nameof(foreignKeyExpression)).GetPropertyAccessList(),
+                Check.NotNull(foreignKeyExpression, nameof(foreignKeyExpression)).GetMemberAccessList(),
                 (EntityType)DependentEntityType,
                 ConfigurationSource.Explicit);
             return new OwnershipBuilder<TEntity, TDependentEntity>(
@@ -181,7 +182,7 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Builders
             [NotNull] Expression<Func<TEntity, object>> keyExpression)
         {
             Builder = Builder.HasPrincipalKey(
-                Check.NotNull(keyExpression, nameof(keyExpression)).GetPropertyAccessList(),
+                Check.NotNull(keyExpression, nameof(keyExpression)).GetMemberAccessList(),
                 ConfigurationSource.Explicit);
             return new OwnershipBuilder<TEntity, TDependentEntity>(
                 Builder,

@@ -123,6 +123,7 @@ namespace Microsoft.EntityFrameworkCore.Infrastructure
                 { typeof(IUpdateAdapterFactory), new ServiceCharacteristics(ServiceLifetime.Scoped) },
                 { typeof(ICurrentDbContext), new ServiceCharacteristics(ServiceLifetime.Scoped) },
                 { typeof(IDbContextDependencies), new ServiceCharacteristics(ServiceLifetime.Scoped) },
+                { typeof(IModelCreationDependencies), new ServiceCharacteristics(ServiceLifetime.Scoped) },
                 { typeof(IDatabaseFacadeDependencies), new ServiceCharacteristics(ServiceLifetime.Scoped) },
                 { typeof(IDbContextOptions), new ServiceCharacteristics(ServiceLifetime.Scoped) },
                 { typeof(IDatabase), new ServiceCharacteristics(ServiceLifetime.Scoped) },
@@ -138,9 +139,14 @@ namespace Microsoft.EntityFrameworkCore.Infrastructure
                 {
                     typeof(ITypeMappingSourcePlugin), new ServiceCharacteristics(ServiceLifetime.Singleton, multipleRegistrations: true)
                 },
+                {
+                    typeof(IEvaluatableExpressionFilterPlugin),
+                    new ServiceCharacteristics(ServiceLifetime.Singleton, multipleRegistrations: true)
+                },
                 { typeof(ISingletonOptions), new ServiceCharacteristics(ServiceLifetime.Singleton, multipleRegistrations: true) },
                 { typeof(IConventionSetPlugin), new ServiceCharacteristics(ServiceLifetime.Scoped, multipleRegistrations: true) },
-                { typeof(IResettableService), new ServiceCharacteristics(ServiceLifetime.Scoped, multipleRegistrations: true) }
+                { typeof(IResettableService), new ServiceCharacteristics(ServiceLifetime.Scoped, multipleRegistrations: true) },
+                { typeof(IInterceptorAggregator), new ServiceCharacteristics(ServiceLifetime.Scoped, multipleRegistrations: true) }
             };
 
         /// <summary>
@@ -162,12 +168,11 @@ namespace Microsoft.EntityFrameworkCore.Infrastructure
         protected virtual ServiceCollectionMap ServiceCollectionMap { get; }
 
         /// <summary>
-        ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
-        ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
-        ///     any release. You should only use it directly in your code with extreme caution and knowing that
-        ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+        ///     Gets the <see cref="ServiceCharacteristics" /> for the given service type.
         /// </summary>
-        [EntityFrameworkInternal]
+        /// <param name="serviceType"> The type that defines the service API. </param>
+        /// <returns> The <see cref="ServiceCharacteristics" /> for the type. </returns>
+        /// <exception cref="InvalidOperationException"> when the type is not an EF service. </exception>
         protected virtual ServiceCharacteristics GetServiceCharacteristics([NotNull] Type serviceType)
         {
             if (!CoreServices.TryGetValue(serviceType, out var characteristics))
@@ -229,6 +234,7 @@ namespace Microsoft.EntityFrameworkCore.Infrastructure
             TryAdd<IChangeTrackerFactory, ChangeTrackerFactory>();
             TryAdd<IChangeDetector, ChangeDetector>();
             TryAdd<IDbContextServices, DbContextServices>();
+            TryAdd<IModelCreationDependencies, ModelCreationDependencies>();
             TryAdd<IDbContextDependencies, DbContextDependencies>();
             TryAdd<IDatabaseFacadeDependencies, DatabaseFacadeDependencies>();
             TryAdd<IValueGeneratorSelector, ValueGeneratorSelector>();
@@ -241,6 +247,7 @@ namespace Microsoft.EntityFrameworkCore.Infrastructure
             TryAdd<ISingletonOptionsInitializer, SingletonOptionsInitializer>();
             TryAdd(typeof(IDiagnosticsLogger<>), typeof(DiagnosticsLogger<>));
             TryAdd<IInterceptors, Interceptors>();
+            TryAdd<IInterceptorAggregator, SaveChangesInterceptorAggregator>();
             TryAdd<ILoggingOptions, LoggingOptions>();
             TryAdd<ICoreSingletonOptions, CoreSingletonOptions>();
             TryAdd<ISingletonOptions, ILoggingOptions>(p => p.GetService<ILoggingOptions>());
@@ -266,7 +273,9 @@ namespace Microsoft.EntityFrameworkCore.Infrastructure
             TryAdd<IQueryTranslationPreprocessorFactory, QueryTranslationPreprocessorFactory>();
             TryAdd<IQueryTranslationPostprocessorFactory, QueryTranslationPostprocessorFactory>();
 
-            TryAdd(p => p.GetService<IDbContextOptions>()?.FindExtension<CoreOptionsExtension>()?.DbContextLogger ?? new NullDbContextLogger());
+            TryAdd(
+                p => p.GetService<IDbContextOptions>()?.FindExtension<CoreOptionsExtension>()?.DbContextLogger
+                    ?? new NullDbContextLogger());
 
             // This has to be lazy to avoid creating instances that are not disposed
             ServiceCollectionMap
@@ -295,7 +304,8 @@ namespace Microsoft.EntityFrameworkCore.Infrastructure
                 .AddDependencyScoped<CompiledQueryCacheKeyGeneratorDependencies>()
                 .AddDependencyScoped<QueryContextDependencies>()
                 .AddDependencyScoped<ValueGeneratorSelectorDependencies>()
-                .AddDependencyScoped<DatabaseDependencies>();
+                .AddDependencyScoped<DatabaseDependencies>()
+                .AddDependencyScoped<ModelDependencies>();
 
             ServiceCollectionMap.TryAddSingleton<IRegisteredServices>(
                 new RegisteredServices(ServiceCollectionMap.ServiceCollection.Select(s => s.ServiceType)));
@@ -452,47 +462,6 @@ namespace Microsoft.EntityFrameworkCore.Infrastructure
             }
 
             return this;
-        }
-
-        /// <summary>
-        ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
-        ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
-        ///     any release. You should only use it directly in your code with extreme caution and knowing that
-        ///     doing so can result in application failures when updating to a new Entity Framework Core release.
-        /// </summary>
-        [EntityFrameworkInternal]
-        public readonly struct ServiceCharacteristics
-        {
-            /// <summary>
-            ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
-            ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
-            ///     any release. You should only use it directly in your code with extreme caution and knowing that
-            ///     doing so can result in application failures when updating to a new Entity Framework Core release.
-            /// </summary>
-            [EntityFrameworkInternal]
-            public ServiceLifetime Lifetime { get; }
-
-            /// <summary>
-            ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
-            ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
-            ///     any release. You should only use it directly in your code with extreme caution and knowing that
-            ///     doing so can result in application failures when updating to a new Entity Framework Core release.
-            /// </summary>
-            [EntityFrameworkInternal]
-            public bool MultipleRegistrations { get; }
-
-            /// <summary>
-            ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
-            ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
-            ///     any release. You should only use it directly in your code with extreme caution and knowing that
-            ///     doing so can result in application failures when updating to a new Entity Framework Core release.
-            /// </summary>
-            [EntityFrameworkInternal]
-            public ServiceCharacteristics(ServiceLifetime lifetime, bool multipleRegistrations = false)
-            {
-                Lifetime = lifetime;
-                MultipleRegistrations = multipleRegistrations;
-            }
         }
     }
 }

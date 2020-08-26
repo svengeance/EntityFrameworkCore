@@ -8,15 +8,15 @@ using System.Net.Sockets;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore.TestUtilities.Xunit;
 
-namespace Microsoft.EntityFrameworkCore.Cosmos.TestUtilities
+namespace Microsoft.EntityFrameworkCore.TestUtilities
 {
     [AttributeUsage(AttributeTargets.Method | AttributeTargets.Class | AttributeTargets.Assembly)]
     public class CosmosDbConfiguredConditionAttribute : Attribute, ITestCondition
     {
-        private static bool? _connectionAvailable;
-
         public string SkipReason
             => "Unable to connect to Cosmos DB. Please install/start the emulator service or configure a valid endpoint.";
+
+        private static bool? _connectionAvailable;
 
         public async ValueTask<bool> IsMetAsync()
         {

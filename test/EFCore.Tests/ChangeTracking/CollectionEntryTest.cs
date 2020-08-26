@@ -334,7 +334,8 @@ namespace Microsoft.EntityFrameworkCore.ChangeTracking
         [InlineData(EntityState.Deleted, EntityState.Deleted)]
         [InlineData(EntityState.Unchanged, EntityState.Deleted)]
         public void IsModified_can_set_fk_to_modified_principal_with_Added_or_Deleted_dependents(
-            EntityState principalState, EntityState dependentState)
+            EntityState principalState,
+            EntityState dependentState)
         {
             using var context = new FreezerContext();
             var cherry = new Cherry();
@@ -388,7 +389,8 @@ namespace Microsoft.EntityFrameworkCore.ChangeTracking
         [InlineData(EntityState.Deleted, EntityState.Unchanged)]
         [InlineData(EntityState.Unchanged, EntityState.Unchanged)]
         public void IsModified_can_set_fk_to_modified_principal_with_Unchanged_dependents(
-            EntityState principalState, EntityState dependentState)
+            EntityState principalState,
+            EntityState dependentState)
         {
             using var context = new FreezerContext();
             var cherry = new Cherry();
@@ -426,13 +428,17 @@ namespace Microsoft.EntityFrameworkCore.ChangeTracking
         [InlineData(EntityState.Deleted, EntityState.Modified)]
         [InlineData(EntityState.Unchanged, EntityState.Modified)]
         public void IsModified_can_set_fk_to_modified_principal_with_Modified_dependents(
-            EntityState principalState, EntityState dependentState)
+            EntityState principalState,
+            EntityState dependentState)
         {
             using var context = new FreezerContext();
-            var cherry = new Cherry();
+            var cherry = new Cherry { Id = 1 };
             var chunky1 = new Chunky { Id = 1, Garcia = cherry };
             var chunky2 = new Chunky { Id = 2, Garcia = cherry };
             cherry.Monkeys = new List<Chunky> { chunky1, chunky2 };
+
+            context.Attach(chunky1);
+            context.Attach(chunky2);
 
             context.Entry(cherry).State = principalState;
             context.Entry(chunky1).State = dependentState;

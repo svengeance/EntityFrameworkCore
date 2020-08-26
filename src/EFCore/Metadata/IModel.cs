@@ -12,7 +12,7 @@ namespace Microsoft.EntityFrameworkCore.Metadata
     ///     <para>
     ///         Metadata about the shape of entities, the relationships between them, and how they map to
     ///         the database. A model is typically created by overriding the
-    ///         see cref="DbContext.OnConfiguring(DbContextOptionsBuilder)" /> method on a derived
+    ///         <see cref="DbContext.OnModelCreating(ModelBuilder)" /> method on a derived
     ///         <see cref="DbContext" />.
     ///     </para>
     ///     <para>
@@ -32,6 +32,7 @@ namespace Microsoft.EntityFrameworkCore.Metadata
 
         /// <summary>
         ///     Gets the entity type with the given name. Returns null if no entity type with the given name is found
+        ///     or the given CLR type is being used by shared type entity type
         ///     or the entity type has a defining navigation.
         /// </summary>
         /// <param name="name"> The name of the entity type to find. </param>

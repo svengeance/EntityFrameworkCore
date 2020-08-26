@@ -104,7 +104,7 @@ namespace Microsoft.EntityFrameworkCore.Storage
                 return mapping;
             }
 
-            throw new InvalidOperationException(RelationalStrings.UnsupportedType(typeName));
+            throw new InvalidOperationException(RelationalStrings.UnsupportedStoreType(typeName));
         }
     }
 }

@@ -316,12 +316,12 @@ namespace Microsoft.EntityFrameworkCore.Infrastructure
 
         private class FakeConcurrencyDetector : IConcurrencyDetector
         {
-            public IDisposable EnterCriticalSection()
+            ConcurrencyDetectorCriticalSectionDisposer IConcurrencyDetector.EnterCriticalSection()
             {
                 throw new NotImplementedException();
             }
 
-            public Task<IDisposable> EnterCriticalSectionAsync(CancellationToken cancellationToken)
+            public void ExitCriticalSection()
             {
                 throw new NotImplementedException();
             }
@@ -334,9 +334,11 @@ namespace Microsoft.EntityFrameworkCore.Infrastructure
             }
 
             public DbSet<TEntity> CreateSet<TEntity>(DbContext context)
-                where TEntity : class => throw new NotImplementedException();
+                where TEntity : class
+                => throw new NotImplementedException();
 
-            public object CreateSet(DbContext context, Type type) => throw new NotImplementedException();
+            public object CreateSet(DbContext context, Type type)
+                => throw new NotImplementedException();
         }
 
         private class FakeResetableService : IResettableService
@@ -345,7 +347,8 @@ namespace Microsoft.EntityFrameworkCore.Infrastructure
             {
             }
 
-            public Task ResetStateAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+            public Task ResetStateAsync(CancellationToken cancellationToken = default)
+                => Task.CompletedTask;
         }
 
         private static DbContext CreateContext(IServiceProvider serviceProvider)

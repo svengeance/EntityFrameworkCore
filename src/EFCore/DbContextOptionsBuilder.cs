@@ -57,7 +57,8 @@ namespace Microsoft.EntityFrameworkCore
         /// <summary>
         ///     Gets the options being configured.
         /// </summary>
-        public virtual DbContextOptions Options => _options;
+        public virtual DbContextOptions Options
+            => _options;
 
         /// <summary>
         ///     <para>
@@ -70,7 +71,8 @@ namespace Microsoft.EntityFrameworkCore
         ///         <see cref="DbContext.OnConfiguring(DbContextOptionsBuilder)" />.
         ///     </para>
         /// </summary>
-        public virtual bool IsConfigured => _options.Extensions.Any(e => e.Info.IsDatabaseProvider);
+        public virtual bool IsConfigured
+            => _options.Extensions.Any(e => e.Info.IsDatabaseProvider);
 
         /// <summary>
         ///     <para>
@@ -92,9 +94,8 @@ namespace Microsoft.EntityFrameworkCore
         ///         for logging done by this context.
         ///     </para>
         ///     <para>
-        ///         There is no need to call this method when using one of the 'AddDbContext' methods.
-        ///         'AddDbContext' will ensure that the <see cref="ILoggerFactory" /> used by EF is obtained from the
-        ///         application service provider.
+        ///         There is no need to call this method when using one of the 'AddDbContext' methods, including 'AddDbContextPool'.
+        ///         These methods ensure that the <see cref="ILoggerFactory" /> used by EF is obtained from the application service provider.
         ///     </para>
         ///     <para>
         ///         This method cannot be used if the application is setting the internal service provider
@@ -109,12 +110,14 @@ namespace Microsoft.EntityFrameworkCore
 
         /// <summary>
         ///     <para>
-        ///         Logs to the supplied sink. For example, use <c>optionsBuilder.LogTo(Console.WriteLine)</c> to
+        ///         Logs using the supplied action. For example, use <c>optionsBuilder.LogTo(Console.WriteLine)</c> to
         ///         log to the console.
         ///     </para>
         ///     <para>
         ///         This overload allows the minimum level of logging and the log formatting to be controlled.
-        ///         Use the <see cref="LogTo(Action{string},IEnumerable{EventId},LogLevel,DbContextLoggerOptions?)" />
+        ///         Use the
+        ///         <see
+        ///             cref="LogTo(Action{string},System.Collections.Generic.IEnumerable{Microsoft.Extensions.Logging.EventId},LogLevel,DbContextLoggerOptions?)" />
         ///         overload to log only specific events.
         ///         Use the <see cref="LogTo(Action{string},IEnumerable{string},LogLevel,DbContextLoggerOptions?)" />
         ///         overload to log only events in specific categories.
@@ -123,21 +126,21 @@ namespace Microsoft.EntityFrameworkCore
         ///         Use the <see cref="LogTo(Func{EventId,LogLevel,bool},Action{EventData})" /> overload to log to a fully custom logger.
         ///     </para>
         /// </summary>
-        /// <param name="sink"> The sink to which log messages will be written. </param>
+        /// <param name="action"> Delegate called when there is a message to log. </param>
         /// <param name="minimumLevel"> The minimum level of logging event to log. Defaults to <see cref="LogLevel.Debug" /> </param>
         /// <param name="options">
         ///     Formatting options for log messages. Passing null (the default) means use <see cref="DbContextLoggerOptions.DefaultWithLocalTime" />
         /// </param>
         /// <returns> The same builder instance so that multiple calls can be chained. </returns>
         public virtual DbContextOptionsBuilder LogTo(
-            [NotNull] Action<string> sink,
+            [NotNull] Action<string> action,
             LogLevel minimumLevel = LogLevel.Debug,
             DbContextLoggerOptions? options = null)
-            => LogTo(sink, (i, l) => l >= minimumLevel, options);
+            => LogTo(action, (i, l) => l >= minimumLevel, options);
 
         /// <summary>
         ///     <para>
-        ///         Logs the specified events to the supplied sink. For example, use
+        ///         Logs the specified events using the supplied action. For example, use
         ///         <c>optionsBuilder.LogTo(Console.WriteLine, new[] { CoreEventId.ContextInitialized })</c> to log the
         ///         <see cref="CoreEventId.ContextInitialized" /> event to the console.
         ///     </para>
@@ -151,7 +154,7 @@ namespace Microsoft.EntityFrameworkCore
         ///         Use the <see cref="LogTo(Func{EventId,LogLevel,bool},Action{EventData})" /> overload to log to a fully custom logger.
         ///     </para>
         /// </summary>
-        /// <param name="sink"> The sink to which log messages will be written. </param>
+        /// <param name="action"> Delegate called when there is a message to log. </param>
         /// <param name="events"> The <see cref="EventId" /> of each event to log. </param>
         /// <param name="minimumLevel"> The minimum level of logging event to log. Defaults to <see cref="LogLevel.Debug" /> </param>
         /// <param name="options">
@@ -159,7 +162,7 @@ namespace Microsoft.EntityFrameworkCore
         /// </param>
         /// <returns> The same builder instance so that multiple calls can be chained. </returns>
         public virtual DbContextOptionsBuilder LogTo(
-            [NotNull] Action<string> sink,
+            [NotNull] Action<string> action,
             [NotNull] IEnumerable<EventId> events,
             LogLevel minimumLevel = LogLevel.Debug,
             DbContextLoggerOptions? options = null)
@@ -177,7 +180,7 @@ namespace Microsoft.EntityFrameworkCore
             {
                 var firstEvent = eventsArray[0];
                 return LogTo(
-                    sink,
+                    action,
                     (eventId, level) => level >= minimumLevel
                         && eventId == firstEvent,
                     options);
@@ -186,7 +189,7 @@ namespace Microsoft.EntityFrameworkCore
             if (eventsArray.Length < 6)
             {
                 return LogTo(
-                    sink,
+                    action,
                     (eventId, level) => level >= minimumLevel
                         && eventsArray.Contains(eventId),
                     options);
@@ -194,7 +197,7 @@ namespace Microsoft.EntityFrameworkCore
 
             var eventsHash = eventsArray.ToHashSet();
             return LogTo(
-                sink,
+                action,
                 (eventId, level) => level >= minimumLevel
                     && eventsHash.Contains(eventId),
                 options);
@@ -202,7 +205,7 @@ namespace Microsoft.EntityFrameworkCore
 
         /// <summary>
         ///     <para>
-        ///         Logs all events in the specified categories to the supplied sink. For example, use
+        ///         Logs all events in the specified categories using the supplied action. For example, use
         ///         <c>optionsBuilder.LogTo(Console.WriteLine, new[] { DbLoggerCategory.Infrastructure.Name })</c> to log all
         ///         events in the <see cref="DbLoggerCategory.Infrastructure" /> category.
         ///     </para>
@@ -216,7 +219,7 @@ namespace Microsoft.EntityFrameworkCore
         ///         Use the <see cref="LogTo(Func{EventId,LogLevel,bool},Action{EventData})" /> overload to log to a fully custom logger.
         ///     </para>
         /// </summary>
-        /// <param name="sink"> The sink to which log messages will be written. </param>
+        /// <param name="action"> Delegate called when there is a message to log. </param>
         /// <param name="categories"> The <see cref="DbLoggerCategory" /> of each event to log. </param>
         /// <param name="minimumLevel"> The minimum level of logging event to log. Defaults to <see cref="LogLevel.Debug" /> </param>
         /// <param name="options">
@@ -224,7 +227,7 @@ namespace Microsoft.EntityFrameworkCore
         /// </param>
         /// <returns> The same builder instance so that multiple calls can be chained. </returns>
         public virtual DbContextOptionsBuilder LogTo(
-            [NotNull] Action<string> sink,
+            [NotNull] Action<string> action,
             [NotNull] IEnumerable<string> categories,
             LogLevel minimumLevel = LogLevel.Debug,
             DbContextLoggerOptions? options = null)
@@ -243,7 +246,7 @@ namespace Microsoft.EntityFrameworkCore
                 // One category is common, but even when there are more the number should be low because
                 // the number of available categories is low. So no HashSet here.
                 return LogTo(
-                    sink,
+                    action,
                     (eventId, level) =>
                     {
                         if (level >= minimumLevel)
@@ -264,7 +267,7 @@ namespace Microsoft.EntityFrameworkCore
 
             var singleCategory = categoriesArray[0];
             return LogTo(
-                sink,
+                action,
                 (eventId, level) => level >= minimumLevel
                     && eventId.Name.StartsWith(singleCategory, StringComparison.OrdinalIgnoreCase),
                 options);
@@ -284,21 +287,21 @@ namespace Microsoft.EntityFrameworkCore
         ///         Use the <see cref="LogTo(Func{EventId,LogLevel,bool},Action{EventData})" /> overload to log to a fully custom logger.
         ///     </para>
         /// </summary>
-        /// <param name="sink"> The sink to which log messages will be written. </param>
+        /// <param name="action"> Delegate called when there is a message to log. </param>
         /// <param name="filter"> Delegate that returns true to log the message or false to ignore it. </param>
         /// <param name="options">
         ///     Formatting options for log messages. Passing null (the default) means use <see cref="DbContextLoggerOptions.DefaultWithLocalTime" />
         /// </param>
         /// <returns> The same builder instance so that multiple calls can be chained. </returns>
         public virtual DbContextOptionsBuilder LogTo(
-            [NotNull] Action<string> sink,
+            [NotNull] Action<string> action,
             [NotNull] Func<EventId, LogLevel, bool> filter,
             DbContextLoggerOptions? options = null)
         {
-            Check.NotNull(sink, nameof(sink));
+            Check.NotNull(action, nameof(action));
             Check.NotNull(filter, nameof(filter));
 
-            return LogTo(new FormattingDbContextLogger(sink, filter, options ?? DbContextLoggerOptions.DefaultWithLocalTime));
+            return LogTo(new FormattingDbContextLogger(action, filter, options ?? DbContextLoggerOptions.DefaultWithLocalTime));
         }
 
         /// <summary>
@@ -399,7 +402,8 @@ namespace Microsoft.EntityFrameworkCore
 
         /// <summary>
         ///     Sets the <see cref="IServiceProvider" /> from which application services will be obtained. This
-        ///     is done automatically when using 'AddDbContext', so it is rare that this method needs to be called.
+        ///     is done automatically when using 'AddDbContext' or 'AddDbContextPool',
+        ///     so it is rare that this method needs to be called.
         /// </summary>
         /// <param name="serviceProvider"> The service provider to be used. </param>
         /// <returns> The same builder instance so that multiple calls can be chained. </returns>
@@ -420,7 +424,7 @@ namespace Microsoft.EntityFrameworkCore
         ///         so that EF will manage the service providers and can create new instances as required.
         ///     </para>
         /// </summary>
-        /// <param name="sensitiveDataLoggingEnabled"> If <c>true</c>, then sensitive data is logged. </param>
+        /// <param name="sensitiveDataLoggingEnabled"> If <see langword="true" />, then sensitive data is logged. </param>
         /// <returns> The same builder instance so that multiple calls can be chained. </returns>
         public virtual DbContextOptionsBuilder EnableSensitiveDataLogging(bool sensitiveDataLoggingEnabled = true)
             => WithOption(e => e.WithSensitiveDataLoggingEnabled(sensitiveDataLoggingEnabled));
@@ -436,7 +440,7 @@ namespace Microsoft.EntityFrameworkCore
         ///         <see cref="UseInternalServiceProvider" />, then setting this option wil have no effect.
         ///     </para>
         /// </summary>
-        /// <param name="cacheServiceProvider"> If <c>true</c>, then the internal service provider is cached. </param>
+        /// <param name="cacheServiceProvider"> If <see langword="true" />, then the internal service provider is cached. </param>
         /// <returns> The same builder instance so that multiple calls can be chained. </returns>
         public virtual DbContextOptionsBuilder EnableServiceProviderCaching(bool cacheServiceProvider = true)
             => WithOption(e => e.WithServiceProviderCachingEnabled(cacheServiceProvider));
@@ -482,10 +486,10 @@ namespace Microsoft.EntityFrameworkCore
         /// </summary>
         /// <example>
         ///     <code>
-        ///         optionsBuilder.ConfigureWarnings(warnings =>
-        ///             warnings.Default(WarningBehavior.Ignore)
-        ///                     .Log(CoreEventId.IncludeIgnoredWarning, CoreEventId.ModelValidationWarning)
-        ///                     .Throw(RelationalEventId.BoolWithDefaultWarning))
+        /// optionsBuilder.ConfigureWarnings(warnings =>
+        ///     warnings.Default(WarningBehavior.Ignore)
+        ///         .Log(CoreEventId.IncludeIgnoredWarning, CoreEventId.ModelValidationWarning)
+        ///         .Throw(RelationalEventId.BoolWithDefaultWarning));
         ///     </code>
         /// </example>
         /// <param name="warningsConfigurationBuilderAction">
@@ -504,7 +508,7 @@ namespace Microsoft.EntityFrameworkCore
 
         /// <summary>
         ///     <para>
-        ///         Replaces the internal Entity Framework implementation of a service contract with a different
+        ///         Replaces all internal Entity Framework implementations of a service contract with a different
         ///         implementation.
         ///     </para>
         ///     <para>
@@ -523,6 +527,34 @@ namespace Microsoft.EntityFrameworkCore
         public virtual DbContextOptionsBuilder ReplaceService<TService, TImplementation>()
             where TImplementation : TService
             => WithOption(e => e.WithReplacedService(typeof(TService), typeof(TImplementation)));
+
+        /// <summary>
+        ///     <para>
+        ///         Replaces the internal Entity Framework implementation of a specific implementation of a service contract
+        ///         with a different implementation.
+        ///     </para>
+        ///     <para>
+        ///         This method is useful for replacing a single instance of services that can be legitimately registered
+        ///         multiple times in the EF internal service provider.
+        ///     </para>
+        ///     <para>
+        ///         This method can only be used when EF is building and managing its internal service provider.
+        ///         If the service provider is being built externally and passed to
+        ///         <see cref="UseInternalServiceProvider" />, then replacement services should be configured on
+        ///         that service provider before it is passed to EF.
+        ///     </para>
+        ///     <para>
+        ///         The replacement service gets the same scope as the EF service that it is replacing.
+        ///     </para>
+        /// </summary>
+        /// <typeparam name="TService"> The type (usually an interface) that defines the contract of the service to replace. </typeparam>
+        /// <typeparam name="TCurrentImplementation"> The current implementation type for the service. </typeparam>
+        /// <typeparam name="TNewImplementation"> The new implementation type for the service. </typeparam>
+        /// <returns> The same builder instance so that multiple calls can be chained. </returns>
+        public virtual DbContextOptionsBuilder ReplaceService<TService, TCurrentImplementation, TNewImplementation>()
+            where TCurrentImplementation : TService
+            where TNewImplementation : TService
+            => WithOption(e => e.WithReplacedService(typeof(TService), typeof(TNewImplementation), typeof(TCurrentImplementation)));
 
         /// <summary>
         ///     <para>
@@ -609,22 +641,25 @@ namespace Microsoft.EntityFrameworkCore
         /// </summary>
         /// <returns> A string that represents the current object. </returns>
         [EditorBrowsable(EditorBrowsableState.Never)]
-        public override string ToString() => base.ToString();
+        public override string ToString()
+            => base.ToString();
 
         /// <summary>
         ///     Determines whether the specified object is equal to the current object.
         /// </summary>
         /// <param name="obj"> The object to compare with the current object. </param>
-        /// <returns> true if the specified object is equal to the current object; otherwise, false. </returns>
+        /// <returns> <see langword="true" /> if the specified object is equal to the current object; otherwise, <see langword="false" />. </returns>
         [EditorBrowsable(EditorBrowsableState.Never)]
-        public override bool Equals(object obj) => base.Equals(obj);
+        public override bool Equals(object obj)
+            => base.Equals(obj);
 
         /// <summary>
         ///     Serves as the default hash function.
         /// </summary>
         /// <returns> A hash code for the current object. </returns>
         [EditorBrowsable(EditorBrowsableState.Never)]
-        public override int GetHashCode() => base.GetHashCode();
+        public override int GetHashCode()
+            => base.GetHashCode();
 
         #endregion
     }

@@ -7,7 +7,6 @@ using System.Linq;
 using System.Reflection;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.Internal;
 using Xunit;
 
 // ReSharper disable UnusedAutoPropertyAccessor.Local
@@ -28,14 +27,23 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Internal
 
         private class FakeModel : IModel
         {
-            public object this[string name] => throw new NotImplementedException();
-            public IAnnotation FindAnnotation(string name) => throw new NotImplementedException();
-            public IEnumerable<IAnnotation> GetAnnotations() => throw new NotImplementedException();
-            public IEnumerable<IEntityType> GetEntityTypes() => throw new NotImplementedException();
-            public IEntityType FindEntityType(string name) => throw new NotImplementedException();
+            public object this[string name]
+                => throw new NotImplementedException();
 
-            public IEntityType FindEntityType(string name, string definingNavigationName, IEntityType definingEntityType) =>
-                throw new NotImplementedException();
+            public IAnnotation FindAnnotation(string name)
+                => throw new NotImplementedException();
+
+            public IEnumerable<IAnnotation> GetAnnotations()
+                => throw new NotImplementedException();
+
+            public IEnumerable<IEntityType> GetEntityTypes()
+                => throw new NotImplementedException();
+
+            public IEntityType FindEntityType(string name)
+                => throw new NotImplementedException();
+
+            public IEntityType FindEntityType(string name, string definingNavigationName, IEntityType definingEntityType)
+                => throw new NotImplementedException();
         }
 
         [ConditionalFact]
@@ -107,9 +115,37 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Internal
         }
 
         [ConditionalFact]
+        public void Can_add_and_remove_shared_entity()
+        {
+            var model = CreateModel();
+            var entityTypeName = "SharedCustomer1";
+            Assert.Null(model.FindEntityType(typeof(Customer)));
+            Assert.Null(model.FindEntityType(entityTypeName));
+
+            var entityType = model.AddEntityType(entityTypeName, typeof(Customer));
+
+            Assert.Equal(typeof(Customer), entityType.ClrType);
+            Assert.Equal(entityTypeName, entityType.Name);
+            Assert.NotNull(model.FindEntityType(entityTypeName));
+            Assert.Same(model, entityType.Model);
+            Assert.NotNull(((EntityType)entityType).Builder);
+
+            Assert.Same(entityType, model.FindEntityType(entityTypeName));
+            Assert.Null(model.FindEntityType(typeof(Customer)));
+
+            Assert.Equal(new[] { entityType }, model.GetEntityTypes().ToArray());
+
+            Assert.Same(entityType, model.RemoveEntityType(entityType.Name));
+
+            Assert.Null(model.RemoveEntityType(entityType.Name));
+            Assert.Null(model.FindEntityType(entityTypeName));
+            Assert.Null(((EntityType)entityType).Builder);
+        }
+
+        [ConditionalFact]
         public void Can_add_weak_entity_types()
         {
-            IMutableModel model = CreateModel();
+            var model = CreateModel();
             var customerType = model.AddEntityType(typeof(Customer));
             var idProperty = customerType.AddProperty(Customer.IdProperty);
             var customerKey = customerType.AddKey(idProperty);
@@ -139,8 +175,15 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Internal
                 Assert.Throws<InvalidOperationException>(() => model.AddEntityType(typeof(Order))).Message);
             Assert.Equal(
                 CoreStrings.ClashingNonWeakEntityType(
-                    nameof(Customer) + "." + nameof(Customer.Orders) + "#"
-                    + nameof(Order) + "." + nameof(Order.Customer) + "#" + nameof(Customer)),
+                    nameof(Customer)
+                    + "."
+                    + nameof(Customer.Orders)
+                    + "#"
+                    + nameof(Order)
+                    + "."
+                    + nameof(Order.Customer)
+                    + "#"
+                    + nameof(Customer)),
                 Assert.Throws<InvalidOperationException>(
                     () => model.AddEntityType(typeof(Customer), nameof(Order.Customer), dependentOrderType)).Message);
 
@@ -150,18 +193,11 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Internal
                 Assert.Throws<InvalidOperationException>(
                     () => dependentOrderType.AddForeignKey(fkProperty, orderKey, dependentOrderType)).Message);
 
-            Assert.Equal(
-                CoreStrings.EntityTypeInUseByForeignKey(
-                    nameof(Customer) + "." + nameof(Customer.Orders) + "#" + nameof(Order),
-                    nameof(Customer), fk.Properties.Format()),
-                Assert.Throws<InvalidOperationException>(() => model.RemoveEntityType(dependentOrderType)).Message);
-
-            dependentOrderType.RemoveForeignKey(fk.Properties, fk.PrincipalKey, fk.PrincipalEntityType);
-
             Assert.Same(
                 dependentOrderType, model.RemoveEntityType(
                     typeof(Order), nameof(Customer.Orders), customerType));
             Assert.Null(((EntityType)dependentOrderType).Builder);
+            Assert.Empty(customerType.GetReferencingForeignKeys());
         }
 
         [ConditionalFact]
@@ -272,7 +308,8 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Internal
             Assert.Same(foreignKey, entityType1.GetReferencingForeignKeys().Single());
         }
 
-        private static IMutableModel CreateModel() => new Model();
+        private static IMutableModel CreateModel()
+            => new Model();
 
         private class Customer
         {

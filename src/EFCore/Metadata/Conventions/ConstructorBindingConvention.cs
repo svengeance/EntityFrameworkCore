@@ -23,7 +23,7 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Conventions
     ///     * m_[parameter name]
     ///     * m_[pascal-cased parameter name]
     /// </summary>
-    public class ConstructorBindingConvention : IModelFinalizedConvention
+    public class ConstructorBindingConvention : IModelFinalizingConvention
     {
         /// <summary>
         ///     Creates a new instance of <see cref="ConstructorBindingConvention" />.
@@ -39,12 +39,10 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Conventions
         /// </summary>
         protected virtual ProviderConventionSetBuilderDependencies Dependencies { get; }
 
-        /// <summary>
-        ///     Called after a model is finalized.
-        /// </summary>
-        /// <param name="modelBuilder"> The builder for the model. </param>
-        /// <param name="context"> Additional information associated with convention execution. </param>
-        public virtual void ProcessModelFinalized(IConventionModelBuilder modelBuilder, IConventionContext<IConventionModelBuilder> context)
+        /// <inheritdoc />
+        public virtual void ProcessModelFinalizing(
+            IConventionModelBuilder modelBuilder,
+            IConventionContext<IConventionModelBuilder> context)
         {
             foreach (var entityType in modelBuilder.Metadata.GetEntityTypes())
             {
@@ -52,8 +50,10 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Conventions
                     && entityType.Builder.CanSetAnnotation(CoreAnnotationNames.ConstructorBinding, null))
                 {
                     var maxServiceParams = 0;
+                    var maxServiceOnlyParams = 0;
                     var minPropertyParams = int.MaxValue;
                     var foundBindings = new List<InstantiationBinding>();
+                    var foundServiceOnlyBindings = new List<InstantiationBinding>();
                     var bindingFailures = new List<IEnumerable<ParameterInfo>>();
 
                     foreach (var constructor in entityType.ClrType.GetTypeInfo()
@@ -67,6 +67,21 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Conventions
                         {
                             var serviceParamCount = binding.ParameterBindings.OfType<ServiceParameterBinding>().Count();
                             var propertyParamCount = binding.ParameterBindings.Count - serviceParamCount;
+
+                            if (propertyParamCount == 0)
+                            {
+                                if (serviceParamCount == maxServiceOnlyParams)
+                                {
+                                    foundServiceOnlyBindings.Add(binding);
+                                }
+                                else if (serviceParamCount > maxServiceOnlyParams)
+                                {
+                                    foundServiceOnlyBindings.Clear();
+                                    foundServiceOnlyBindings.Add(binding);
+
+                                    maxServiceOnlyParams = serviceParamCount;
+                                }
+                            }
 
                             if (serviceParamCount == maxServiceParams
                                 && propertyParamCount == minPropertyParams)
@@ -130,6 +145,13 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Conventions
                     entityType.Builder.HasAnnotation(
                         CoreAnnotationNames.ConstructorBinding,
                         foundBindings[0]);
+
+                    if (foundServiceOnlyBindings.Count == 1)
+                    {
+                        entityType.Builder.HasAnnotation(
+                            CoreAnnotationNames.ServiceOnlyConstructorBinding,
+                            foundServiceOnlyBindings[0]);
+                    }
                 }
             }
         }

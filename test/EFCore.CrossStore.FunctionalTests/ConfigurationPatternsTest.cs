@@ -41,7 +41,7 @@ namespace Microsoft.EntityFrameworkCore
             }
         }
 
-        [ConditionalFact(Skip = "#18682")]
+        [ConditionalFact]
         public void Can_register_multiple_context_types_with_default_service_provider()
         {
             using (var context = new MultipleContext1(new DbContextOptions<MultipleContext1>()))
@@ -146,7 +146,7 @@ namespace Microsoft.EntityFrameworkCore
             Assert.NotSame(context1, context2);
         }
 
-        [ConditionalFact(Skip = "#18682")]
+        [ConditionalFact]
         public void Can_select_appropriate_provider_when_multiple_registered_with_default_service_provider()
         {
             using (var context = new MultipleProvidersContext())
@@ -215,7 +215,8 @@ namespace Microsoft.EntityFrameworkCore
         }
 
 #pragma warning disable xUnit1013 // Public method should be marked as test
-        public void Dispose() => ExistingTestStore.Dispose();
+        public void Dispose()
+            => ExistingTestStore.Dispose();
 #pragma warning restore xUnit1013 // Public method should be marked as test
 
         [SqlServerConfiguredCondition]
@@ -238,7 +239,7 @@ namespace Microsoft.EntityFrameworkCore
                     () => new ExternalProviderContext(sqlServerServiceProvider));
             }
 
-            [ConditionalFact(Skip = "#18682")]
+            [ConditionalFact]
             public Task Can_use_one_context_nested_inside_another_of_a_different_type_with_implicit_services()
                 => NestedContextTest(() => new BlogContext(), () => new ExternalProviderContext());
 
@@ -279,7 +280,8 @@ namespace Microsoft.EntityFrameworkCore
             }
 
 #pragma warning disable xUnit1013 // Public method should be marked as test
-            public void Dispose() => ExistingTestStore.Dispose();
+            public void Dispose()
+                => ExistingTestStore.Dispose();
 #pragma warning restore xUnit1013 // Public method should be marked as test
 
             private class BlogContext : DbContext

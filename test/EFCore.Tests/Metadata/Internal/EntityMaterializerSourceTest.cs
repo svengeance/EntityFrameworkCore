@@ -8,6 +8,7 @@ using System.Linq.Expressions;
 using System.Reflection;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Query;
+using Microsoft.EntityFrameworkCore.Query.Internal;
 using Microsoft.EntityFrameworkCore.Storage;
 using Xunit;
 
@@ -385,11 +386,20 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Internal
             private SomeEnum? _maybeEnum;
 #pragma warning restore 649, IDE0044 // Add readonly modifier
 
-            public int Id => _id;
-            public string Foo => _foo;
-            public Guid? Goo => _goo;
-            public SomeEnum Enum => _enum;
-            public SomeEnum? MaybeEnum => _maybeEnum;
+            public int Id
+                => _id;
+
+            public string Foo
+                => _foo;
+
+            public Guid? Goo
+                => _goo;
+
+            public SomeEnum Enum
+                => _enum;
+
+            public SomeEnum? MaybeEnum
+                => _maybeEnum;
         }
 
         private enum SomeEnum

@@ -160,6 +160,7 @@ namespace Microsoft.EntityFrameworkCore
                 modelBuilder =>
                 {
                     OnModelCreating(modelBuilder);
+                    modelBuilder.Entity<CombustionEngine>().HasOne(e => e.FuelTank).WithOne().HasForeignKey<FuelTank>(e => e.VehicleName);
                     modelBuilder.Entity<FuelTank>(eb => eb.Ignore(e => e.Engine));
                 });
         }
@@ -181,11 +182,8 @@ namespace Microsoft.EntityFrameworkCore
                         {
                             cb.Property<int>("SeatingCapacity").HasColumnName("SeatingCapacity");
                         });
-                    modelBuilder.Entity<FuelTank>(
-                        fb =>
-                        {
-                            fb.Ignore(f => f.Engine);
-                        });
+                    modelBuilder.Entity<CombustionEngine>().HasOne(e => e.FuelTank).WithOne().HasForeignKey<FuelTank>(e => e.VehicleName);
+                    modelBuilder.Entity<FuelTank>().Ignore(f => f.Engine);
                 }, seed: false))
             {
                 using (var context = CreateContext())
@@ -195,12 +193,74 @@ namespace Microsoft.EntityFrameworkCore
                         {
                             Name = "Electric scooter",
                             SeatingCapacity = 1,
-                            Engine = new Engine()
+                            Engine = new Engine(),
+                            Operator = new Operator { Name = "Kai Saunders" }
                         });
 
                     scooterEntry.Reference(v => v.Engine).TargetEntry.Property<int>("SeatingCapacity").CurrentValue = 1;
 
                     context.SaveChanges();
+                }
+
+                using (var context = CreateContext())
+                {
+                    var scooter = context.Set<PoweredVehicle>().Include(v => v.Engine).Single(v => v.Name == "Electric scooter");
+
+                    Assert.Equal(scooter.SeatingCapacity, context.Entry(scooter.Engine).Property<int>("SeatingCapacity").CurrentValue);
+                }
+            }
+        }
+
+        [ConditionalFact]
+        public virtual void Can_use_optional_dependents_with_shared_concurrency_tokens()
+        {
+            using (CreateTestStore(
+                modelBuilder =>
+                {
+                    OnModelCreating(modelBuilder);
+                    modelBuilder.Entity<Vehicle>(
+                        vb =>
+                        {
+                            vb.Property(v => v.SeatingCapacity).HasColumnName("SeatingCapacity").IsConcurrencyToken();
+                        });
+                    modelBuilder.Entity<Engine>(
+                        cb =>
+                        {
+                            cb.Property<int>("SeatingCapacity").HasColumnName("SeatingCapacity").IsConcurrencyToken();
+                        });
+                    modelBuilder.Entity<CombustionEngine>().HasOne(e => e.FuelTank).WithOne().HasForeignKey<FuelTank>(e => e.VehicleName);
+                    modelBuilder.Entity<FuelTank>().Ignore(f => f.Engine);
+                }, seed: false))
+            {
+                using (var context = CreateContext())
+                {
+                    var scooterEntry = context.Add(
+                        new PoweredVehicle
+                        {
+                            Name = "Electric scooter",
+                            SeatingCapacity = 1,
+                            Operator = new Operator { Name = "Kai Saunders" }
+                        });
+
+                    context.SaveChanges();
+                }
+
+                using (var context = CreateContext())
+                {
+                    var scooter = context.Set<PoweredVehicle>().Include(v => v.Engine).Single(v => v.Name == "Electric scooter");
+
+                    Assert.Equal(1, scooter.SeatingCapacity);
+
+                    scooter.Engine = new Engine();
+
+                    var engineCapacityEntry = context.Entry(scooter.Engine).Property<int>("SeatingCapacity");
+
+                    Assert.Equal(0, engineCapacityEntry.OriginalValue);
+
+                    context.SaveChanges();
+
+                    Assert.Equal(0, engineCapacityEntry.OriginalValue);
+                    Assert.Equal(0, engineCapacityEntry.CurrentValue);
                 }
 
                 using (var context = CreateContext())
@@ -228,6 +288,7 @@ namespace Microsoft.EntityFrameworkCore
                 modelBuilder =>
                 {
                     OnModelCreating(modelBuilder);
+                    modelBuilder.Entity<CombustionEngine>().HasOne(e => e.FuelTank).WithOne().HasForeignKey<FuelTank>(e => e.VehicleName);
                     modelBuilder.Entity<FuelTank>(eb => eb.Ignore(e => e.Engine));
                 }))
             {
@@ -285,7 +346,8 @@ namespace Microsoft.EntityFrameworkCore
 
                 using (var context = CreateContext())
                 {
-                    var streetcarFromStore = context.Set<PoweredVehicle>().Include(v => v.Engine).AsNoTracking()
+                    var streetcarFromStore = context.Set<PoweredVehicle>().AsNoTracking()
+                        .Include(v => v.Engine).Include(v => v.Operator)
                         .Single(v => v.Name == "1984 California Car");
 
                     Assert.Null(streetcarFromStore.Engine);
@@ -476,7 +538,7 @@ namespace Microsoft.EntityFrameworkCore
             }
         }
 
-        protected readonly string DatabaseName = "TableSplittingTest";
+        protected virtual string DatabaseName { get; } = "TableSplittingTest";
         protected TestStore TestStore { get; set; }
         protected abstract ITestStoreFactory TestStoreFactory { get; }
         protected IServiceProvider ServiceProvider { get; set; }
@@ -495,7 +557,8 @@ namespace Microsoft.EntityFrameworkCore
                     eb.ToTable("Vehicles");
                 });
 
-            modelBuilder.Entity<Engine>().ToTable("Vehicles");
+            modelBuilder.Entity<Engine>().ToTable("Vehicles")
+                .Property(e => e.Computed).ValueGeneratedOnAddOrUpdate();
             modelBuilder.Entity<Operator>().ToTable("Vehicles");
             modelBuilder.Entity<OperatorDetails>().ToTable("Vehicles");
             modelBuilder.Entity<FuelTank>().ToTable("Vehicles");

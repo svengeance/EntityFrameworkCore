@@ -239,16 +239,58 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Conventions
         }
 
         [ConditionalFact]
-        public void Many_to_many_bidirectional_is_not_discovered()
+        public void Many_to_many_skip_navigations_are_discovered_if_self_join()
         {
-            var entityBuilder = CreateInternalEntityBuilder<ManyToManyFirst>();
+            var modelBuilder = CreateInternalModeBuilder();
+            var manyToManySelf = modelBuilder.Entity(typeof(ManyToManySelf), ConfigurationSource.Convention);
 
-            Assert.Same(entityBuilder, RunConvention(entityBuilder));
-            Cleanup(entityBuilder.ModelBuilder);
+            manyToManySelf.PrimaryKey(new[] { nameof(ManyToManySelf.Id) }, ConfigurationSource.Convention);
 
-            Assert.Empty(entityBuilder.Metadata.GetForeignKeys());
-            Assert.Empty(entityBuilder.Metadata.GetNavigations());
-            Assert.Single(entityBuilder.Metadata.Model.GetEntityTypes());
+            RunConvention(manyToManySelf);
+
+            Assert.Equal(2, manyToManySelf.Metadata.GetSkipNavigations().Count());
+            var navigationOnManyToManyFirst = manyToManySelf.Metadata.GetSkipNavigations().First();
+            var navigationOnManyToManySecond = manyToManySelf.Metadata.GetSkipNavigations().Last();
+            Assert.Equal(nameof(ManyToManySelf.ManyToManySelf1), navigationOnManyToManyFirst.Name);
+            Assert.Equal(nameof(ManyToManySelf.ManyToManySelf2), navigationOnManyToManySecond.Name);
+            Assert.Same(navigationOnManyToManyFirst.Inverse, navigationOnManyToManySecond);
+            Assert.Same(navigationOnManyToManySecond.Inverse, navigationOnManyToManyFirst);
+        }
+
+        [ConditionalFact]
+        public void Many_to_many_skip_navigations_are_not_discovered_if_relationship_should_be_on_ancestors()
+        {
+            var modelBuilder = CreateInternalModeBuilder();
+            var derivedManyToManyFirst = modelBuilder.Entity(typeof(DerivedManyToManyFirst), ConfigurationSource.Convention);
+            var derivedManyToManySecond = modelBuilder.Entity(typeof(DerivedManyToManySecond), ConfigurationSource.Convention);
+
+            derivedManyToManyFirst.PrimaryKey(new[] { nameof(DerivedManyToManyFirst.Id) }, ConfigurationSource.Convention);
+            derivedManyToManySecond.PrimaryKey(new[] { nameof(DerivedManyToManySecond.Id) }, ConfigurationSource.Convention);
+
+            RunConvention(derivedManyToManyFirst);
+
+            Assert.Empty(derivedManyToManyFirst.Metadata.GetSkipNavigations());
+            Assert.Empty(derivedManyToManySecond.Metadata.GetSkipNavigations());
+        }
+
+        [ConditionalFact]
+        public void Many_to_many_bidirectional_sets_up_skip_navigations()
+        {
+            var modelBuilder = CreateInternalModeBuilder();
+            var manyToManyFirst = modelBuilder.Entity(typeof(ManyToManyFirst), ConfigurationSource.Convention);
+            var manyToManySecond = modelBuilder.Entity(typeof(ManyToManySecond), ConfigurationSource.Convention);
+
+            manyToManyFirst.PrimaryKey(new[] { nameof(ManyToManyFirst.Id) }, ConfigurationSource.Convention);
+            manyToManySecond.PrimaryKey(new[] { nameof(ManyToManySecond.Id) }, ConfigurationSource.Convention);
+
+            RunConvention(manyToManyFirst);
+
+            var navigationOnManyToManyFirst = manyToManyFirst.Metadata.GetSkipNavigations().Single();
+            var navigationOnManyToManySecond = manyToManySecond.Metadata.GetSkipNavigations().Single();
+            Assert.Equal("ManyToManySeconds", navigationOnManyToManyFirst.Name);
+            Assert.Equal("ManyToManyFirsts", navigationOnManyToManySecond.Name);
+            Assert.Same(navigationOnManyToManyFirst.Inverse, navigationOnManyToManySecond);
+            Assert.Same(navigationOnManyToManySecond.Inverse, navigationOnManyToManyFirst);
         }
 
         [ConditionalFact]
@@ -1049,10 +1091,13 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Conventions
         }
 
         private static void VerifyRelationship(
-            Navigation navigation, string expectedInverseName, bool unique, bool singleRelationship = true)
+            Navigation navigation,
+            string expectedInverseName,
+            bool unique,
+            bool singleRelationship = true)
         {
             IForeignKey fk = navigation.ForeignKey;
-            Assert.Equal(expectedInverseName, navigation.FindInverse()?.Name);
+            Assert.Equal(expectedInverseName, navigation.Inverse?.Name);
             Assert.Equal(unique, fk.IsUnique);
             Assert.NotSame(fk.Properties.Single(), fk.PrincipalKey.Properties.Single());
             Assert.NotEqual(fk.PrincipalToDependent?.Name, fk.DependentToPrincipal?.Name);
@@ -1064,7 +1109,7 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Conventions
                 Assert.Single(principalEntityType.GetKeys());
                 Assert.Empty(principalEntityType.GetDeclaredForeignKeys());
                 if ((expectedInverseName == null)
-                    && navigation.IsDependentToPrincipal())
+                    && navigation.IsOnDependent)
                 {
                     Assert.Empty(principalEntityType.GetNavigations());
                 }
@@ -1073,7 +1118,7 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Conventions
                 Assert.Single(dependentEntityType.GetDeclaredProperties());
                 Assert.Equal(principalEntityType.IsAssignableFrom(dependentEntityType) ? 1 : 0, dependentEntityType.GetKeys().Count());
                 if ((expectedInverseName == null)
-                    && !navigation.IsDependentToPrincipal())
+                    && !navigation.IsOnDependent)
                 {
                     Assert.Empty(dependentEntityType.GetNavigations());
                 }
@@ -1081,11 +1126,14 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Conventions
         }
 
         private static void VerifySelfRef(
-            Navigation navigation, string expectedInverseName, bool unique, bool singleRelationship = true)
+            Navigation navigation,
+            string expectedInverseName,
+            bool unique,
+            bool singleRelationship = true)
         {
             IForeignKey fk = navigation.ForeignKey;
             Assert.Single(fk.DeclaringEntityType.Model.GetEntityTypes());
-            Assert.Equal(expectedInverseName, navigation.FindInverse()?.Name);
+            Assert.Equal(expectedInverseName, navigation.Inverse?.Name);
             Assert.Equal(unique, fk.IsUnique);
             Assert.NotSame(fk.Properties.Single(), fk.PrincipalKey.Properties.Single());
             Assert.NotEqual(fk.PrincipalToDependent?.Name, fk.DependentToPrincipal?.Name);
@@ -1119,7 +1167,7 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Conventions
         private void Cleanup(InternalModelBuilder modelBuilder)
         {
             new ModelCleanupConvention(CreateDependencies())
-                .ProcessModelFinalized(
+                .ProcessModelFinalizing(
                     modelBuilder,
                     new ConventionContext<IConventionModelBuilder>(modelBuilder.Metadata.ConventionDispatcher));
         }
@@ -1128,7 +1176,7 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Conventions
             => InMemoryTestHelpers.Instance.CreateContextServices().GetRequiredService<ProviderConventionSetBuilderDependencies>()
                 .With(CreateLogger());
 
-        private InternalEntityTypeBuilder CreateInternalEntityBuilder<T>(params Action<IConventionEntityTypeBuilder>[] onEntityAdded)
+        private InternalModelBuilder CreateInternalModeBuilder(params Action<IConventionEntityTypeBuilder>[] onEntityAdded)
         {
             var conventions = new ConventionSet();
             if (onEntityAdded != null)
@@ -1142,7 +1190,12 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Conventions
                 conventions.NavigationRemovedConventions.Add(relationshipDiscoveryConvention);
             }
 
-            var modelBuilder = new InternalModelBuilder(new Model(conventions));
+            return new Model(conventions).Builder;
+        }
+
+        private InternalEntityTypeBuilder CreateInternalEntityBuilder<T>(params Action<IConventionEntityTypeBuilder>[] onEntityAdded)
+        {
+            var modelBuilder = CreateInternalModeBuilder(onEntityAdded);
             var entityBuilder = modelBuilder.Entity(typeof(T), ConfigurationSource.DataAnnotation);
 
             return entityBuilder;
@@ -1158,7 +1211,8 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Conventions
             }
 
             public void ProcessEntityTypeAdded(
-                IConventionEntityTypeBuilder entityTypeBuilder, IConventionContext<IConventionEntityTypeBuilder> context)
+                IConventionEntityTypeBuilder entityTypeBuilder,
+                IConventionContext<IConventionEntityTypeBuilder> context)
             {
                 foreach (var action in _onEntityAdded)
                 {
@@ -1239,20 +1293,31 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Conventions
 
         private class ManyToManyFirst
         {
-            public static readonly PropertyInfo NavigationProperty =
-                typeof(OneToManyPrincipal).GetProperty("ManyToManySeconds", BindingFlags.Public | BindingFlags.Instance);
-
             public int Id { get; set; }
             public IEnumerable<ManyToManySecond> ManyToManySeconds { get; set; }
         }
 
         private class ManyToManySecond
         {
-            public static readonly PropertyInfo NavigationProperty =
-                typeof(OneToManyPrincipal).GetProperty("ManyToManyFirsts", BindingFlags.Public | BindingFlags.Instance);
-
             public int Id { get; set; }
             public IEnumerable<ManyToManyFirst> ManyToManyFirsts { get; set; }
+        }
+
+        private class ManyToManySelf
+        {
+            public int Id { get; set; }
+            public IEnumerable<ManyToManySelf> ManyToManySelf1 { get; set; }
+            public IEnumerable<ManyToManySelf> ManyToManySelf2 { get; set; }
+        }
+
+        private class DerivedManyToManyFirst : ManyToManyFirst
+        {
+            public string Name { get; set; }
+        }
+
+        private class DerivedManyToManySecond : ManyToManySecond
+        {
+            public string Name { get; set; }
         }
 
         private class MultipleNavigationsFirst
@@ -1419,7 +1484,8 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Conventions
                 yield return this;
             }
 
-            IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+            IEnumerator IEnumerable.GetEnumerator()
+                => GetEnumerator();
         }
 
         public class AmbiguousCardinalityTwo : IEnumerable<AmbiguousCardinalityTwo>
@@ -1440,7 +1506,8 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Conventions
                 yield return this;
             }
 
-            IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+            IEnumerator IEnumerable.GetEnumerator()
+                => GetEnumerator();
         }
     }
 }

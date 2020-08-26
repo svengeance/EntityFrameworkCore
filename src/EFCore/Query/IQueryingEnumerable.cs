@@ -11,15 +11,19 @@ namespace Microsoft.EntityFrameworkCore.Query
     ///         provide the query string for debugging purposes.
     ///     </para>
     ///     <para>
-    ///         This method is typically used by database providers (and other extensions). It is generally
+    ///         This interface is typically used by database providers (and other extensions). It is generally
     ///         not used in application code.
     ///     </para>
     /// </summary>
     public interface IQueryingEnumerable
     {
         /// <summary>
-        ///     A string representation of the query used. This string may not be suitable for direct execution is intended only
-        ///     for use in debugging.
+        ///     <para>
+        ///         A string representation of the query used.
+        ///     </para>
+        ///     <para>
+        ///         Warning: this string may not be suitable for direct execution is intended only for use in debugging.
+        ///     </para>
         /// </summary>
         /// <returns> The query string. </returns>
         string ToQueryString();

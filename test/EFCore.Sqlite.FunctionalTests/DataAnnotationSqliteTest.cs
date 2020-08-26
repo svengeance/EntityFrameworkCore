@@ -97,38 +97,14 @@ namespace Microsoft.EntityFrameworkCore
             base.ConcurrencyCheckAttribute_throws_if_value_in_database_changed();
 
             AssertSql(
-                @"SELECT ""s"".""UniqueNo"", ""s"".""MaxLengthProperty"", ""s"".""Name"", ""s"".""RowVersion"", ""t"".""UniqueNo"", ""t"".""AdditionalDetails_Name"", ""t0"".""UniqueNo"", ""t0"".""Details_Name""
+                @"SELECT ""s"".""Unique_No"", ""s"".""MaxLengthProperty"", ""s"".""Name"", ""s"".""RowVersion"", ""s"".""AdditionalDetails_Name"", ""s"".""Details_Name""
 FROM ""Sample"" AS ""s""
-LEFT JOIN (
-    SELECT ""s0"".""UniqueNo"", ""s0"".""AdditionalDetails_Name"", ""s1"".""UniqueNo"" AS ""UniqueNo0""
-    FROM ""Sample"" AS ""s0""
-    INNER JOIN ""Sample"" AS ""s1"" ON ""s0"".""UniqueNo"" = ""s1"".""UniqueNo""
-    WHERE ""s0"".""AdditionalDetails_Name"" IS NOT NULL
-) AS ""t"" ON ""s"".""UniqueNo"" = ""t"".""UniqueNo""
-LEFT JOIN (
-    SELECT ""s2"".""UniqueNo"", ""s2"".""Details_Name"", ""s3"".""UniqueNo"" AS ""UniqueNo0""
-    FROM ""Sample"" AS ""s2""
-    INNER JOIN ""Sample"" AS ""s3"" ON ""s2"".""UniqueNo"" = ""s3"".""UniqueNo""
-    WHERE ""s2"".""Details_Name"" IS NOT NULL
-) AS ""t0"" ON ""s"".""UniqueNo"" = ""t0"".""UniqueNo""
-WHERE ""s"".""UniqueNo"" = 1
+WHERE ""s"".""Unique_No"" = 1
 LIMIT 1",
                 //
-                @"SELECT ""s"".""UniqueNo"", ""s"".""MaxLengthProperty"", ""s"".""Name"", ""s"".""RowVersion"", ""t"".""UniqueNo"", ""t"".""AdditionalDetails_Name"", ""t0"".""UniqueNo"", ""t0"".""Details_Name""
+                @"SELECT ""s"".""Unique_No"", ""s"".""MaxLengthProperty"", ""s"".""Name"", ""s"".""RowVersion"", ""s"".""AdditionalDetails_Name"", ""s"".""Details_Name""
 FROM ""Sample"" AS ""s""
-LEFT JOIN (
-    SELECT ""s0"".""UniqueNo"", ""s0"".""AdditionalDetails_Name"", ""s1"".""UniqueNo"" AS ""UniqueNo0""
-    FROM ""Sample"" AS ""s0""
-    INNER JOIN ""Sample"" AS ""s1"" ON ""s0"".""UniqueNo"" = ""s1"".""UniqueNo""
-    WHERE ""s0"".""AdditionalDetails_Name"" IS NOT NULL
-) AS ""t"" ON ""s"".""UniqueNo"" = ""t"".""UniqueNo""
-LEFT JOIN (
-    SELECT ""s2"".""UniqueNo"", ""s2"".""Details_Name"", ""s3"".""UniqueNo"" AS ""UniqueNo0""
-    FROM ""Sample"" AS ""s2""
-    INNER JOIN ""Sample"" AS ""s3"" ON ""s2"".""UniqueNo"" = ""s3"".""UniqueNo""
-    WHERE ""s2"".""Details_Name"" IS NOT NULL
-) AS ""t0"" ON ""s"".""UniqueNo"" = ""t0"".""UniqueNo""
-WHERE ""s"".""UniqueNo"" = 1
+WHERE ""s"".""Unique_No"" = 1
 LIMIT 1",
                 //
                 @"@p2='1' (DbType = String)
@@ -137,7 +113,7 @@ LIMIT 1",
 @p3='00000001-0000-0000-0000-000000000001' (DbType = String)
 
 UPDATE ""Sample"" SET ""Name"" = @p0, ""RowVersion"" = @p1
-WHERE ""UniqueNo"" = @p2 AND ""RowVersion"" = @p3;
+WHERE ""Unique_No"" = @p2 AND ""RowVersion"" = @p3;
 SELECT changes();",
                 //
                 @"@p2='1' (DbType = String)
@@ -146,7 +122,7 @@ SELECT changes();",
 @p3='00000001-0000-0000-0000-000000000001' (DbType = String)
 
 UPDATE ""Sample"" SET ""Name"" = @p0, ""RowVersion"" = @p1
-WHERE ""UniqueNo"" = @p2 AND ""RowVersion"" = @p3;
+WHERE ""Unique_No"" = @p2 AND ""RowVersion"" = @p3;
 SELECT changes();");
         }
 
@@ -163,7 +139,7 @@ SELECT changes();");
 
 INSERT INTO ""Sample"" (""MaxLengthProperty"", ""Name"", ""RowVersion"", ""AdditionalDetails_Name"", ""Details_Name"")
 VALUES (@p0, @p1, @p2, @p3, @p4);
-SELECT ""UniqueNo""
+SELECT ""Unique_No""
 FROM ""Sample""
 WHERE changes() = 1 AND ""rowid"" = last_insert_rowid();");
         }
@@ -173,60 +149,6 @@ WHERE changes() = 1 AND ""rowid"" = last_insert_rowid();");
         {
             using var context = CreateContext();
             Assert.Equal(10, context.Model.FindEntityType(typeof(One)).FindProperty("MaxLengthProperty").GetMaxLength());
-        }
-
-        public override void RequiredAttribute_for_navigation_throws_while_inserting_null_value()
-        {
-            base.RequiredAttribute_for_navigation_throws_while_inserting_null_value();
-
-            AssertSql(
-                @"@p0=NULL
-@p1='1' (DbType = String)
-
-INSERT INTO ""BookDetails"" (""AdditionalBookDetailsId"", ""AnotherBookId"")
-VALUES (@p0, @p1);
-SELECT ""Id""
-FROM ""BookDetails""
-WHERE changes() = 1 AND ""rowid"" = last_insert_rowid();",
-                //
-                @"@p0=NULL
-@p1=NULL (Nullable = false)
-
-INSERT INTO ""BookDetails"" (""AdditionalBookDetailsId"", ""AnotherBookId"")
-VALUES (@p0, @p1);
-SELECT ""Id""
-FROM ""BookDetails""
-WHERE changes() = 1 AND ""rowid"" = last_insert_rowid();");
-        }
-
-        public override void RequiredAttribute_for_property_throws_while_inserting_null_value()
-        {
-            base.RequiredAttribute_for_property_throws_while_inserting_null_value();
-
-            AssertSql(
-                @"@p0=NULL
-@p1='ValidString' (Nullable = false) (Size = 11)
-@p2='00000000-0000-0000-0000-000000000001' (DbType = String)
-@p3='Two' (Size = 3)
-@p4='One' (Size = 3)
-
-INSERT INTO ""Sample"" (""MaxLengthProperty"", ""Name"", ""RowVersion"", ""AdditionalDetails_Name"", ""Details_Name"")
-VALUES (@p0, @p1, @p2, @p3, @p4);
-SELECT ""UniqueNo""
-FROM ""Sample""
-WHERE changes() = 1 AND ""rowid"" = last_insert_rowid();",
-                //
-                @"@p0=NULL
-@p1=NULL (Nullable = false)
-@p2='00000000-0000-0000-0000-000000000002' (DbType = String)
-@p3='Two' (Size = 3)
-@p4='One' (Size = 3)
-
-INSERT INTO ""Sample"" (""MaxLengthProperty"", ""Name"", ""RowVersion"", ""AdditionalDetails_Name"", ""Details_Name"")
-VALUES (@p0, @p1, @p2, @p3, @p4);
-SELECT ""UniqueNo""
-FROM ""Sample""
-WHERE changes() = 1 AND ""rowid"" = last_insert_rowid();");
         }
 
         // Sqlite does not support length
@@ -250,8 +172,11 @@ WHERE changes() = 1 AND ""rowid"" = last_insert_rowid();");
 
         public class DataAnnotationSqliteFixture : DataAnnotationFixtureBase
         {
-            protected override ITestStoreFactory TestStoreFactory => SqliteTestStoreFactory.Instance;
-            public TestSqlLoggerFactory TestSqlLoggerFactory => (TestSqlLoggerFactory)ListLoggerFactory;
+            protected override ITestStoreFactory TestStoreFactory
+                => SqliteTestStoreFactory.Instance;
+
+            public TestSqlLoggerFactory TestSqlLoggerFactory
+                => (TestSqlLoggerFactory)ListLoggerFactory;
         }
     }
 }

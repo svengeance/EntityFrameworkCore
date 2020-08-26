@@ -8,7 +8,6 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using JetBrains.Annotations;
-using Microsoft.EntityFrameworkCore.Internal;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.EntityFrameworkCore.Utilities;
 
@@ -53,8 +52,9 @@ namespace Microsoft.EntityFrameworkCore.Infrastructure
         ///         are applied.
         ///     </para>
         /// </summary>
-        /// <returns> True if the database is created, false if it already existed. </returns>
-        public virtual bool EnsureCreated() => Dependencies.DatabaseCreator.EnsureCreated();
+        /// <returns> <see langword="true" /> if the database is created, false if it already existed. </returns>
+        public virtual bool EnsureCreated()
+            => Dependencies.DatabaseCreator.EnsureCreated();
 
         /// <summary>
         ///     <para>
@@ -71,7 +71,7 @@ namespace Microsoft.EntityFrameworkCore.Infrastructure
         /// </summary>
         /// <param name="cancellationToken">A <see cref="CancellationToken" /> to observe while waiting for the task to complete.</param>
         /// <returns>
-        ///     A task that represents the asynchronous save operation. The task result contains true if the database is created,
+        ///     A task that represents the asynchronous save operation. The task result contains <see langword="true" /> if the database is created,
         ///     false if it already existed.
         /// </returns>
         public virtual Task<bool> EnsureCreatedAsync(CancellationToken cancellationToken = default)
@@ -87,8 +87,9 @@ namespace Microsoft.EntityFrameworkCore.Infrastructure
         ///         the model for this context.
         ///     </para>
         /// </summary>
-        /// <returns> True if the database is deleted, false if it did not exist. </returns>
-        public virtual bool EnsureDeleted() => Dependencies.DatabaseCreator.EnsureDeleted();
+        /// <returns> <see langword="true" /> if the database is deleted, false if it did not exist. </returns>
+        public virtual bool EnsureDeleted()
+            => Dependencies.DatabaseCreator.EnsureDeleted();
 
         /// <summary>
         ///     <para>
@@ -102,7 +103,7 @@ namespace Microsoft.EntityFrameworkCore.Infrastructure
         /// </summary>
         /// <param name="cancellationToken">A <see cref="CancellationToken" /> to observe while waiting for the task to complete.</param>
         /// <returns>
-        ///     A task that represents the asynchronous save operation. The task result contains true if the database is deleted,
+        ///     A task that represents the asynchronous save operation. The task result contains <see langword="true" /> if the database is deleted,
         ///     false if it did not exist.
         /// </returns>
         public virtual Task<bool> EnsureDeletedAsync(CancellationToken cancellationToken = default)
@@ -113,11 +114,18 @@ namespace Microsoft.EntityFrameworkCore.Infrastructure
         ///         Determines whether or not the database is available and can be connected to.
         ///     </para>
         ///     <para>
+        ///         Any exceptions thrown when attempting to connect are caught and not propagated to the application.
+        ///     </para>
+        ///     <para>
+        ///         The configured connection string is used to create the connection in the normal way, so all
+        ///         configured options such as timeouts are honored.
+        ///     </para>
+        ///     <para>
         ///         Note that being able to connect to the database does not mean that it is
         ///         up-to-date with regard to schema creation, etc.
         ///     </para>
         /// </summary>
-        /// <returns> <c>True</c> if the database is available; <c>false</c> otherwise. </returns>
+        /// <returns> <see langword="true" /> if the database is available; <see langword="false" /> otherwise. </returns>
         public virtual bool CanConnect()
             => Dependencies.DatabaseCreator.CanConnect();
 
@@ -126,12 +134,19 @@ namespace Microsoft.EntityFrameworkCore.Infrastructure
         ///         Determines whether or not the database is available and can be connected to.
         ///     </para>
         ///     <para>
+        ///         Any exceptions thrown when attempting to connect are caught and not propagated to the application.
+        ///     </para>
+        ///     <para>
+        ///         The configured connection string is used to create the connection in the normal way, so all
+        ///         configured options such as timeouts are honored.
+        ///     </para>
+        ///     <para>
         ///         Note that being able to connect to the database does not mean that it is
         ///         up-to-date with regard to schema creation, etc.
         ///     </para>
         /// </summary>
         /// <param name="cancellationToken">A <see cref="CancellationToken" /> to observe while waiting for the task to complete.</param>
-        /// <returns> <c>True</c> if the database is available; <c>false</c> otherwise. </returns>
+        /// <returns> <see langword="true" /> if the database is available; <see langword="false" /> otherwise. </returns>
         public virtual Task<bool> CanConnectAsync(CancellationToken cancellationToken = default)
             => Dependencies.DatabaseCreator.CanConnectAsync(cancellationToken);
 
@@ -162,10 +177,26 @@ namespace Microsoft.EntityFrameworkCore.Infrastructure
             => Dependencies.TransactionManager.CommitTransaction();
 
         /// <summary>
+        ///     Applies the outstanding operations in the current transaction to the database.
+        /// </summary>
+        /// <param name="cancellationToken">A <see cref="CancellationToken" /> to observe while waiting for the task to complete.</param>
+        /// <returns> A Task representing the asynchronous operation. </returns>
+        public virtual Task CommitTransactionAsync(CancellationToken cancellationToken = default)
+            => Dependencies.TransactionManager.CommitTransactionAsync(cancellationToken);
+
+        /// <summary>
         ///     Discards the outstanding operations in the current transaction.
         /// </summary>
         public virtual void RollbackTransaction()
             => Dependencies.TransactionManager.RollbackTransaction();
+
+        /// <summary>
+        ///     Applies the outstanding operations in the current transaction to the database.
+        /// </summary>
+        /// <param name="cancellationToken">A <see cref="CancellationToken" /> to observe while waiting for the task to complete.</param>
+        /// <returns> A Task representing the asynchronous operation. </returns>
+        public virtual Task RollbackTransactionAsync(CancellationToken cancellationToken = default)
+            => Dependencies.TransactionManager.RollbackTransactionAsync(cancellationToken);
 
         /// <summary>
         ///     Creates an instance of the configured <see cref="IExecutionStrategy" />.
@@ -243,7 +274,8 @@ namespace Microsoft.EntityFrameworkCore.Infrastructure
         ///         not directly exposed in the public API surface.
         ///     </para>
         /// </summary>
-        IServiceProvider IInfrastructure<IServiceProvider>.Instance => ((IInfrastructure<IServiceProvider>)_context).Instance;
+        IServiceProvider IInfrastructure<IServiceProvider>.Instance
+            => ((IInfrastructure<IServiceProvider>)_context).Instance;
 
         /// <summary>
         ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
@@ -251,6 +283,7 @@ namespace Microsoft.EntityFrameworkCore.Infrastructure
         ///     any release. You should only use it directly in your code with extreme caution and knowing that
         ///     doing so can result in application failures when updating to a new Entity Framework Core release.
         /// </summary>
+        [EntityFrameworkInternal]
         IDatabaseFacadeDependencies IDatabaseFacadeDependenciesAccessor.Dependencies
             => Dependencies;
 
@@ -260,6 +293,7 @@ namespace Microsoft.EntityFrameworkCore.Infrastructure
         ///     any release. You should only use it directly in your code with extreme caution and knowing that
         ///     doing so can result in application failures when updating to a new Entity Framework Core release.
         /// </summary>
+        [EntityFrameworkInternal]
         DbContext IDatabaseFacadeDependenciesAccessor.Context
             => _context;
 
@@ -270,22 +304,25 @@ namespace Microsoft.EntityFrameworkCore.Infrastructure
         /// </summary>
         /// <returns> A string that represents the current object. </returns>
         [EditorBrowsable(EditorBrowsableState.Never)]
-        public override string ToString() => base.ToString();
+        public override string ToString()
+            => base.ToString();
 
         /// <summary>
         ///     Determines whether the specified object is equal to the current object.
         /// </summary>
         /// <param name="obj"> The object to compare with the current object. </param>
-        /// <returns> true if the specified object is equal to the current object; otherwise, false. </returns>
+        /// <returns> <see langword="true" /> if the specified object is equal to the current object; otherwise, <see langword="false" />. </returns>
         [EditorBrowsable(EditorBrowsableState.Never)]
-        public override bool Equals(object obj) => base.Equals(obj);
+        public override bool Equals(object obj)
+            => base.Equals(obj);
 
         /// <summary>
         ///     Serves as the default hash function.
         /// </summary>
         /// <returns> A hash code for the current object. </returns>
         [EditorBrowsable(EditorBrowsableState.Never)]
-        public override int GetHashCode() => base.GetHashCode();
+        public override int GetHashCode()
+            => base.GetHashCode();
 
         #endregion
     }

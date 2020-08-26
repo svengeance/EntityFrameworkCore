@@ -21,9 +21,43 @@ namespace Microsoft.EntityFrameworkCore
     public abstract class LazyLoadProxyTestBase<TFixture> : IClassFixture<TFixture>
         where TFixture : LazyLoadProxyTestBase<TFixture>.LoadFixtureBase
     {
-        protected LazyLoadProxyTestBase(TFixture fixture) => Fixture = fixture;
+        protected LazyLoadProxyTestBase(TFixture fixture)
+            => Fixture = fixture;
 
         protected TFixture Fixture { get; }
+
+        [ConditionalTheory] // Issue #13138
+        [InlineData(EntityState.Unchanged)]
+        [InlineData(EntityState.Modified)]
+        [InlineData(EntityState.Deleted)]
+        public virtual void Lazy_load_one_to_one_reference_with_recursive_property(EntityState state)
+        {
+            using (var context = CreateContext(lazyLoadingEnabled: true))
+            {
+                var child = context.Set<WithRecursiveProperty>().Single();
+
+                var referenceEntry = context.Entry(child).Reference(e => e.Parent);
+
+                context.Entry(child).State = state;
+
+                Assert.True(referenceEntry.IsLoaded);
+
+                Assert.NotNull(child.Parent);
+
+                Assert.True(referenceEntry.IsLoaded);
+
+                context.ChangeTracker.LazyLoadingEnabled = false;
+
+                Assert.Equal(2, context.ChangeTracker.Entries().Count());
+
+                var parent = context.ChangeTracker.Entries<Parent>().Single().Entity;
+
+                Assert.Equal(parent.Id, child.IdLoadedFromParent);
+
+                Assert.Same(parent, child.Parent);
+                Assert.Same(child, parent.WithRecursiveProperty);
+            }
+        }
 
         [ConditionalTheory]
         [InlineData(EntityState.Unchanged, false)]
@@ -238,7 +272,7 @@ namespace Microsoft.EntityFrameworkCore
                         CoreStrings.WarningAsErrorTemplate(
                             CoreEventId.LazyLoadOnDisposedContextWarning.ToString(),
                             CoreResources.LogLazyLoadOnDisposedContext(new TestLogger<TestLoggingDefinitions>())
-                                .GenerateMessage("Children", "ParentProxy"),
+                                .GenerateMessage("Children", "MotherProxy"),
                             "CoreEventId.LazyLoadOnDisposedContextWarning"),
                         Assert.Throws<InvalidOperationException>(
                             () => parent.Children).Message);
@@ -467,7 +501,7 @@ namespace Microsoft.EntityFrameworkCore
                         CoreStrings.WarningAsErrorTemplate(
                             CoreEventId.LazyLoadOnDisposedContextWarning.ToString(),
                             CoreResources.LogLazyLoadOnDisposedContext(new TestLogger<TestLoggingDefinitions>())
-                                .GenerateMessage("Single", "ParentProxy"),
+                                .GenerateMessage("Single", "MotherProxy"),
                             "CoreEventId.LazyLoadOnDisposedContextWarning"),
                         Assert.Throws<InvalidOperationException>(
                             () => parent.Single).Message);
@@ -582,6 +616,120 @@ namespace Microsoft.EntityFrameworkCore
 
             Assert.Same(single, parent.SinglePkToPk);
             Assert.Same(parent, single.Parent);
+        }
+
+        [ConditionalFact]
+        public virtual void Eager_load_one_to_one_non_virtual_reference_to_owned_type()
+        {
+            using var context = CreateContext(lazyLoadingEnabled: true);
+
+            var owner = context.Set<NonVirtualOneToOneOwner>().Single();
+            var addressReferenceEntry = context.Entry(owner).References.First();
+
+            Assert.Equal("Address", addressReferenceEntry.Metadata.Name);
+            Assert.True(addressReferenceEntry.IsLoaded);
+            Assert.Equal("Paradise Alley", owner.Address.Street);
+        }
+
+        [ConditionalFact]
+        public virtual void Eager_load_one_to_one_virtual_reference_to_owned_type()
+        {
+            using var context = CreateContext(lazyLoadingEnabled: true);
+
+            var owner = context.Set<VirtualOneToOneOwner>().Single();
+            var addressReferenceEntry = context.Entry(owner).References.First();
+
+            Assert.Equal("Address", addressReferenceEntry.Metadata.Name);
+            Assert.True(addressReferenceEntry.IsLoaded);
+            Assert.Equal("Dead End", owner.Address.Street);
+        }
+
+        [ConditionalFact]
+        public virtual void Eager_load_one_to_many_non_virtual_collection_of_owned_types()
+        {
+            using var context = CreateContext(lazyLoadingEnabled: true);
+
+            var owner = context.Set<NonVirtualOneToManyOwner>().Single();
+            var addressesCollectionEntry = context.Entry(owner).Collections.First();
+
+            Assert.Equal("Addresses", addressesCollectionEntry.Metadata.Name);
+            Assert.True(addressesCollectionEntry.IsLoaded);
+            Assert.Single(owner.Addresses);
+        }
+
+        [ConditionalFact]
+        public virtual void Eager_load_one_to_many_virtual_collection_of_owned_types()
+        {
+            using var context = CreateContext(lazyLoadingEnabled: true);
+
+            var owner = context.Set<VirtualOneToManyOwner>().Single();
+            var addressesCollectionEntry = context.Entry(owner).Collections.First();
+
+            Assert.Equal("Addresses", addressesCollectionEntry.Metadata.Name);
+            Assert.True(addressesCollectionEntry.IsLoaded);
+            Assert.Equal(3, owner.Addresses.Count);
+        }
+
+        [ConditionalFact]
+        public virtual void Eager_load_one_to_many_non_virtual_collection_of_owned_types_with_explicit_lazy_load()
+        {
+            using var context = CreateContext(lazyLoadingEnabled: true);
+
+            var owner = context.Set<ExplicitLazyLoadNonVirtualOneToManyOwner>().Single();
+            var addressesCollectionEntry = context.Entry(owner).Collections.First();
+
+            Assert.Equal("Addresses", addressesCollectionEntry.Metadata.Name);
+            Assert.True(addressesCollectionEntry.IsLoaded);
+            Assert.Single(owner.Addresses);
+        }
+
+        [ConditionalFact]
+        public virtual void Eager_load_one_to_many_virtual_collection_of_owned_types_with_explicit_lazy_load()
+        {
+            using var context = CreateContext(lazyLoadingEnabled: true);
+
+            var owner = context.Set<ExplicitLazyLoadVirtualOneToManyOwner>().Single();
+            var addressesCollectionEntry = context.Entry(owner).Collections.First();
+
+            Assert.Equal("Addresses", addressesCollectionEntry.Metadata.Name);
+            Assert.True(addressesCollectionEntry.IsLoaded);
+            Assert.Single(owner.Addresses);
+        }
+
+        // Tests issue https://github.com/dotnet/efcore/issues/19847 (non-virtual)
+        [ConditionalFact]
+        public virtual void Setting_reference_to_owned_type_to_null_is_allowed_on_non_virtual_navigation()
+        {
+            using var context = CreateContext(lazyLoadingEnabled: true);
+
+            var owner = context.Set<NonVirtualOneToOneOwner>().Single();
+            owner.Address = null;
+            context.Attach(owner);
+            context.Update(owner);
+
+            Assert.Null(owner.Address);
+
+            context.ChangeTracker.DetectChanges();
+
+            Assert.Null(owner.Address);
+        }
+
+        // Tests issue https://github.com/dotnet/efcore/issues/19847 (virtual)
+        [ConditionalFact]
+        public virtual void Setting_reference_to_owned_type_to_null_is_allowed_on_virtual_navigation()
+        {
+            using var context = CreateContext(lazyLoadingEnabled: true);
+
+            var owner = context.Set<VirtualOneToOneOwner>().Single();
+            owner.Address = null;
+            context.Attach(owner);
+            context.Update(owner);
+
+            Assert.Null(owner.Address);
+
+            context.ChangeTracker.DetectChanges();
+
+            Assert.Null(owner.Address);
         }
 
         [ConditionalTheory]
@@ -977,7 +1125,8 @@ namespace Microsoft.EntityFrameworkCore
         [InlineData(EntityState.Modified, CascadeTiming.Never)]
         [InlineData(EntityState.Deleted, CascadeTiming.Never)]
         public virtual void Lazy_load_many_to_one_reference_to_principal_already_loaded(
-            EntityState state, CascadeTiming cascadeDeleteTiming)
+            EntityState state,
+            CascadeTiming cascadeDeleteTiming)
         {
             using var context = CreateContext(lazyLoadingEnabled: true);
             context.ChangeTracker.CascadeDeleteTiming = cascadeDeleteTiming;
@@ -1062,7 +1211,8 @@ namespace Microsoft.EntityFrameworkCore
         [InlineData(EntityState.Modified, CascadeTiming.Never)]
         [InlineData(EntityState.Deleted, CascadeTiming.Never)]
         public virtual void Lazy_load_one_to_one_reference_to_dependent_already_loaded(
-            EntityState state, CascadeTiming cascadeDeleteTiming)
+            EntityState state,
+            CascadeTiming cascadeDeleteTiming)
         {
             using var context = CreateContext(lazyLoadingEnabled: true);
             context.ChangeTracker.CascadeDeleteTiming = cascadeDeleteTiming;
@@ -1766,7 +1916,7 @@ namespace Microsoft.EntityFrameworkCore
                 CoreStrings.WarningAsErrorTemplate(
                     CoreEventId.DetachedLazyLoadingWarning.ToString(),
                     CoreResources.LogDetachedLazyLoading(new TestLogger<TestLoggingDefinitions>())
-                        .GenerateMessage(nameof(Parent.Children), "ParentProxy"),
+                        .GenerateMessage(nameof(Parent.Children), "MotherProxy"),
                     "CoreEventId.DetachedLazyLoadingWarning"),
                 Assert.Throws<InvalidOperationException>(
                     () => parent.Children).Message);
@@ -1798,7 +1948,7 @@ namespace Microsoft.EntityFrameworkCore
                 CoreStrings.WarningAsErrorTemplate(
                     CoreEventId.DetachedLazyLoadingWarning.ToString(),
                     CoreResources.LogDetachedLazyLoading(new TestLogger<TestLoggingDefinitions>())
-                        .GenerateMessage(nameof(Parent.Single), "ParentProxy"),
+                        .GenerateMessage(nameof(Parent.Single), "MotherProxy"),
                     "CoreEventId.DetachedLazyLoadingWarning"),
                 Assert.Throws<InvalidOperationException>(
                     () => parent.Single).Message);
@@ -1831,7 +1981,7 @@ namespace Microsoft.EntityFrameworkCore
         }
 
         [ConditionalFact]
-        public virtual void Lazy_load_reference_to_dependent_for_no_does_not_throw_if_populated()
+        public virtual void Lazy_load_reference_to_dependent_for_no_tracking_does_not_throw_if_populated()
         {
             using var context = CreateContext(lazyLoadingEnabled: true);
             var parent = context.Set<Parent>().Include(e => e.Single).AsNoTracking().Single();
@@ -1884,6 +2034,153 @@ namespace Microsoft.EntityFrameworkCore
         }
 
         [ConditionalFact]
+        public virtual void Can_serialize_proxies_to_JSON()
+        {
+            using var context = CreateContext(lazyLoadingEnabled: true);
+
+            var blogs = context.Set<Blog>().OrderBy(e => e.Host.HostName).ToList();
+
+            VerifyBlogs(blogs);
+            foreach (var blog in blogs)
+            {
+                Assert.IsNotType<Blog>(blog);
+            }
+
+            var serialized = Newtonsoft.Json.JsonConvert.SerializeObject(
+                blogs,
+                new Newtonsoft.Json.JsonSerializerSettings { ReferenceLoopHandling = Newtonsoft.Json.ReferenceLoopHandling.Ignore, Formatting = Newtonsoft.Json.Formatting.Indented });
+
+            Assert.Equal(
+                @"[
+  {
+    ""Writer"": {
+      ""FirstName"": ""firstNameWriter0"",
+      ""LastName"": ""lastNameWriter0""
+    },
+    ""Reader"": {
+      ""FirstName"": ""firstNameReader0"",
+      ""LastName"": ""lastNameReader0""
+    },
+    ""Host"": {
+      ""HostName"": ""127.0.0.1""
+    },
+    ""Id"": 1
+  },
+  {
+    ""Writer"": {
+      ""FirstName"": ""firstNameWriter1"",
+      ""LastName"": ""lastNameWriter1""
+    },
+    ""Reader"": {
+      ""FirstName"": ""firstNameReader1"",
+      ""LastName"": ""lastNameReader1""
+    },
+    ""Host"": {
+      ""HostName"": ""127.0.0.2""
+    },
+    ""Id"": 2
+  },
+  {
+    ""Writer"": {
+      ""FirstName"": ""firstNameWriter2"",
+      ""LastName"": ""lastNameWriter2""
+    },
+    ""Reader"": {
+      ""FirstName"": ""firstNameReader2"",
+      ""LastName"": ""lastNameReader2""
+    },
+    ""Host"": {
+      ""HostName"": ""127.0.0.3""
+    },
+    ""Id"": 3
+  }
+]", serialized, ignoreLineEndingDifferences: true);
+
+            var newBlogs = Newtonsoft.Json.JsonConvert.DeserializeObject<List<Blog>>(serialized);
+
+            VerifyBlogs(newBlogs);
+            foreach (var blog in newBlogs)
+            {
+                Assert.IsType<Blog>(blog);
+            }
+
+#if NET5_0
+            var options = new System.Text.Json.JsonSerializerOptions { ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.Preserve, WriteIndented = true };
+
+            serialized = System.Text.Json.JsonSerializer.Serialize(blogs, options);
+
+            Assert.Equal(@"{
+  ""$id"": ""1"",
+  ""$values"": [
+    {
+      ""$id"": ""2"",
+      ""Id"": 1,
+      ""Writer"": {
+        ""$id"": ""3"",
+        ""FirstName"": ""firstNameWriter0"",
+        ""LastName"": ""lastNameWriter0""
+      },
+      ""Reader"": {
+        ""$id"": ""4"",
+        ""FirstName"": ""firstNameReader0"",
+        ""LastName"": ""lastNameReader0""
+      },
+      ""Host"": {
+        ""$id"": ""5"",
+        ""HostName"": ""127.0.0.1""
+      }
+    },
+    {
+      ""$id"": ""6"",
+      ""Id"": 2,
+      ""Writer"": {
+        ""$id"": ""7"",
+        ""FirstName"": ""firstNameWriter1"",
+        ""LastName"": ""lastNameWriter1""
+      },
+      ""Reader"": {
+        ""$id"": ""8"",
+        ""FirstName"": ""firstNameReader1"",
+        ""LastName"": ""lastNameReader1""
+      },
+      ""Host"": {
+        ""$id"": ""9"",
+        ""HostName"": ""127.0.0.2""
+      }
+    },
+    {
+      ""$id"": ""10"",
+      ""Id"": 3,
+      ""Writer"": {
+        ""$id"": ""11"",
+        ""FirstName"": ""firstNameWriter2"",
+        ""LastName"": ""lastNameWriter2""
+      },
+      ""Reader"": {
+        ""$id"": ""12"",
+        ""FirstName"": ""firstNameReader2"",
+        ""LastName"": ""lastNameReader2""
+      },
+      ""Host"": {
+        ""$id"": ""13"",
+        ""HostName"": ""127.0.0.3""
+      }
+    }
+  ]
+}", serialized, ignoreLineEndingDifferences: true);
+
+            newBlogs = System.Text.Json.JsonSerializer.Deserialize<List<Blog>>(serialized, options);
+            Assert.IsType<List<Blog>>(newBlogs);
+
+            foreach (var blog in newBlogs)
+            {
+                Assert.IsType<Blog>(blog);
+            }
+            VerifyBlogs(newBlogs);
+#endif
+        }
+
+        [ConditionalFact]
         public virtual void Lazy_loading_finds_correct_entity_type_with_already_loaded_owned_types()
         {
             using var context = CreateContext(lazyLoadingEnabled: true);
@@ -1927,7 +2224,8 @@ namespace Microsoft.EntityFrameworkCore
             using var context = CreateContext(lazyLoadingEnabled: true);
 
             // ReSharper disable once ConvertToLocalFunction
-            bool opaquePredicate(Blog _) => true;
+            bool opaquePredicate(Blog _)
+                => true;
 
             var blogs = context.Set<Blog>().Where(opaquePredicate);
 
@@ -1978,6 +2276,18 @@ namespace Microsoft.EntityFrameworkCore
         }
 
         [ConditionalFact]
+        public virtual void Lazy_loading_handles_shadow_nullable_GUID_FK_in_TPH_model()
+        {
+            using var context = CreateContext(lazyLoadingEnabled: true);
+
+            var tribes = context.Set<Tribe>().ToList();
+
+            Assert.Single(tribes);
+            Assert.IsAssignableFrom<Quest>(tribes[0]);
+            Assert.Equal(new DateTime(1973, 9, 3), ((Quest)tribes[0]).Birthday);
+        }
+
+        [ConditionalFact]
         public virtual void Lazy_loading_finds_correct_entity_type_with_alternate_model()
         {
             using var context = CreateContext(lazyLoadingEnabled: true);
@@ -2004,9 +2314,28 @@ namespace Microsoft.EntityFrameworkCore
         {
             using var context = CreateContext(lazyLoadingEnabled: true);
             var query = (from p in context.Set<Parent>()
+                         orderby p.Id
                          select DtoFactory.CreateDto(p)).FirstOrDefault();
 
             Assert.NotNull(((dynamic)query).Single);
+        }
+
+        [ConditionalTheory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public virtual async Task Entity_equality_with_proxy_parameter(bool async)
+        {
+            using var context = CreateContext(lazyLoadingEnabled: true);
+            var called = context.Set<Parent>().OrderBy(e => e.Id).FirstOrDefault();
+            ClearLog();
+
+            var query = from Child q in context.Set<Child>()
+                        where q.Parent == called
+                        select q;
+
+            var result = async ? await query.ToListAsync() : query.ToList();
+
+            RecordLog();
         }
 
         private static class DtoFactory
@@ -2118,7 +2447,7 @@ namespace Microsoft.EntityFrameworkCore
             }
         }
 
-        public class Parent
+        public abstract class Parent
         {
             [DatabaseGenerated(DatabaseGeneratedOption.None)]
             public int Id { get; set; }
@@ -2134,6 +2463,40 @@ namespace Microsoft.EntityFrameworkCore
             public virtual SingleShadowFk SingleShadowFk { get; set; }
             public virtual IEnumerable<ChildCompositeKey> ChildrenCompositeKey { get; set; }
             public virtual SingleCompositeKey SingleCompositeKey { get; set; }
+            public virtual WithRecursiveProperty WithRecursiveProperty { get; set; }
+        }
+
+        public class Mother : Parent
+        {
+        }
+
+        public class Father : Parent
+        {
+        }
+
+        public class WithRecursiveProperty
+        {
+            private int _backing;
+
+            [DatabaseGenerated(DatabaseGeneratedOption.None)]
+            public int Id { get; set; }
+
+            public int? ParentId { get; set; }
+            public virtual Parent Parent { get; set; }
+
+            public int IdLoadedFromParent
+            {
+                get
+                {
+                    if (Parent != null)
+                    {
+                        _backing = Parent.Id;
+                    }
+
+                    return _backing;
+                }
+                set => _backing = value;
+            }
         }
 
         public class Child
@@ -2256,12 +2619,102 @@ namespace Microsoft.EntityFrameworkCore
 
         public class Parson : Entity
         {
+            public DateTime Birthday { set; get; }
+
             public virtual ICollection<Nose> ParsonNoses { get; set; }
         }
 
         public class Host
         {
             public string HostName { get; set; }
+        }
+
+        public abstract class Tribe
+        {
+            public Guid Id { get; set; }
+        }
+
+        public class Called : Tribe
+        {
+            public string Name { set; get; }
+        }
+
+        public class Quest : Tribe
+        {
+            public DateTime Birthday { set; get; }
+            public virtual Called Called { set; get; }
+        }
+
+        public class NonVirtualOneToOneOwner
+        {
+            [DatabaseGenerated(DatabaseGeneratedOption.None)]
+            public int Id { get; set; }
+
+            // note: _not_ virtual
+            public OwnedAddress Address { get; set; }
+        }
+
+        public class VirtualOneToOneOwner
+        {
+            [DatabaseGenerated(DatabaseGeneratedOption.None)]
+            public int Id { get; set; }
+
+            public virtual OwnedAddress Address { get; set; }
+        }
+
+        public class NonVirtualOneToManyOwner
+        {
+            [DatabaseGenerated(DatabaseGeneratedOption.None)]
+            public int Id { get; set; }
+
+            // note: _not_ virtual
+            public List<OwnedAddress> Addresses { get; set; }
+        }
+
+        public class VirtualOneToManyOwner
+        {
+            [DatabaseGenerated(DatabaseGeneratedOption.None)]
+            public int Id { get; set; }
+
+            public virtual List<OwnedAddress> Addresses { get; set; }
+        }
+
+        public class ExplicitLazyLoadNonVirtualOneToManyOwner
+        {
+            private ICollection<OwnedAddress> _addresses;
+            private ILazyLoader LazyLoader { get; set; }
+
+            [DatabaseGenerated(DatabaseGeneratedOption.None)]
+            public int Id { get; set; }
+
+            // note: _not_ virtual
+            public ICollection<OwnedAddress> Addresses
+            {
+                get => LazyLoader.Load(this, ref _addresses);
+                set => _addresses = value;
+            }
+        }
+
+        public class ExplicitLazyLoadVirtualOneToManyOwner
+        {
+            private ICollection<OwnedAddress> _addresses;
+            private ILazyLoader LazyLoader { get; set; }
+
+            [DatabaseGenerated(DatabaseGeneratedOption.None)]
+            public int Id { get; set; }
+
+            public virtual ICollection<OwnedAddress> Addresses
+            {
+                get => LazyLoader.Load(this, ref _addresses);
+                set => _addresses = value;
+            }
+        }
+
+        [Owned]
+        public class OwnedAddress
+        {
+            public string Street { get; set; }
+            public string PostalCode { get; set; }
         }
 
         protected DbContext CreateContext(bool lazyLoadingEnabled = false)
@@ -2313,10 +2766,15 @@ namespace Microsoft.EntityFrameworkCore
                         .AddEntityFrameworkProxies());
 
             // By-design. Lazy loaders are not disposed when using pooling
-            protected override bool UsePooling => false;
+            protected override bool UsePooling
+                => false;
 
             protected override void OnModelCreating(ModelBuilder modelBuilder, DbContext context)
             {
+                modelBuilder.Entity<Tribe>();
+                modelBuilder.Entity<Called>();
+                modelBuilder.Entity<Quest>();
+
                 modelBuilder.Entity<Entity>();
                 modelBuilder.Entity<Company>();
                 modelBuilder.Entity<Parson>();
@@ -2376,6 +2834,9 @@ namespace Microsoft.EntityFrameworkCore
                             .HasForeignKey<SingleCompositeKey>(
                                 e => new { e.ParentAlternateId, e.ParentId });
                     });
+
+                modelBuilder.Entity<Mother>();
+                modelBuilder.Entity<Father>();
 
                 modelBuilder.Entity<Blog>(
                     e =>
@@ -2454,12 +2915,28 @@ namespace Microsoft.EntityFrameworkCore
                             .WithOne()
                             .HasForeignKey<Address>(prop => prop.PyrsonId);
                     });
+
+                modelBuilder.Entity<NonVirtualOneToOneOwner>();
+                modelBuilder.Entity<VirtualOneToOneOwner>();
+
+                // Note: Sqlite does not support auto-increment on composite keys
+                // so have to redefine the key for this to work in Sqlite
+                modelBuilder.Entity<NonVirtualOneToManyOwner>()
+                    .OwnsMany(o => o.Addresses, a => a.HasKey("Id"));
+                modelBuilder.Entity<VirtualOneToManyOwner>()
+                    .OwnsMany(o => o.Addresses, a => a.HasKey("Id"));
+                modelBuilder.Entity<ExplicitLazyLoadNonVirtualOneToManyOwner>()
+                    .OwnsMany(o => o.Addresses, a => a.HasKey("Id"));
+                modelBuilder.Entity<ExplicitLazyLoadVirtualOneToManyOwner>()
+                    .OwnsMany(o => o.Addresses, a => a.HasKey("Id"));
             }
 
             protected override void Seed(DbContext context)
             {
+                context.Add(new Quest { Birthday = new DateTime(1973, 9, 3) });
+
                 context.Add(
-                    new Parent
+                    new Mother
                     {
                         Id = 707,
                         AlternateId = "Root",
@@ -2470,11 +2947,10 @@ namespace Microsoft.EntityFrameworkCore
                         SingleAk = new SingleAk { Id = 42 },
                         ChildrenShadowFk = new List<ChildShadowFk> { new ChildShadowFk { Id = 51 }, new ChildShadowFk { Id = 52 } },
                         SingleShadowFk = new SingleShadowFk { Id = 62 },
-                        ChildrenCompositeKey = new List<ChildCompositeKey>
-                        {
-                            new ChildCompositeKey { Id = 51 }, new ChildCompositeKey { Id = 52 }
-                        },
-                        SingleCompositeKey = new SingleCompositeKey { Id = 62 }
+                        ChildrenCompositeKey =
+                            new List<ChildCompositeKey> { new ChildCompositeKey { Id = 51 }, new ChildCompositeKey { Id = 52 } },
+                        SingleCompositeKey = new SingleCompositeKey { Id = 62 },
+                        WithRecursiveProperty = new WithRecursiveProperty { Id = 8086 }
                     });
 
                 context.Add(
@@ -2532,6 +3008,51 @@ namespace Microsoft.EntityFrameworkCore
                     new Pyrson(new FullName(FirstName.Create("Amila"), LastName.Create("Udayanga")))
                     {
                         Address = new Address { Line1 = "Line1", Line2 = "Line2" }
+                    });
+
+                context.Add(
+                    new NonVirtualOneToOneOwner
+                    {
+                        Id = 100, Address = new OwnedAddress { Street = "Paradise Alley", PostalCode = "WEEEEEE" }
+                    });
+
+                context.Add(
+                    new VirtualOneToOneOwner { Id = 200, Address = new OwnedAddress { Street = "Dead End", PostalCode = "N0 WA1R" } });
+
+                context.Add(
+                    new NonVirtualOneToManyOwner
+                    {
+                        Id = 300,
+                        Addresses = new List<OwnedAddress> { new OwnedAddress { Street = "4 Privet Drive", PostalCode = "SURREY" } }
+                    });
+
+                context.Add(
+                    new VirtualOneToManyOwner
+                    {
+                        Id = 400,
+                        Addresses = new List<OwnedAddress>
+                        {
+                            new OwnedAddress { Street = "The Ministry", PostalCode = "MAG1C" },
+                            new OwnedAddress { Street = "Diagon Alley", PostalCode = "WC2H 0AW" },
+                            new OwnedAddress { Street = "Shell Cottage", PostalCode = "THE SEA" }
+                        }
+                    });
+
+                context.Add(
+                    new ExplicitLazyLoadNonVirtualOneToManyOwner
+                    {
+                        Id = 500,
+                        Addresses = new List<OwnedAddress> { new OwnedAddress { Street = "Spinner's End", PostalCode = "BE WA1R" } }
+                    });
+
+                context.Add(
+                    new ExplicitLazyLoadVirtualOneToManyOwner
+                    {
+                        Id = 600,
+                        Addresses = new List<OwnedAddress>
+                        {
+                            new OwnedAddress { Street = "12 Grimmauld Place", PostalCode = "L0N D0N" }
+                        }
                     });
 
                 context.SaveChanges();

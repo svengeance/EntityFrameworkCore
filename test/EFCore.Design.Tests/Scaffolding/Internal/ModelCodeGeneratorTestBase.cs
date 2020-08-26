@@ -10,6 +10,7 @@ using Microsoft.EntityFrameworkCore.Metadata.Internal;
 using Microsoft.EntityFrameworkCore.SqlServer.Design.Internal;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Microsoft.Extensions.DependencyInjection;
+using Xunit;
 
 namespace Microsoft.EntityFrameworkCore.Scaffolding.Internal
 {
@@ -49,6 +50,7 @@ namespace Microsoft.EntityFrameworkCore.Scaffolding.Internal
             {
                 References =
                 {
+                    BuildReference.ByName("Microsoft.EntityFrameworkCore.Abstractions"),
                     BuildReference.ByName("Microsoft.EntityFrameworkCore"),
                     BuildReference.ByName("Microsoft.EntityFrameworkCore.Relational"),
                     BuildReference.ByName("Microsoft.EntityFrameworkCore.SqlServer")
@@ -60,8 +62,17 @@ namespace Microsoft.EntityFrameworkCore.Scaffolding.Internal
 
             var assembly = build.BuildInMemory();
             var context = (DbContext)assembly.CreateInstance("TestNamespace.TestDbContext");
-            var compiledModel = context.Model;
-            assertModel(compiledModel);
+
+            if (assertModel != null)
+            {
+                var compiledModel = context.Model;
+                assertModel(compiledModel);
+            }
         }
+
+        protected static void AssertFileContents(
+            string expectedCode,
+            ScaffoldedFile file)
+            => Assert.Equal(expectedCode, file.Code, ignoreLineEndingDifferences: true);
     }
 }

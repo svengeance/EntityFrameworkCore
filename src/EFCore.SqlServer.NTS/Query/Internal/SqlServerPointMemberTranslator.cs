@@ -4,6 +4,7 @@
 using System;
 using System.Collections.Generic;
 using System.Reflection;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
 using Microsoft.EntityFrameworkCore.Utilities;
@@ -35,8 +36,16 @@ namespace Microsoft.EntityFrameworkCore.SqlServer.Query.Internal
             _sqlExpressionFactory = sqlExpressionFactory;
         }
 
-        public SqlExpression Translate(SqlExpression instance, MemberInfo member, Type returnType)
+        public SqlExpression Translate(
+            SqlExpression instance,
+            MemberInfo member,
+            Type returnType,
+            IDiagnosticsLogger<DbLoggerCategory.Query> logger)
         {
+            Check.NotNull(member, nameof(member));
+            Check.NotNull(returnType, nameof(returnType));
+            Check.NotNull(logger, nameof(logger));
+
             if (typeof(Point).IsAssignableFrom(member.DeclaringType))
             {
                 Check.DebugAssert(instance.TypeMapping != null, "Instance must have typeMapping assigned.");
@@ -48,9 +57,11 @@ namespace Microsoft.EntityFrameworkCore.SqlServer.Query.Internal
                         ? _geographyMemberToPropertyName.TryGetValue(member, out propertyName)
                         : _geometryMemberToPropertyName.TryGetValue(member, out propertyName)))
                 {
-                    return _sqlExpressionFactory.Function(
+                    return _sqlExpressionFactory.NiladicFunction(
                         instance,
                         propertyName,
+                        nullable: true,
+                        instancePropagatesNullability: true,
                         returnType);
                 }
             }

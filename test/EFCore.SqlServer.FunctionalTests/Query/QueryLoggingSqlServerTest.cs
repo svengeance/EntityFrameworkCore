@@ -1,7 +1,6 @@
 // Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
-using System;
 using System.Linq;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Diagnostics.Internal;
@@ -17,8 +16,6 @@ namespace Microsoft.EntityFrameworkCore.Query
 {
     public class QueryLoggingSqlServerTest : IClassFixture<NorthwindQuerySqlServerFixture<NoopModelCustomizer>>
     {
-        private static readonly string _eol = Environment.NewLine;
-
         public QueryLoggingSqlServerTest(NorthwindQuerySqlServerFixture<NoopModelCustomizer> fixture)
         {
             Fixture = fixture;
@@ -36,9 +33,27 @@ namespace Microsoft.EntityFrameworkCore.Query
                     .ToList();
 
             Assert.NotNull(customers);
+
             Assert.StartsWith(
-                "queryContext => new QueryingEnumerable<Customer>(",
+                "Compiling query expression: ",
                 Fixture.TestSqlLoggerFactory.Log[0].Message);
+            Assert.StartsWith(
+                "queryContext => new SingleQueryingEnumerable<Customer>(",
+                Fixture.TestSqlLoggerFactory.Log[1].Message);
+        }
+
+        [ConditionalFact]
+        public virtual void Queryable_simple_split()
+        {
+            using var context = CreateContext();
+            var customers
+                = context.Set<Customer>().AsSplitQuery()
+                    .ToList();
+
+            Assert.NotNull(customers);
+            Assert.StartsWith(
+                "queryContext => new SplitQueryingEnumerable<Customer>(",
+                Fixture.TestSqlLoggerFactory.Log[1].Message);
         }
 
         [ConditionalFact]
@@ -61,35 +76,60 @@ namespace Microsoft.EntityFrameworkCore.Query
                 Fixture.TestSqlLoggerFactory.Log.Select(l => l.Message));
         }
 
-        [ConditionalFact(Skip = "Issue#17498")]
+        [ConditionalFact]
         public virtual void Include_navigation()
         {
             using var context = CreateContext();
             var customers
                 = context.Set<Customer>()
+                    .Where(c => c.CustomerID == "ALFKI")
                     .Include(c => c.Orders)
                     .ToList();
 
             Assert.NotNull(customers);
 
             Assert.Equal(
-                "Compiling query model: " + _eol + "'(from Customer c in DbSet<Customer>" + _eol + @"select [c]).Include(""Orders"")'"
-                ,
-                Fixture.TestSqlLoggerFactory.Log[0].Message);
-            Assert.Equal(
-                "Including navigation: '[c].Orders'"
-                ,
+                "Including navigation: 'Customer.Orders'.",
                 Fixture.TestSqlLoggerFactory.Log[1].Message);
-            Assert.StartsWith(
-                "Optimized query model: "
-                + _eol
-                + "'from Customer c in DbSet<Customer>"
-                + _eol
-                + @"order by EF.Property(?[c]?, ""CustomerID"") asc"
-                + _eol
-                + "select Customer _Include("
-                ,
-                Fixture.TestSqlLoggerFactory.Log[2].Message);
+        }
+
+        [ConditionalFact]
+        public virtual void Skip_without_order_by()
+        {
+            using var context = CreateContext();
+            var customers = context.Set<Customer>().Skip(85).ToList();
+
+            Assert.NotNull(customers);
+
+            Assert.Equal(
+                CoreResources.LogRowLimitingOperationWithoutOrderBy(new TestLogger<SqlServerLoggingDefinitions>()).GenerateMessage(),
+                Fixture.TestSqlLoggerFactory.Log[1].Message);
+        }
+
+        [ConditionalFact]
+        public virtual void Take_without_order_by()
+        {
+            using var context = CreateContext();
+            var customers = context.Set<Customer>().Take(5).ToList();
+
+            Assert.NotNull(customers);
+
+            Assert.Equal(
+                CoreResources.LogRowLimitingOperationWithoutOrderBy(new TestLogger<SqlServerLoggingDefinitions>()).GenerateMessage(),
+                Fixture.TestSqlLoggerFactory.Log[1].Message);
+        }
+
+        [ConditionalFact]
+        public virtual void FirstOrDefault_without_filter_order_by()
+        {
+            using var context = CreateContext();
+            var customer = context.Set<Customer>().FirstOrDefault();
+
+            Assert.NotNull(customer);
+
+            Assert.Equal(
+                CoreResources.LogFirstWithoutOrderByAndFilter(new TestLogger<SqlServerLoggingDefinitions>()).GenerateMessage(),
+                Fixture.TestSqlLoggerFactory.Log[1].Message);
         }
 
         [ConditionalFact]
@@ -123,6 +163,7 @@ namespace Microsoft.EntityFrameworkCore.Query
             Assert.Equal(1, loggerFactory2.Log.Count(e => e.Id == RelationalEventId.CommandExecuted));
         }
 
-        protected NorthwindContext CreateContext() => Fixture.CreateContext();
+        protected NorthwindContext CreateContext()
+            => Fixture.CreateContext();
     }
 }

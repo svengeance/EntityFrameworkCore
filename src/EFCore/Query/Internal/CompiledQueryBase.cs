@@ -5,7 +5,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
-using System.Reflection;
 using System.Threading;
 using JetBrains.Annotations;
 using Microsoft.EntityFrameworkCore.Infrastructure;
@@ -69,7 +68,7 @@ namespace Microsoft.EntityFrameworkCore.Query.Internal
             for (var i = 0; i < parameters.Length; i++)
             {
                 queryContext.AddParameter(
-                    CompiledQueryCache.CompiledQueryParameterPrefix + _queryExpression.Parameters[i + 1].Name,
+                    QueryCompilationContext.QueryParameterPrefix + _queryExpression.Parameters[i + 1].Name,
                     parameters[i]);
             }
 
@@ -83,7 +82,8 @@ namespace Microsoft.EntityFrameworkCore.Query.Internal
         ///     doing so can result in application failures when updating to a new Entity Framework Core release.
         /// </summary>
         protected abstract Func<QueryContext, TResult> CreateCompiledQuery(
-            [NotNull] IQueryCompiler queryCompiler, [NotNull] Expression expression);
+            [NotNull] IQueryCompiler queryCompiler,
+            [NotNull] Expression expression);
 
         private Func<QueryContext, TResult> EnsureExecutor(TContext context)
             => NonCapturingLazyInitializer.EnsureInitialized(
@@ -104,7 +104,8 @@ namespace Microsoft.EntityFrameworkCore.Query.Internal
             private readonly IReadOnlyCollection<ParameterExpression> _parameters;
 
             public QueryExpressionRewriter(
-                TContext context, IReadOnlyCollection<ParameterExpression> parameters)
+                TContext context,
+                IReadOnlyCollection<ParameterExpression> parameters)
             {
                 _context = context;
                 _parameters = parameters;
@@ -122,7 +123,7 @@ namespace Microsoft.EntityFrameworkCore.Query.Internal
                 return _parameters.Contains(parameterExpression)
                     ? Expression.Parameter(
                         parameterExpression.Type,
-                        CompiledQueryCache.CompiledQueryParameterPrefix + parameterExpression.Name)
+                        QueryCompilationContext.QueryParameterPrefix + parameterExpression.Name)
                     : parameterExpression;
             }
         }

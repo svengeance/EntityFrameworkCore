@@ -15,7 +15,8 @@ namespace Microsoft.EntityFrameworkCore
     public abstract class DatabindingTestBase<TFixture> : IClassFixture<TFixture>
         where TFixture : F1FixtureBase, new()
     {
-        protected DatabindingTestBase(TFixture fixture) => Fixture = fixture;
+        protected DatabindingTestBase(TFixture fixture)
+            => Fixture = fixture;
 
         protected TFixture Fixture { get; }
 
@@ -336,6 +337,47 @@ namespace Microsoft.EntityFrameworkCore
             Assert.Single(localView);
             Assert.Contains(larry, local);
             Assert.Contains(larry, localView);
+        }
+
+        [ConditionalTheory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public virtual void Entities_and_owned_children_added_to_local_view_are_added_to_state_manager(
+            bool toObservableCollection)
+        {
+            using var context = CreateF1Context();
+            var localView = context.Teams.Local;
+            var local = toObservableCollection
+                ? (ICollection<Team>)localView.ToObservableCollection()
+                : localView;
+
+            Assert.Equal(0, local.Count);
+
+            var larry = new Driver
+            {
+                Id = -1,
+                Name = "Larry David",
+                CarNumber = 13
+            };
+
+            var teamCosmos = new Team
+            {
+                Id = 66,
+                Name = "Cosmos Racing",
+                Drivers = { larry }
+            };
+
+            local.Add(teamCosmos);
+
+            Assert.Same(teamCosmos, context.Teams.Find(66));
+            Assert.Same(larry, context.Drivers.Find(-1));
+            Assert.Equal(EntityState.Added, context.Entry(larry).State);
+            Assert.Equal(EntityState.Added, context.Entry(teamCosmos).State);
+
+            Assert.Equal(1, local.Count);
+            Assert.Single(localView);
+            Assert.Contains(teamCosmos, local);
+            Assert.Contains(teamCosmos, localView);
         }
 
         [ConditionalTheory]

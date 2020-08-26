@@ -10,12 +10,13 @@ namespace Microsoft.EntityFrameworkCore.Tools.Commands
     // ReSharper disable once ArrangeTypeModifiers
     internal partial class MigrationsScriptCommand
     {
-        protected override int Execute()
+        protected override int Execute(string[] args)
         {
-            var sql = CreateExecutor().ScriptMigration(
+            var sql = CreateExecutor(args).ScriptMigration(
                 _from.Value,
                 _to.Value,
                 _idempotent.HasValue(),
+                _noTransactions.HasValue(),
                 Context.Value());
 
             if (!_output.HasValue())
@@ -40,7 +41,7 @@ namespace Microsoft.EntityFrameworkCore.Tools.Commands
                 File.WriteAllText(output, sql, Encoding.UTF8);
             }
 
-            return base.Execute();
+            return base.Execute(args);
         }
     }
 }

@@ -7,7 +7,9 @@ using System.Reflection;
 using JetBrains.Annotations;
 using Microsoft.EntityFrameworkCore.ChangeTracking.Internal;
 using Microsoft.EntityFrameworkCore.Diagnostics;
+using Microsoft.EntityFrameworkCore.Internal;
 using Microsoft.EntityFrameworkCore.Storage;
+using Microsoft.EntityFrameworkCore.Update;
 
 namespace Microsoft.EntityFrameworkCore.Metadata.Internal
 {
@@ -46,11 +48,13 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Internal
                 property == null ? null : CreateValueBufferGetter(property));
         }
 
-        private static Func<InternalEntityEntry, TProperty> CreateCurrentValueGetter<TProperty>(
-            IPropertyBase propertyBase, bool useStoreGeneratedValues)
+        private static Func<IUpdateEntry, TProperty> CreateCurrentValueGetter<TProperty>(
+            IPropertyBase propertyBase,
+            bool useStoreGeneratedValues)
         {
             var entityClrType = propertyBase.DeclaringType.ClrType;
-            var entryParameter = Expression.Parameter(typeof(InternalEntityEntry), "entry");
+            var updateParameter = Expression.Parameter(typeof(IUpdateEntry), "entry");
+            var entryParameter = Expression.Convert(updateParameter, typeof(InternalEntityEntry));
 
             var shadowIndex = propertyBase.GetShadowIndex();
             Expression currentValueExpression;
@@ -67,13 +71,15 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Internal
                     Expression.Property(entryParameter, "Entity"),
                     entityClrType);
 
-                currentValueExpression = Expression.MakeMemberAccess(
-                    convertedExpression,
-                    propertyBase.GetMemberInfo(forMaterialization: false, forSet: false));
+                var memberInfo = propertyBase.GetMemberInfo(forMaterialization: false, forSet: false);
+                currentValueExpression = PropertyBase.CreateMemberAccess(propertyBase, convertedExpression, memberInfo);
 
                 if (currentValueExpression.Type != typeof(TProperty))
                 {
-                    currentValueExpression = Expression.Convert(currentValueExpression, typeof(TProperty));
+                    currentValueExpression = Expression.Condition(
+                        currentValueExpression.MakeHasDefaultValue<TProperty>(propertyBase),
+                        Expression.Constant(default(TProperty), typeof(TProperty)),
+                        Expression.Convert(currentValueExpression, typeof(TProperty)));
                 }
             }
 
@@ -104,18 +110,19 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Internal
                     currentValueExpression);
             }
 
-            return Expression.Lambda<Func<InternalEntityEntry, TProperty>>(
+            return Expression.Lambda<Func<IUpdateEntry, TProperty>>(
                     currentValueExpression,
-                    entryParameter)
+                    updateParameter)
                 .Compile();
         }
 
-        private static Func<InternalEntityEntry, TProperty> CreateOriginalValueGetter<TProperty>(IProperty property)
+        private static Func<IUpdateEntry, TProperty> CreateOriginalValueGetter<TProperty>(IProperty property)
         {
-            var entryParameter = Expression.Parameter(typeof(InternalEntityEntry), "entry");
+            var updateParameter = Expression.Parameter(typeof(IUpdateEntry), "entry");
+            var entryParameter = Expression.Convert(updateParameter, typeof(InternalEntityEntry));
             var originalValuesIndex = property.GetOriginalValueIndex();
 
-            return Expression.Lambda<Func<InternalEntityEntry, TProperty>>(
+            return Expression.Lambda<Func<IUpdateEntry, TProperty>>(
                     originalValuesIndex >= 0
                         ? (Expression)Expression.Call(
                             entryParameter,
@@ -130,16 +137,17 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Internal
 #pragma warning disable IDE0034 // Simplify 'default' expression - default infer to default(object) instead of default(TProperty)
                             Expression.Constant(default(TProperty), typeof(TProperty))),
 #pragma warning restore IDE0034 // Simplify 'default' expression
-                    entryParameter)
+                    updateParameter)
                 .Compile();
         }
 
-        private static Func<InternalEntityEntry, TProperty> CreateRelationshipSnapshotGetter<TProperty>(IPropertyBase propertyBase)
+        private static Func<IUpdateEntry, TProperty> CreateRelationshipSnapshotGetter<TProperty>(IPropertyBase propertyBase)
         {
-            var entryParameter = Expression.Parameter(typeof(InternalEntityEntry), "entry");
+            var updateParameter = Expression.Parameter(typeof(IUpdateEntry), "entry");
+            var entryParameter = Expression.Convert(updateParameter, typeof(InternalEntityEntry));
             var relationshipIndex = (propertyBase as IProperty)?.GetRelationshipIndex() ?? -1;
 
-            return Expression.Lambda<Func<InternalEntityEntry, TProperty>>(
+            return Expression.Lambda<Func<IUpdateEntry, TProperty>>(
                     relationshipIndex >= 0
                         ? Expression.Call(
                             entryParameter,
@@ -150,7 +158,7 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Internal
                             entryParameter,
                             InternalEntityEntry.GetCurrentValueMethod.MakeGenericMethod(typeof(TProperty)),
                             Expression.Constant(propertyBase)),
-                    entryParameter)
+                    updateParameter)
                 .Compile();
         }
 

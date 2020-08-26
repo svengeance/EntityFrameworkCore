@@ -1,4 +1,4 @@
-// Copyright (c) .NET Foundation. All rights reserved.
+﻿// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
@@ -18,23 +18,25 @@ namespace Microsoft.EntityFrameworkCore
     public static class MutableModelExtensions
     {
         /// <summary>
-        ///     Gets the entity that maps the given entity class. Returns <c>null</c> if no entity type with the given name is found.
+        ///     Gets the entity that maps the given entity class. Returns <see langword="null" /> if no entity type with
+        ///     the given CLR type is found or the given CLR type is being used by shared type entity type
+        ///     or the entity type has a defining navigation.
         /// </summary>
         /// <param name="model"> The model to find the entity type in. </param>
         /// <param name="type"> The type to find the corresponding entity type for. </param>
-        /// <returns> The entity type, or <c>null</c> if none if found. </returns>
+        /// <returns> The entity type, or <see langword="null" /> if none if found. </returns>
         public static IMutableEntityType FindEntityType([NotNull] this IMutableModel model, [NotNull] Type type)
             => (IMutableEntityType)((IModel)model).FindEntityType(type);
 
         /// <summary>
         ///     Gets the entity type for the given name, defining navigation name
-        ///     and the defining entity type. Returns <c>null</c> if no matching entity type is found.
+        ///     and the defining entity type. Returns <see langword="null" /> if no matching entity type is found.
         /// </summary>
         /// <param name="model"> The model to find the entity type in. </param>
         /// <param name="type"> The type of the entity type to find. </param>
         /// <param name="definingNavigationName"> The defining navigation of the entity type to find. </param>
         /// <param name="definingEntityType"> The defining entity type of the entity type to find. </param>
-        /// <returns> The entity type, or <c>null</c> if none are found. </returns>
+        /// <returns> The entity type, or <see langword="null" /> if none are found. </returns>
         public static IMutableEntityType FindEntityType(
             [NotNull] this IMutableModel model,
             [NotNull] Type type,
@@ -151,7 +153,8 @@ namespace Microsoft.EntityFrameworkCore
         /// </summary>
         /// <param name="model"> The model to remove the ignored entity type from. </param>
         /// <param name="type"> The ignored entity type to be removed. </param>
-        public static void RemoveIgnored([NotNull] this IMutableModel model, [NotNull] Type type)
+        /// <returns> The name of the removed ignored type. </returns>
+        public static string RemoveIgnored([NotNull] this IMutableModel model, [NotNull] Type type)
             => Check.NotNull((Model)model, nameof(model)).RemoveIgnored(
                 Check.NotNull(type, nameof(type)));
 
@@ -160,7 +163,7 @@ namespace Microsoft.EntityFrameworkCore
         /// </summary>
         /// <param name="model"> The model to check for ignored type. </param>
         /// <param name="type"> The entity type that might be ignored. </param>
-        /// <returns> <c>true</c> if the given entity type name is ignored. </returns>
+        /// <returns> <see langword="true" /> if the given entity type name is ignored. </returns>
         public static bool IsIgnored([NotNull] this IMutableModel model, [NotNull] Type type)
             => Check.NotNull((Model)model, nameof(model)).IsIgnored(
                 Check.NotNull(type, nameof(type)));
@@ -177,9 +180,10 @@ namespace Microsoft.EntityFrameworkCore
         ///     </para>
         /// </summary>
         /// <param name="model"> The model to set the access mode for. </param>
-        /// <param name="propertyAccessMode"> The <see cref="PropertyAccessMode" />, or <c>null</c> to clear the mode set.</param>
+        /// <param name="propertyAccessMode"> The <see cref="PropertyAccessMode" />, or <see langword="null" /> to clear the mode set.</param>
         public static void SetPropertyAccessMode(
-            [NotNull] this IMutableModel model, PropertyAccessMode? propertyAccessMode)
+            [NotNull] this IMutableModel model,
+            PropertyAccessMode? propertyAccessMode)
             => Check.NotNull((Model)model, nameof(model))
                 .SetPropertyAccessMode(propertyAccessMode, ConfigurationSource.Explicit);
 
@@ -190,7 +194,8 @@ namespace Microsoft.EntityFrameworkCore
         /// <param name="model"> The model to set the default change tracking strategy for. </param>
         /// <param name="changeTrackingStrategy"> The strategy to use. </param>
         public static void SetChangeTrackingStrategy(
-            [NotNull] this IMutableModel model, ChangeTrackingStrategy? changeTrackingStrategy)
+            [NotNull] this IMutableModel model,
+            ChangeTrackingStrategy? changeTrackingStrategy)
             => Check.NotNull((Model)model, nameof(model))
                 .SetChangeTrackingStrategy(changeTrackingStrategy, ConfigurationSource.Explicit);
 
@@ -198,44 +203,56 @@ namespace Microsoft.EntityFrameworkCore
         ///     Marks the given entity type as ignored, preventing conventions from adding a matching entity type to the model.
         /// </summary>
         /// <param name="model"> The model to add the ignored type to. </param>
-        /// <param name="clrType"> The entity type to be ignored. </param>
-        public static void AddIgnored([NotNull] this IMutableModel model, [NotNull] Type clrType)
+        /// <param name="type"> The entity type to be ignored. </param>
+        /// <returns> The name of the ignored type. </returns>
+        public static string AddIgnored([NotNull] this IMutableModel model, [NotNull] Type type)
             => Check.NotNull((Model)model, nameof(model)).AddIgnored(
-                Check.NotNull(clrType, nameof(clrType)), ConfigurationSource.Explicit);
+                Check.NotNull(type, nameof(type)), ConfigurationSource.Explicit);
 
         /// <summary>
         ///     Returns a value indicating whether the entity types using the given type should be configured
         ///     as owned types when discovered by conventions.
         /// </summary>
         /// <param name="model"> The model to get the value from. </param>
-        /// <param name="clrType"> The type of the entity type that might be owned. </param>
+        /// <param name="type"> The type of the entity type that might be owned. </param>
         /// <returns>
-        ///     <c>true</c> if a matching entity type should be configured as owned when discovered,
-        ///     <c>false</c> otherwise.
+        ///     <see langword="true" /> if a matching entity type should be configured as owned when discovered,
+        ///     <see langword="false" /> otherwise.
         /// </returns>
-        public static bool IsOwned([NotNull] this IMutableModel model, [NotNull] Type clrType)
+        public static bool IsOwned([NotNull] this IMutableModel model, [NotNull] Type type)
             => Check.NotNull((Model)model, nameof(model)).IsOwned(
-                Check.NotNull(clrType, nameof(clrType)));
+                Check.NotNull(type, nameof(type)));
 
         /// <summary>
         ///     Marks the given entity type as owned, indicating that when discovered matching entity types
         ///     should be configured as owned.
         /// </summary>
         /// <param name="model"> The model to add the owned type to. </param>
-        /// <param name="clrType"> The type of the entity type that should be owned. </param>
-        public static void AddOwned([NotNull] this IMutableModel model, [NotNull] Type clrType)
+        /// <param name="type"> The type of the entity type that should be owned. </param>
+        public static void AddOwned([NotNull] this IMutableModel model, [NotNull] Type type)
             => Check.NotNull((Model)model, nameof(model)).AddOwned(
-                Check.NotNull(clrType, nameof(clrType)), ConfigurationSource.Explicit);
+                Check.NotNull(type, nameof(type)), ConfigurationSource.Explicit);
 
         /// <summary>
         ///     Removes the given owned type, indicating that when discovered matching entity types
         ///     should not be configured as owned.
         /// </summary>
         /// <param name="model"> The model to remove the owned type name from. </param>
-        /// <param name="clrType"> The type of the entity type that should not be owned. </param>
-        public static void RemoveOwned([NotNull] this IMutableModel model, [NotNull] Type clrType)
+        /// <param name="type"> The type of the entity type that should not be owned. </param>
+        /// <returns> The name of the removed owned type. </returns>
+        public static string RemoveOwned([NotNull] this IMutableModel model, [NotNull] Type type)
             => Check.NotNull((Model)model, nameof(model)).RemoveOwned(
-                Check.NotNull(clrType, nameof(clrType)));
+                Check.NotNull(type, nameof(type)));
+
+        /// <summary>
+        ///     Marks the given entity type as shared, indicating that when discovered matching entity types
+        ///     should be configured as shared type entity type.
+        /// </summary>
+        /// <param name="model"> The model to add the shared type to. </param>
+        /// <param name="type"> The type of the entity type that should be shared. </param>
+        public static void AddShared([NotNull] this IMutableModel model, [NotNull] Type type)
+            => Check.NotNull((Model)model, nameof(model)).AddShared(
+                Check.NotNull(type, nameof(type)), ConfigurationSource.Explicit);
 
         /// <summary>
         ///     Forces post-processing on the model such that it is ready for use by the runtime. This post
@@ -244,6 +261,7 @@ namespace Microsoft.EntityFrameworkCore
         /// </summary>
         /// <param name="model"> The model to finalize. </param>
         /// <returns> The finalized <see cref="IModel" />. </returns>
-        public static IModel FinalizeModel([NotNull] this IMutableModel model) => ((Model)model).FinalizeModel();
+        public static IModel FinalizeModel([NotNull] this IMutableModel model)
+            => ((Model)model).FinalizeModel();
     }
 }

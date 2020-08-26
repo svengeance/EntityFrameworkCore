@@ -2,7 +2,6 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System.Linq;
-using System.Reflection;
 using JetBrains.Annotations;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Microsoft.EntityFrameworkCore.Metadata.Conventions.Infrastructure;
@@ -31,12 +30,16 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Conventions
         /// <param name="entityTypeBuilder"> The builder for the entity type. </param>
         /// <param name="context"> Additional information associated with convention execution. </param>
         public virtual void ProcessEntityTypeAdded(
-            IConventionEntityTypeBuilder entityTypeBuilder, IConventionContext<IConventionEntityTypeBuilder> context)
+            IConventionEntityTypeBuilder entityTypeBuilder,
+            IConventionContext<IConventionEntityTypeBuilder> context)
         {
             var entityType = entityTypeBuilder.Metadata;
             var clrType = entityType.ClrType;
             if (clrType == null
-                || entityType.HasDefiningNavigation())
+                || entityType.HasSharedClrType
+                || entityType.HasDefiningNavigation()
+                || entityType.FindDeclaredOwnership() != null
+                || entityType.Model.FindIsOwnedConfigurationSource(clrType) != null)
             {
                 return;
             }
@@ -49,7 +52,8 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Conventions
                         && t.FindDeclaredOwnership() == null
                         && model.FindIsOwnedConfigurationSource(t.ClrType) == null
                         && ((t.BaseType == null && clrType.IsAssignableFrom(t.ClrType))
-                            || (t.BaseType == entityType.BaseType && FindClosestBaseType(t) == entityType)))
+                            || (t.BaseType == entityType.BaseType && FindClosestBaseType(t) == entityType))
+                        && !t.HasSharedClrType)
                 .ToList();
 
             foreach (var directlyDerivedType in directlyDerivedTypes)

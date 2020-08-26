@@ -46,7 +46,8 @@ namespace Microsoft.EntityFrameworkCore
 
         private static Task TrackEntitiesTest(
             Func<DbContext, Category, EntityEntry<Category>> categoryAdder,
-            Func<DbContext, Product, EntityEntry<Product>> productAdder, EntityState expectedState)
+            Func<DbContext, Product, EntityEntry<Product>> productAdder,
+            EntityState expectedState)
             => TrackEntitiesTest(
                 (c, e) => new ValueTask<EntityEntry<Category>>(categoryAdder(c, e)),
                 (c, e) => new ValueTask<EntityEntry<Product>>(productAdder(c, e)),
@@ -54,7 +55,8 @@ namespace Microsoft.EntityFrameworkCore
 
         private static async Task TrackEntitiesTest(
             Func<DbContext, Category, ValueTask<EntityEntry<Category>>> categoryAdder,
-            Func<DbContext, Product, ValueTask<EntityEntry<Product>>> productAdder, EntityState expectedState)
+            Func<DbContext, Product, ValueTask<EntityEntry<Product>>> productAdder,
+            EntityState expectedState)
         {
             using var context = new EarlyLearningCenter(InMemoryTestHelpers.Instance.CreateServiceProvider());
             var relatedDependent = new Product
@@ -225,7 +227,8 @@ namespace Microsoft.EntityFrameworkCore
 
         private static Task TrackEntitiesDefaultValueTest(
             Func<DbContext, Category, EntityEntry<Category>> categoryAdder,
-            Func<DbContext, Product, EntityEntry<Product>> productAdder, EntityState expectedState)
+            Func<DbContext, Product, EntityEntry<Product>> productAdder,
+            EntityState expectedState)
             => TrackEntitiesDefaultValueTest(
                 (c, e) => new ValueTask<EntityEntry<Category>>(categoryAdder(c, e)),
                 (c, e) => new ValueTask<EntityEntry<Product>>(productAdder(c, e)),
@@ -234,7 +237,8 @@ namespace Microsoft.EntityFrameworkCore
         // Issue #3890
         private static async Task TrackEntitiesDefaultValueTest(
             Func<DbContext, Category, ValueTask<EntityEntry<Category>>> categoryAdder,
-            Func<DbContext, Product, ValueTask<EntityEntry<Product>>> productAdder, EntityState expectedState)
+            Func<DbContext, Product, ValueTask<EntityEntry<Product>>> productAdder,
+            EntityState expectedState)
         {
             using var context = new EarlyLearningCenter(InMemoryTestHelpers.Instance.CreateServiceProvider());
             var category1 = new Category { Id = 0, Name = "Beverages" };
@@ -295,7 +299,8 @@ namespace Microsoft.EntityFrameworkCore
 
         private static Task TrackMultipleEntitiesDefaultValuesTest(
             Action<DbContext, object[]> categoryAdder,
-            Action<DbContext, object[]> productAdder, EntityState expectedState)
+            Action<DbContext, object[]> productAdder,
+            EntityState expectedState)
             => TrackMultipleEntitiesDefaultValuesTest(
                 (c, e) =>
                 {
@@ -312,7 +317,8 @@ namespace Microsoft.EntityFrameworkCore
         // Issue #3890
         private static async Task TrackMultipleEntitiesDefaultValuesTest(
             Func<DbContext, object[], Task> categoryAdder,
-            Func<DbContext, object[], Task> productAdder, EntityState expectedState)
+            Func<DbContext, object[], Task> productAdder,
+            EntityState expectedState)
         {
             using var context = new EarlyLearningCenter(InMemoryTestHelpers.Instance.CreateServiceProvider());
             var category1 = new Category { Id = 0, Name = "Beverages" };
@@ -409,7 +415,8 @@ namespace Microsoft.EntityFrameworkCore
 
         private static Task TrackEntitiesTestNonGeneric(
             Func<DbContext, object, EntityEntry> categoryAdder,
-            Func<DbContext, object, EntityEntry> productAdder, EntityState expectedState)
+            Func<DbContext, object, EntityEntry> productAdder,
+            EntityState expectedState)
             => TrackEntitiesTestNonGeneric(
                 (c, e) => new ValueTask<EntityEntry>(categoryAdder(c, e)),
                 (c, e) => new ValueTask<EntityEntry>(productAdder(c, e)),
@@ -417,7 +424,8 @@ namespace Microsoft.EntityFrameworkCore
 
         private static async Task TrackEntitiesTestNonGeneric(
             Func<DbContext, object, ValueTask<EntityEntry>> categoryAdder,
-            Func<DbContext, object, ValueTask<EntityEntry>> productAdder, EntityState expectedState)
+            Func<DbContext, object, ValueTask<EntityEntry>> productAdder,
+            EntityState expectedState)
         {
             using var context = new EarlyLearningCenter(InMemoryTestHelpers.Instance.CreateServiceProvider());
             var relatedDependent = new Product
@@ -588,7 +596,8 @@ namespace Microsoft.EntityFrameworkCore
 
         private static Task TrackEntitiesDefaultValuesTestNonGeneric(
             Func<DbContext, object, EntityEntry> categoryAdder,
-            Func<DbContext, object, EntityEntry> productAdder, EntityState expectedState)
+            Func<DbContext, object, EntityEntry> productAdder,
+            EntityState expectedState)
             => TrackEntitiesDefaultValuesTestNonGeneric(
                 (c, e) => new ValueTask<EntityEntry>(categoryAdder(c, e)),
                 (c, e) => new ValueTask<EntityEntry>(productAdder(c, e)),
@@ -597,7 +606,8 @@ namespace Microsoft.EntityFrameworkCore
         // Issue #3890
         private static async Task TrackEntitiesDefaultValuesTestNonGeneric(
             Func<DbContext, object, ValueTask<EntityEntry>> categoryAdder,
-            Func<DbContext, object, ValueTask<EntityEntry>> productAdder, EntityState expectedState)
+            Func<DbContext, object, ValueTask<EntityEntry>> productAdder,
+            EntityState expectedState)
         {
             using var context = new EarlyLearningCenter(InMemoryTestHelpers.Instance.CreateServiceProvider());
             var category1 = new Category { Id = 0, Name = "Beverages" };
@@ -660,7 +670,8 @@ namespace Microsoft.EntityFrameworkCore
 
         private static Task TrackMultipleEntitiesDefaultValueTestEnumerable(
             Action<DbContext, IEnumerable<object>> categoryAdder,
-            Action<DbContext, IEnumerable<object>> productAdder, EntityState expectedState)
+            Action<DbContext, IEnumerable<object>> productAdder,
+            EntityState expectedState)
             => TrackMultipleEntitiesDefaultValueTestEnumerable(
                 (c, e) =>
                 {
@@ -677,7 +688,8 @@ namespace Microsoft.EntityFrameworkCore
         // Issue #3890
         private static async Task TrackMultipleEntitiesDefaultValueTestEnumerable(
             Func<DbContext, IEnumerable<object>, Task> categoryAdder,
-            Func<DbContext, IEnumerable<object>, Task> productAdder, EntityState expectedState)
+            Func<DbContext, IEnumerable<object>, Task> productAdder,
+            EntityState expectedState)
         {
             using var context = new EarlyLearningCenter(InMemoryTestHelpers.Instance.CreateServiceProvider());
             var category1 = new Category { Id = 0, Name = "Beverages" };
@@ -1695,6 +1707,125 @@ namespace Microsoft.EntityFrameworkCore
             Assert.Same(category, product.Category);
             Assert.Equal(EntityState.Unchanged, context.Entry(category).State);
             Assert.Equal(EntityState.Unchanged, context.Entry(product).State);
+        }
+
+        [ConditionalTheory] // Issue #17828
+        [InlineData(CascadeTiming.Immediate)]
+        [InlineData(CascadeTiming.Never)]
+        [InlineData(CascadeTiming.OnSaveChanges)]
+        public void Can_reparent_optional_without_DetectChanges(CascadeTiming cascadeTiming)
+        {
+            using var context = new Parent77Context();
+
+            context.ChangeTracker.CascadeDeleteTiming = cascadeTiming;
+
+            var parent1 = new Parent77();
+            var parent2 = new Parent77();
+            var child = new Optional77();
+
+            child.Parent77 = parent1;
+            context.AddRange(parent1, parent2, child);
+            context.SaveChanges();
+
+            Assert.Equal(3, context.ChangeTracker.Entries().Count());
+            Assert.Equal(EntityState.Unchanged, context.Entry(parent1).State);
+            Assert.Equal(EntityState.Unchanged, context.Entry(parent2).State);
+            Assert.Equal(EntityState.Unchanged, context.Entry(child).State);
+
+            child.Parent77 = parent2;
+            context.Remove(parent1);
+
+            Assert.Equal(3, context.ChangeTracker.Entries().Count());
+            Assert.Equal(EntityState.Deleted, context.Entry(parent1).State);
+            Assert.Equal(EntityState.Unchanged, context.Entry(parent2).State);
+            Assert.Equal(EntityState.Modified, context.Entry(child).State);
+            Assert.Same(parent2, child.Parent77);
+
+            context.SaveChanges();
+
+            Assert.Equal(2, context.ChangeTracker.Entries().Count());
+            Assert.Equal(EntityState.Detached, context.Entry(parent1).State);
+            Assert.Equal(EntityState.Unchanged, context.Entry(parent2).State);
+            Assert.Equal(EntityState.Unchanged, context.Entry(child).State);
+            Assert.Same(parent2, child.Parent77);
+        }
+
+        [ConditionalTheory] // Issue #17828
+        [InlineData(CascadeTiming.Immediate)]
+        [InlineData(CascadeTiming.Never)]
+        [InlineData(CascadeTiming.OnSaveChanges)]
+        public void Can_reparent_required_without_DetectChanges(CascadeTiming cascadeTiming)
+        {
+            using var context = new Parent77Context();
+
+            context.ChangeTracker.CascadeDeleteTiming = cascadeTiming;
+
+            var parent1 = new Parent77();
+            var parent2 = new Parent77();
+            var child = new Required77();
+
+            child.Parent77 = parent1;
+            context.AddRange(parent1, parent2, child);
+            context.SaveChanges();
+
+            Assert.Equal(3, context.ChangeTracker.Entries().Count());
+            Assert.Equal(EntityState.Unchanged, context.Entry(parent1).State);
+            Assert.Equal(EntityState.Unchanged, context.Entry(parent2).State);
+            Assert.Equal(EntityState.Unchanged, context.Entry(child).State);
+
+            child.Parent77 = parent2;
+            context.Remove(parent1);
+
+            Assert.Equal(3, context.ChangeTracker.Entries().Count());
+            Assert.Equal(EntityState.Deleted, context.Entry(parent1).State);
+            Assert.Equal(EntityState.Unchanged, context.Entry(parent2).State);
+            Assert.Equal(EntityState.Modified, context.Entry(child).State);
+            Assert.Same(parent2, child.Parent77);
+
+            context.SaveChanges();
+
+            Assert.Equal(2, context.ChangeTracker.Entries().Count());
+            Assert.Equal(EntityState.Detached, context.Entry(parent1).State);
+            Assert.Equal(EntityState.Unchanged, context.Entry(parent2).State);
+            Assert.Equal(EntityState.Unchanged, context.Entry(child).State);
+            Assert.Same(parent2, child.Parent77);
+        }
+
+        private class Parent77Context : DbContext
+        {
+            protected internal override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+                => optionsBuilder.UseInMemoryDatabase(nameof(Parent77Context));
+
+            protected internal override void OnModelCreating(ModelBuilder modelBuilder)
+            {
+                modelBuilder.Entity<Parent77>(
+                    b =>
+                    {
+                        b.HasMany<Optional77>().WithOne(e => e.Parent77);
+                        b.HasMany<Required77>().WithOne(e => e.Parent77);
+                    });
+            }
+        }
+
+        private class Parent77
+        {
+            public int Id { get; set; }
+        }
+
+        private class Optional77
+        {
+            public int Id { get; set; }
+
+            public int? Parent77Id { get; set; }
+            public Parent77 Parent77 { get; set; }
+        }
+
+        private class Required77
+        {
+            public int Id { get; set; }
+
+            public int Parent77Id { get; set; }
+            public Parent77 Parent77 { get; set; }
         }
     }
 }

@@ -10,7 +10,8 @@ using Xunit.Abstractions;
 
 namespace Microsoft.EntityFrameworkCore.Query
 {
-    public class NorthwindKeylessEntitiesQueryCosmosTest : NorthwindKeylessEntitiesQueryTestBase<NorthwindQueryCosmosFixture<NoopModelCustomizer>>
+    public class NorthwindKeylessEntitiesQueryCosmosTest : NorthwindKeylessEntitiesQueryTestBase<
+        NorthwindQueryCosmosFixture<NoopModelCustomizer>>
     {
         public NorthwindKeylessEntitiesQueryCosmosTest(
             NorthwindQueryCosmosFixture<NoopModelCustomizer> fixture,
@@ -27,7 +28,7 @@ namespace Microsoft.EntityFrameworkCore.Query
             await base.KeylessEntity_simple(async);
 
             AssertSql(
-                @"SELECT c[""Address""], c[""City""], c[""CompanyName""], c[""ContactName""], c[""ContactTitle""]
+                @"SELECT c
 FROM root c
 WHERE (c[""Discriminator""] = ""Customer"")");
         }
@@ -38,20 +39,18 @@ WHERE (c[""Discriminator""] = ""Customer"")");
             await base.KeylessEntity_where_simple(async);
 
             AssertSql(
-                @"SELECT c[""Address""], c[""City""], c[""CompanyName""], c[""ContactName""], c[""ContactTitle""]
+                @"SELECT c
 FROM root c
 WHERE ((c[""Discriminator""] = ""Customer"") AND (c[""City""] = ""London""))");
         }
 
-        [ConditionalFact]
+        [ConditionalFact] // views are not supported
         public override void KeylessEntity_by_database_view()
         {
-            base.KeylessEntity_by_database_view();
+        }
 
-            AssertSql(
-                @"SELECT c[""ProductID""], c[""ProductName""], ""Food"" AS CategoryName
-FROM root c
-WHERE ((c[""Discriminator""] = ""Product"") AND NOT(c[""Discontinued""]))");
+        public override void Entity_mapped_to_view_on_right_side_of_join()
+        {
         }
 
         [ConditionalFact(Skip = "See issue#17246")]
@@ -90,12 +89,18 @@ FROM root c
 WHERE ((c[""Discriminator""] = ""Customer"") AND (c[""City""] = ""London""))");
         }
 
+        [ConditionalTheory(Skip = "Issue #17246")]
+        public override Task KeylessEntity_with_included_nav(bool async)
+        {
+            return base.KeylessEntity_with_included_nav(async);
+        }
+
         public override async Task KeylessEntity_with_defining_query(bool async)
         {
             await base.KeylessEntity_with_defining_query(async);
 
             AssertSql(
-                @"SELECT c[""CustomerID""]
+                @"SELECT c
 FROM root c
 WHERE ((c[""Discriminator""] = ""Order"") AND (c[""CustomerID""] = ""ALFKI""))");
         }
@@ -132,9 +137,17 @@ WHERE (c[""Discriminator""] = ""Customer"")");
         }
 
         [ConditionalTheory(Skip = "Issue #17246")]
-        public override async Task KeylesEntity_groupby(bool async)
+        public override async Task KeylessEntity_groupby(bool async)
         {
-            await base.KeylesEntity_groupby(async);
+            await base.KeylessEntity_groupby(async);
+
+            AssertSql(@"");
+        }
+
+        [ConditionalTheory(Skip = "Issue #17246")]
+        public override async Task Collection_correlated_with_keyless_entity_in_predicate_works(bool async)
+        {
+            await base.Collection_correlated_with_keyless_entity_in_predicate_works(async);
 
             AssertSql(@"");
         }

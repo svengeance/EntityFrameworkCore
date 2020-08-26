@@ -11,7 +11,6 @@ using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.SqlServer.Internal;
 using Microsoft.EntityFrameworkCore.SqlServer.Storage.Internal;
 using Microsoft.EntityFrameworkCore.Storage;
-using Microsoft.EntityFrameworkCore.Storage.Internal;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
@@ -46,7 +45,10 @@ namespace Microsoft.EntityFrameworkCore
         }
 
         private static async Task Returns_false_when_database_does_not_exist_test(
-            bool async, bool ambientTransaction, bool useCanConnect, bool file)
+            bool async,
+            bool ambientTransaction,
+            bool useCanConnect,
+            bool file)
         {
             using var testDatabase = SqlServerTestStore.Create("NonExisting", file);
             using var context = new BloggingContext(testDatabase);
@@ -726,7 +728,7 @@ namespace Microsoft.EntityFrameworkCore
 
             protected override IExecutionStrategy CreateDefaultStrategy(ExecutionStrategyDependencies dependencies)
             {
-                return new NoopExecutionStrategy(dependencies);
+                return new NonRetryingExecutionStrategy(dependencies);
             }
         }
 
@@ -812,7 +814,8 @@ namespace Microsoft.EntityFrameworkCore
                 return HasTablesAsync(cancellationToken);
             }
 
-            public IExecutionStrategyFactory ExecutionStrategyFactory => Dependencies.ExecutionStrategyFactory;
+            public IExecutionStrategyFactory ExecutionStrategyFactory
+                => Dependencies.ExecutionStrategyFactory;
         }
     }
 }

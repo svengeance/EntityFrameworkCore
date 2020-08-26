@@ -12,7 +12,8 @@ namespace Microsoft.EntityFrameworkCore.Query
     {
         // ReSharper disable once UnusedParameter.Local
         public ComplexNavigationsWeakQueryInMemoryTest(
-            ComplexNavigationsWeakQueryInMemoryFixture fixture, ITestOutputHelper testOutputHelper)
+            ComplexNavigationsWeakQueryInMemoryFixture fixture,
+            ITestOutputHelper testOutputHelper)
             : base(fixture)
         {
             //TestLoggerFactory.TestOutputHelper = testOutputHelper;
@@ -43,6 +44,12 @@ namespace Microsoft.EntityFrameworkCore.Query
         }
 
         [ConditionalTheory(Skip = "Issue#17539")]
+        public override Task Where_nav_prop_reference_optional2_via_DefaultIfEmpty(bool async)
+        {
+            return base.Where_nav_prop_reference_optional2_via_DefaultIfEmpty(async);
+        }
+
+        [ConditionalTheory(Skip = "Issue#17539")]
         public override Task Optional_navigation_propagates_nullability_to_manually_created_left_join2(bool async)
         {
             return base.Optional_navigation_propagates_nullability_to_manually_created_left_join2(async);
@@ -58,6 +65,42 @@ namespace Microsoft.EntityFrameworkCore.Query
         public override Task OrderBy_collection_count_ThenBy_reference_navigation(bool async)
         {
             return base.OrderBy_collection_count_ThenBy_reference_navigation(async);
+        }
+
+        [ConditionalTheory(Skip = "issue #19344")]
+        public override Task Select_subquery_single_nested_subquery(bool async)
+        {
+            return base.Select_subquery_single_nested_subquery(async);
+        }
+
+        [ConditionalTheory(Skip = "issue #19344")]
+        public override Task Select_subquery_single_nested_subquery2(bool async)
+        {
+            return base.Select_subquery_single_nested_subquery2(async);
+        }
+
+        [ConditionalTheory(Skip = "issue #19967")]
+        public override Task SelectMany_with_outside_reference_to_joined_table_correctly_translated_to_apply(bool async)
+        {
+            return base.SelectMany_with_outside_reference_to_joined_table_correctly_translated_to_apply(async);
+        }
+
+        [ConditionalTheory(Skip = "issue #19967")]
+        public override Task Nested_SelectMany_correlated_with_join_table_correctly_translated_to_apply(bool async)
+        {
+            return base.Nested_SelectMany_correlated_with_join_table_correctly_translated_to_apply(async);
+        }
+
+        [ConditionalTheory(Skip = "issue #19742")]
+        public override Task Contains_over_optional_navigation_with_null_column(bool async)
+        {
+            return base.Contains_over_optional_navigation_with_null_column(async);
+        }
+
+        [ConditionalTheory(Skip = "issue #19742")]
+        public override Task Contains_over_optional_navigation_with_null_entity_reference(bool async)
+        {
+            return base.Contains_over_optional_navigation_with_null_entity_reference(async);
         }
     }
 }

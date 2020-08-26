@@ -3,7 +3,6 @@
 
 using System;
 using Microsoft.EntityFrameworkCore.Diagnostics;
-using Microsoft.EntityFrameworkCore.Internal;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Utilities;
 
@@ -52,12 +51,13 @@ namespace Microsoft.EntityFrameworkCore.ChangeTracking.Internal
 
             private static object SnapshotValue(IProperty property, object value)
             {
-                var comparer = property.GetValueComparer() ?? property.FindTypeMapping()?.Comparer;
+                var comparer = property.GetValueComparer();
 
                 return comparer == null ? value : comparer.Snapshot(value);
             }
 
-            public bool IsEmpty => _values == null;
+            public bool IsEmpty
+                => _values == null;
         }
     }
 }

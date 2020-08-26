@@ -88,6 +88,35 @@ namespace Microsoft.EntityFrameworkCore
             Assert.Throws<ObjectDisposedException>(() => context.Set<Category>());
         }
 
+        [Fact]
+        public void Direct_use_of_Set_for_shared_type_throws_if_context_disposed()
+        {
+            var context = new EarlyLearningCenter();
+            context.Dispose();
+
+            Assert.Throws<ObjectDisposedException>(() => context.Set<Dictionary<string, object>>("SharedTypeEntityTypeName"));
+        }
+
+        [ConditionalFact]
+        public void Using_shared_type_entity_type_db_set_with_incorrect_return_type_throws()
+        {
+            using var context = new EarlyLearningCenter();
+
+            var dbSet = context.Set<Dictionary<string, object>>("SharedEntity");
+
+            Assert.NotNull(dbSet.Add(new Dictionary<string, object> { { "Id", 1 } }));
+            Assert.NotNull(dbSet.ToList());
+
+            var wrongDbSet = context.Set<Category>("SharedEntity");
+
+            Assert.Equal(
+                CoreStrings.DbSetIncorrectGenericType("SharedEntity", "Dictionary<string, object>", "Category"),
+                Assert.Throws<InvalidOperationException>(() => wrongDbSet.Add(new Category())).Message);
+            Assert.Equal(
+                CoreStrings.DbSetIncorrectGenericType("SharedEntity", "Dictionary<string, object>", "Category"),
+                Assert.Throws<InvalidOperationException>(() => wrongDbSet.ToList()).Message);
+        }
+
         [ConditionalFact]
         public void Use_of_LocalView_throws_if_context_is_disposed()
         {
@@ -165,7 +194,8 @@ namespace Microsoft.EntityFrameworkCore
 
         private static Task TrackEntitiesTest(
             Func<DbSet<Category>, Category, EntityEntry<Category>> categoryAdder,
-            Func<DbSet<Product>, Product, EntityEntry<Product>> productAdder, EntityState expectedState)
+            Func<DbSet<Product>, Product, EntityEntry<Product>> productAdder,
+            EntityState expectedState)
             => TrackEntitiesTest(
                 (c, e) => new ValueTask<EntityEntry<Category>>(categoryAdder(c, e)),
                 (c, e) => new ValueTask<EntityEntry<Product>>(productAdder(c, e)),
@@ -173,7 +203,8 @@ namespace Microsoft.EntityFrameworkCore
 
         private static async Task TrackEntitiesTest(
             Func<DbSet<Category>, Category, ValueTask<EntityEntry<Category>>> categoryAdder,
-            Func<DbSet<Product>, Product, ValueTask<EntityEntry<Product>>> productAdder, EntityState expectedState)
+            Func<DbSet<Product>, Product, ValueTask<EntityEntry<Product>>> productAdder,
+            EntityState expectedState)
         {
             using var context = new EarlyLearningCenter();
             var category1 = new Category { Id = 1, Name = "Beverages" };
@@ -264,7 +295,8 @@ namespace Microsoft.EntityFrameworkCore
 
         private static Task TrackMultipleEntitiesTest(
             Action<EarlyLearningCenter, Category[]> categoryAdder,
-            Action<EarlyLearningCenter, Product[]> productAdder, EntityState expectedState)
+            Action<EarlyLearningCenter, Product[]> productAdder,
+            EntityState expectedState)
             => TrackMultipleEntitiesTest(
                 (c, e) =>
                 {
@@ -280,7 +312,8 @@ namespace Microsoft.EntityFrameworkCore
 
         private static async Task TrackMultipleEntitiesTest(
             Func<EarlyLearningCenter, Category[], Task> categoryAdder,
-            Func<EarlyLearningCenter, Product[], Task> productAdder, EntityState expectedState)
+            Func<EarlyLearningCenter, Product[], Task> productAdder,
+            EntityState expectedState)
         {
             using var context = new EarlyLearningCenter();
             var category1 = new Category { Id = 1, Name = "Beverages" };
@@ -405,7 +438,8 @@ namespace Microsoft.EntityFrameworkCore
 
         private static Task TrackMultipleEntitiesTestEnumerable(
             Action<EarlyLearningCenter, IEnumerable<Category>> categoryAdder,
-            Action<EarlyLearningCenter, IEnumerable<Product>> productAdder, EntityState expectedState)
+            Action<EarlyLearningCenter, IEnumerable<Product>> productAdder,
+            EntityState expectedState)
             => TrackMultipleEntitiesTestEnumerable(
                 (c, e) =>
                 {
@@ -421,7 +455,8 @@ namespace Microsoft.EntityFrameworkCore
 
         private static async Task TrackMultipleEntitiesTestEnumerable(
             Func<EarlyLearningCenter, IEnumerable<Category>, Task> categoryAdder,
-            Func<EarlyLearningCenter, IEnumerable<Product>, Task> productAdder, EntityState expectedState)
+            Func<EarlyLearningCenter, IEnumerable<Product>, Task> productAdder,
+            EntityState expectedState)
         {
             using var context = new EarlyLearningCenter();
             var category1 = new Category { Id = 1, Name = "Beverages" };
@@ -685,6 +720,13 @@ namespace Microsoft.EntityFrameworkCore
                 => optionsBuilder
                     .UseInMemoryDatabase(Guid.NewGuid().ToString())
                     .UseInternalServiceProvider(InMemoryTestHelpers.Instance.CreateServiceProvider());
+
+            protected internal override void OnModelCreating(ModelBuilder modelBuilder)
+            {
+                base.OnModelCreating(modelBuilder);
+
+                modelBuilder.SharedTypeEntity<Dictionary<string, object>>("SharedEntity").IndexerProperty<int>("Id");
+            }
         }
     }
 }

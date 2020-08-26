@@ -6,7 +6,6 @@ using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Linq;
 using System.Linq.Expressions;
-using System.Reflection;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Metadata;
@@ -20,11 +19,13 @@ namespace Microsoft.EntityFrameworkCore
     public abstract class BuiltInDataTypesTestBase<TFixture> : IClassFixture<TFixture>
         where TFixture : BuiltInDataTypesTestBase<TFixture>.BuiltInDataTypesFixtureBase, new()
     {
-        protected BuiltInDataTypesTestBase(TFixture fixture) => Fixture = fixture;
+        protected BuiltInDataTypesTestBase(TFixture fixture)
+            => Fixture = fixture;
 
         protected TFixture Fixture { get; }
 
-        protected DbContext CreateContext() => Fixture.CreateContext();
+        protected DbContext CreateContext()
+            => Fixture.CreateContext();
 
         [ConditionalTheory]
         [InlineData(false)]
@@ -1917,7 +1918,7 @@ namespace Microsoft.EntityFrameworkCore
                         DateTimeOffset = new DateTimeOffset(DateTime.Parse("01/01/2000 12:34:56"), TimeSpan.FromHours(-8.0)),
                         TimeSpan = new TimeSpan(0, 10, 9, 8, 7),
                         Single = -1.234F,
-                        Boolean = false,
+                        Boolean = true,
                         Byte = 255,
                         UnsignedInt16 = 1234,
                         UnsignedInt32 = 1234565789U,
@@ -1954,7 +1955,7 @@ namespace Microsoft.EntityFrameworkCore
                     () => dt.DateTimeOffset);
                 AssertEqualIfMapped(entityType, new TimeSpan(0, 10, 9, 8, 7), () => dt.TimeSpan);
                 AssertEqualIfMapped(entityType, -1.234F, () => dt.Single);
-                AssertEqualIfMapped(entityType, false, () => dt.Boolean);
+                AssertEqualIfMapped(entityType, true, () => dt.Boolean);
                 AssertEqualIfMapped(entityType, (byte)255, () => dt.Byte);
                 AssertEqualIfMapped(entityType, Enum64.SomeValue, () => dt.Enum64);
                 AssertEqualIfMapped(entityType, Enum32.SomeValue, () => dt.Enum32);
@@ -1995,11 +1996,114 @@ namespace Microsoft.EntityFrameworkCore
             Assert.True(result.BoolField);
         }
 
+        [ConditionalFact]
+        public virtual void Can_compare_enum_to_constant()
+        {
+            using var context = CreateContext();
+            var query = context.Set<AnimalIdentification>()
+                .Where(a => a.Method == IdentificationMethod.EarTag)
+                .ToList();
+
+            var result = Assert.Single(query);
+            Assert.Equal(IdentificationMethod.EarTag, result.Method);
+        }
+
+        [ConditionalFact]
+        public virtual void Can_compare_enum_to_parameter()
+        {
+            var method = IdentificationMethod.EarTag;
+            using var context = CreateContext();
+            var query = context.Set<AnimalIdentification>()
+                .Where(a => a.Method == method)
+                .ToList();
+
+            var result = Assert.Single(query);
+            Assert.Equal(IdentificationMethod.EarTag, result.Method);
+        }
+
+        [ConditionalFact]
+        public virtual void Object_to_string_conversion()
+        {
+            using var context = CreateContext();
+            var expected = context.Set<BuiltInDataTypes>()
+                .Where(e => e.Id == 13)
+                .AsEnumerable()
+                .Select(
+                    b => new
+                    {
+                        Sbyte = b.TestSignedByte.ToString(),
+                        Byte = b.TestByte.ToString(),
+                        Short = b.TestInt16.ToString(),
+                        Ushort = b.TestUnsignedInt16.ToString(),
+                        Int = b.TestInt32.ToString(),
+                        Uint = b.TestUnsignedInt32.ToString(),
+                        Long = b.TestInt64.ToString(),
+                        Ulong = b.TestUnsignedInt64.ToString(),
+                        Decimal = b.TestDecimal.ToString(),
+                        Char = b.TestCharacter.ToString()
+                    })
+                .First();
+
+            Fixture.ListLoggerFactory.Clear();
+
+            var query = context.Set<BuiltInDataTypes>()
+                .Where(e => e.Id == 13)
+                .Select(
+                    b => new
+                    {
+                        Sbyte = b.TestSignedByte.ToString(),
+                        Byte = b.TestByte.ToString(),
+                        Short = b.TestInt16.ToString(),
+                        Ushort = b.TestUnsignedInt16.ToString(),
+                        Int = b.TestInt32.ToString(),
+                        Uint = b.TestUnsignedInt32.ToString(),
+                        Long = b.TestInt64.ToString(),
+                        Ulong = b.TestUnsignedInt64.ToString(),
+                        Float = b.TestSingle.ToString(),
+                        Double = b.TestDouble.ToString(),
+                        Decimal = b.TestDecimal.ToString(),
+                        Char = b.TestCharacter.ToString(),
+                        DateTime = b.TestDateTime.ToString(),
+                        DateTimeOffset = b.TestDateTimeOffset.ToString(),
+                        TimeSpan = b.TestTimeSpan.ToString()
+                    })
+                .ToList();
+
+            var actual = Assert.Single(query);
+            Assert.Equal(expected.Sbyte, actual.Sbyte);
+            Assert.Equal(expected.Byte, actual.Byte);
+            Assert.Equal(expected.Short, actual.Short);
+            Assert.Equal(expected.Ushort, actual.Ushort);
+            Assert.Equal(expected.Int, actual.Int);
+            Assert.Equal(expected.Uint, actual.Uint);
+            Assert.Equal(expected.Long, actual.Long);
+            Assert.Equal(expected.Ulong, actual.Ulong);
+            Assert.Equal(expected.Decimal, actual.Decimal);
+            Assert.Equal(expected.Char, actual.Char);
+        }
+
+        [ConditionalFact]
+        public virtual void Optional_datetime_reading_null_from_database()
+        {
+            using var context = CreateContext();
+            var expected = context.Set<DateTimeEnclosure>().ToList()
+                .Select(e => new { DT = e.DateTimeOffset == null ? (DateTime?)null : e.DateTimeOffset.Value.DateTime.Date }).ToList();
+
+            var actual = context.Set<DateTimeEnclosure>()
+                .Select(e => new { DT = e.DateTimeOffset == null ? (DateTime?)null : e.DateTimeOffset.Value.DateTime.Date }).ToList();
+
+            for (var i = 0; i < expected.Count; i++)
+            {
+                Assert.Equal(expected[i].DT, actual[i].DT);
+            }
+        }
+
         public abstract class BuiltInDataTypesFixtureBase : SharedStoreFixtureBase<PoolableDbContext>
         {
             protected override string StoreName { get; } = "BuiltInDataTypes";
 
-            public virtual int LongStringLength => 9000;
+            public virtual int LongStringLength
+                => 9000;
 
             protected override void OnModelCreating(ModelBuilder modelBuilder, DbContext context)
             {
@@ -2251,6 +2355,11 @@ namespace Microsoft.EntityFrameworkCore
                             AnimalId = 1,
                             Method = IdentificationMethod.EarTag
                         });
+
+                modelBuilder.Entity<DateTimeEnclosure>()
+                    .HasData(
+                        new DateTimeEnclosure { Id = 1, DateTimeOffset = new DateTimeOffset(2020, 3, 12, 1, 1, 1, new TimeSpan(3, 0, 0)) },
+                        new DateTimeEnclosure { Id = 2 });
             }
 
             protected static void MakeRequired<TEntity>(ModelBuilder modelBuilder)
@@ -2264,7 +2373,8 @@ namespace Microsoft.EntityFrameworkCore
 
             public abstract bool StrictEquality { get; }
 
-            public virtual int IntegerPrecision => 19;
+            public virtual int IntegerPrecision
+                => 19;
 
             public abstract bool SupportsAnsi { get; }
 
@@ -3049,6 +3159,12 @@ namespace Microsoft.EntityFrameworkCore
             Notch,
             EarTag,
             Rfid
+        }
+
+        protected class DateTimeEnclosure
+        {
+            public int Id { get; set; }
+            public DateTimeOffset? DateTimeOffset { get; set; }
         }
     }
 }

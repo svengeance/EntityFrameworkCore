@@ -10,6 +10,8 @@ using Microsoft.EntityFrameworkCore.Design.Internal;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Internal;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Metadata.Conventions;
+using Microsoft.EntityFrameworkCore.Metadata.Conventions.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata.Internal;
 
 namespace Microsoft.EntityFrameworkCore.Migrations.Internal
@@ -24,6 +26,7 @@ namespace Microsoft.EntityFrameworkCore.Migrations.Internal
     {
         private readonly IOperationReporter _operationReporter;
         private readonly HashSet<string> _relationalNames;
+        private readonly IConventionSetBuilder _conventionSetBuilder;
 
         /// <summary>
         ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
@@ -31,7 +34,9 @@ namespace Microsoft.EntityFrameworkCore.Migrations.Internal
         ///     any release. You should only use it directly in your code with extreme caution and knowing that
         ///     doing so can result in application failures when updating to a new Entity Framework Core release.
         /// </summary>
-        public SnapshotModelProcessor([NotNull] IOperationReporter operationReporter)
+        public SnapshotModelProcessor(
+            [NotNull] IOperationReporter operationReporter,
+            [NotNull] IConventionSetBuilder conventionSetBuilder)
         {
             _operationReporter = operationReporter;
             _relationalNames = new HashSet<string>(
@@ -39,6 +44,7 @@ namespace Microsoft.EntityFrameworkCore.Migrations.Internal
                     .GetRuntimeFields()
                     .Where(p => p.Name != nameof(RelationalAnnotationNames.Prefix))
                     .Select(p => ((string)p.GetValue(null)).Substring(RelationalAnnotationNames.Prefix.Length - 1)));
+            _conventionSetBuilder = conventionSetBuilder;
         }
 
         /// <summary>
@@ -58,6 +64,7 @@ namespace Microsoft.EntityFrameworkCore.Migrations.Internal
             if (version != null)
             {
                 ProcessElement(model, version);
+                UpdateSequences(model, version);
 
                 foreach (var entityType in model.GetEntityTypes())
                 {
@@ -72,6 +79,24 @@ namespace Microsoft.EntityFrameworkCore.Migrations.Internal
                         ProcessElement(element.DependentToPrincipal, version);
                         ProcessElement(element.PrincipalToDependent, version);
                     }
+                }
+            }
+
+            if (model is IConventionModel conventionModel)
+            {
+                var conventionSet = _conventionSetBuilder.CreateConventionSet();
+
+                var typeMappingConvention = conventionSet.ModelFinalizingConventions.OfType<TypeMappingConvention>().FirstOrDefault();
+                if (typeMappingConvention != null)
+                {
+                    typeMappingConvention.ProcessModelFinalizing(conventionModel.Builder, null);
+                }
+
+                var relationalModelConvention =
+                    conventionSet.ModelFinalizedConventions.OfType<RelationalModelConvention>().FirstOrDefault();
+                if (relationalModelConvention != null)
+                {
+                    model = relationalModelConvention.ProcessModelFinalized(conventionModel);
                 }
             }
 
@@ -93,7 +118,7 @@ namespace Microsoft.EntityFrameworkCore.Migrations.Internal
             ProcessElement((IAnnotatable)entityType, version);
 
             if ((version.StartsWith("2.0", StringComparison.Ordinal)
-                 || version.StartsWith("2.1", StringComparison.Ordinal))
+                    || version.StartsWith("2.1", StringComparison.Ordinal))
                 && entityType is IMutableEntityType mutableEntityType
                 && !entityType.IsOwned())
             {
@@ -130,6 +155,34 @@ namespace Microsoft.EntityFrameworkCore.Migrations.Internal
                         }
                     }
                 }
+            }
+        }
+
+        private void UpdateSequences(IModel model, string version)
+        {
+            if ((!version.StartsWith("1.", StringComparison.Ordinal)
+                    && !version.StartsWith("2.", StringComparison.Ordinal)
+                    && !version.StartsWith("3.", StringComparison.Ordinal))
+                || !(model is IMutableModel mutableModel))
+            {
+                return;
+            }
+
+            var sequences = model.GetAnnotations()
+#pragma warning disable CS0618 // Type or member is obsolete
+                .Where(a => a.Name.StartsWith(RelationalAnnotationNames.SequencePrefix, StringComparison.Ordinal))
+                .Select(a => new Sequence(model, a.Name));
+#pragma warning restore CS0618 // Type or member is obsolete
+
+            var sequencesDictionary = new SortedDictionary<(string, string), Sequence>();
+            foreach (var sequence in sequences)
+            {
+                sequencesDictionary[(sequence.Name, sequence.Schema)] = sequence;
+            }
+
+            if (sequencesDictionary.Count > 0)
+            {
+                mutableModel[RelationalAnnotationNames.Sequences] = sequencesDictionary;
             }
         }
 

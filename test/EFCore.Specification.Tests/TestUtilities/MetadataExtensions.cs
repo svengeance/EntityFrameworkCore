@@ -12,7 +12,8 @@ namespace Microsoft.EntityFrameworkCore.TestUtilities
     public static class MetadataExtensions
     {
         public static IQueryable<TEntity> AsTracking<TEntity>(
-            this IQueryable<TEntity> source, bool tracking)
+            this IQueryable<TEntity> source,
+            bool tracking)
             where TEntity : class
             => tracking ? source.AsTracking() : source.AsNoTracking();
 
@@ -145,13 +146,13 @@ namespace Microsoft.EntityFrameworkCore.TestUtilities
                         navigation.ForeignKey.PrincipalKey.Properties.Select(
                             p => targetPrincipalEntityType.FindProperty(p.Name)).ToList()),
                     targetPrincipalEntityType);
-                var clonedNavigation = navigation.IsDependentToPrincipal()
+                var clonedNavigation = navigation.IsOnDependent
                     ? (navigation.GetIdentifyingMemberInfo() != null
-                        ? targetForeignKey.HasDependentToPrincipal(navigation.GetIdentifyingMemberInfo())
-                        : targetForeignKey.HasDependentToPrincipal(navigation.Name))
+                        ? targetForeignKey.SetDependentToPrincipal(navigation.GetIdentifyingMemberInfo())
+                        : targetForeignKey.SetDependentToPrincipal(navigation.Name))
                     : (navigation.GetIdentifyingMemberInfo() != null
-                        ? targetForeignKey.HasPrincipalToDependent(navigation.GetIdentifyingMemberInfo())
-                        : targetForeignKey.HasPrincipalToDependent(navigation.Name));
+                        ? targetForeignKey.SetPrincipalToDependent(navigation.GetIdentifyingMemberInfo())
+                        : targetForeignKey.SetPrincipalToDependent(navigation.Name));
                 navigation.GetAnnotations().ForEach(annotation => clonedNavigation[annotation.Name] = annotation.Value);
             }
         }

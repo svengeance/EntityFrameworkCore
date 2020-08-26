@@ -159,7 +159,11 @@ namespace Microsoft.EntityFrameworkCore.ChangeTracking.Internal
         }
 
         private void Add_principal_and_dependent_one_to_many(
-            EntityState entityState, bool principalFirst, bool setFk, bool setToPrincipal, bool setToDependent)
+            EntityState entityState,
+            bool principalFirst,
+            bool setFk,
+            bool setToPrincipal,
+            bool setToDependent)
         {
             using var context = new FixupContext();
             var principal = new Category(77);
@@ -257,7 +261,10 @@ namespace Microsoft.EntityFrameworkCore.ChangeTracking.Internal
         }
 
         private void Add_principal_and_dependent_one_to_many_prin_uni(
-            EntityState entityState, bool principalFirst, bool setFk, bool setToDependent)
+            EntityState entityState,
+            bool principalFirst,
+            bool setFk,
+            bool setToDependent)
         {
             using var context = new FixupContext();
             var principal = new CategoryPN { Id = 77 };
@@ -349,7 +356,10 @@ namespace Microsoft.EntityFrameworkCore.ChangeTracking.Internal
         }
 
         private void Add_principal_and_dependent_one_to_many_dep_uni(
-            EntityState entityState, bool principalFirst, bool setFk, bool setToPrincipal)
+            EntityState entityState,
+            bool principalFirst,
+            bool setFk,
+            bool setToPrincipal)
         {
             using var context = new FixupContext();
             var principal = new CategoryDN { Id = 77 };
@@ -573,7 +583,11 @@ namespace Microsoft.EntityFrameworkCore.ChangeTracking.Internal
         }
 
         private void Add_principal_and_dependent_one_to_one(
-            EntityState entityState, bool principalFirst, bool setFk, bool setToPrincipal, bool setToDependent)
+            EntityState entityState,
+            bool principalFirst,
+            bool setFk,
+            bool setToPrincipal,
+            bool setToDependent)
         {
             using var context = new FixupContext();
             var principal = new Parent(77);
@@ -671,7 +685,10 @@ namespace Microsoft.EntityFrameworkCore.ChangeTracking.Internal
         }
 
         private void Add_principal_and_dependent_one_to_one_prin_uni(
-            EntityState entityState, bool principalFirst, bool setFk, bool setToDependent)
+            EntityState entityState,
+            bool principalFirst,
+            bool setFk,
+            bool setToDependent)
         {
             using var context = new FixupContext();
             var principal = new ParentPN { Id = 77 };
@@ -771,7 +788,10 @@ namespace Microsoft.EntityFrameworkCore.ChangeTracking.Internal
         }
 
         private void Add_principal_and_dependent_one_to_one_dep_uni(
-            EntityState entityState, bool principalFirst, bool setFk, bool setToPrincipal)
+            EntityState entityState,
+            bool principalFirst,
+            bool setFk,
+            bool setToPrincipal)
         {
             using var context = new FixupContext();
             var principal = new ParentDN { Id = 77 };
@@ -920,7 +940,10 @@ namespace Microsoft.EntityFrameworkCore.ChangeTracking.Internal
         }
 
         private void Add_dependent_but_not_principal_one_to_many(
-            EntityState entityState, bool setFk, bool setToPrincipal, bool setToDependent)
+            EntityState entityState,
+            bool setFk,
+            bool setToPrincipal,
+            bool setToDependent)
         {
             using var context = new FixupContext();
             var principal = new Category(77);
@@ -1023,7 +1046,10 @@ namespace Microsoft.EntityFrameworkCore.ChangeTracking.Internal
         }
 
         private void Add_principal_but_not_dependent_one_to_many(
-            EntityState entityState, bool setFk, bool setToPrincipal, bool setToDependent)
+            EntityState entityState,
+            bool setFk,
+            bool setToPrincipal,
+            bool setToDependent)
         {
             using var context = new FixupContext();
             var principal = new Category(77);
@@ -1413,7 +1439,10 @@ namespace Microsoft.EntityFrameworkCore.ChangeTracking.Internal
         }
 
         private void Add_dependent_but_not_principal_one_to_one(
-            EntityState entityState, bool setFk, bool setToPrincipal, bool setToDependent)
+            EntityState entityState,
+            bool setFk,
+            bool setToPrincipal,
+            bool setToDependent)
         {
             using var context = new FixupContext();
             var principal = new Parent(77);
@@ -1525,7 +1554,10 @@ namespace Microsoft.EntityFrameworkCore.ChangeTracking.Internal
         }
 
         private void Add_principal_but_not_dependent_one_to_one(
-            EntityState entityState, bool setFk, bool setToPrincipal, bool setToDependent)
+            EntityState entityState,
+            bool setFk,
+            bool setToPrincipal,
+            bool setToDependent)
         {
             using var context = new FixupContext();
             var principal = new Parent(77);
@@ -1947,7 +1979,11 @@ namespace Microsoft.EntityFrameworkCore.ChangeTracking.Internal
         }
 
         private void Replace_dependent_one_to_one(
-            EntityState oldEntityState, EntityState newEntityState, bool setFk, bool setToPrincipal, bool setToDependent,
+            EntityState oldEntityState,
+            EntityState newEntityState,
+            bool setFk,
+            bool setToPrincipal,
+            bool setToDependent,
             bool detectChanges = false)
         {
             using var context = new FixupContext();
@@ -2033,13 +2069,18 @@ namespace Microsoft.EntityFrameworkCore.ChangeTracking.Internal
         [InlineData(EntityState.Unchanged, EntityState.Added)]
         [InlineData(EntityState.Unchanged, EntityState.Modified)]
         public void Replace_dependent_one_to_one_prin_uni_FK_not_set_principal_nav_set(
-            EntityState oldEntityState, EntityState newEntityState)
+            EntityState oldEntityState,
+            EntityState newEntityState)
         {
             Replace_dependent_one_to_one_prin_uni(oldEntityState, newEntityState, setFk: false, setToDependent: true, detectChanges: true);
         }
 
         private void Replace_dependent_one_to_one_prin_uni(
-            EntityState oldEntityState, EntityState newEntityState, bool setFk, bool setToDependent, bool detectChanges = false)
+            EntityState oldEntityState,
+            EntityState newEntityState,
+            bool setFk,
+            bool setToDependent,
+            bool detectChanges = false)
         {
             using var context = new FixupContext();
             context.ChangeTracker.DeleteOrphansTiming = CascadeTiming.OnSaveChanges;
@@ -2116,13 +2157,17 @@ namespace Microsoft.EntityFrameworkCore.ChangeTracking.Internal
         [InlineData(EntityState.Unchanged, EntityState.Added)]
         [InlineData(EntityState.Unchanged, EntityState.Modified)]
         public void Replace_dependent_one_to_one_dep_uni_FK_not_set_dependent_nav_set(
-            EntityState oldEntityState, EntityState newEntityState)
+            EntityState oldEntityState,
+            EntityState newEntityState)
         {
             Replace_dependent_one_to_one_dep_uni(oldEntityState, newEntityState, setFk: false, setToPrincipal: true);
         }
 
         private void Replace_dependent_one_to_one_dep_uni(
-            EntityState oldEntityState, EntityState newEntityState, bool setFk, bool setToPrincipal)
+            EntityState oldEntityState,
+            EntityState newEntityState,
+            bool setFk,
+            bool setToPrincipal)
         {
             using var context = new FixupContext();
             context.ChangeTracker.DeleteOrphansTiming = CascadeTiming.OnSaveChanges;
@@ -2830,12 +2875,15 @@ namespace Microsoft.EntityFrameworkCore.ChangeTracking.Internal
             }
 
             // ReSharper disable once ConvertToAutoProperty
-            public int Id => _id;
+            public int Id
+                => _id;
 
             // ReSharper disable once ConvertToAutoPropertyWithPrivateSetter
-            public Child Child => _child;
+            public Child Child
+                => _child;
 
-            public void SetChild(Child child) => _child = child;
+            public void SetChild(Child child)
+                => _child = child;
         }
 
         private class Child
@@ -2852,17 +2900,22 @@ namespace Microsoft.EntityFrameworkCore.ChangeTracking.Internal
             }
 
             // ReSharper disable once ConvertToAutoProperty
-            public int Id => _id;
+            public int Id
+                => _id;
 
             // ReSharper disable once ConvertToAutoPropertyWithPrivateSetter
-            public int ParentId => _parentId;
+            public int ParentId
+                => _parentId;
 
             // ReSharper disable once ConvertToAutoPropertyWithPrivateSetter
-            public Parent Parent => _parent;
+            public Parent Parent
+                => _parent;
 
-            public void SetParent(Parent parent) => _parent = parent;
+            public void SetParent(Parent parent)
+                => _parent = parent;
 
-            public void SetParentId(int parentId) => _parentId = parentId;
+            public void SetParentId(int parentId)
+                => _parentId = parentId;
         }
 
         private class ParentPN
@@ -2962,10 +3015,12 @@ namespace Microsoft.EntityFrameworkCore.ChangeTracking.Internal
             }
 
             // ReSharper disable once ConvertToAutoProperty
-            public int Id => _id;
+            public int Id
+                => _id;
 
             // ReSharper disable once ConvertToAutoPropertyWithPrivateSetter
-            public ICollection<Product> Products => _products;
+            public ICollection<Product> Products
+                => _products;
 
             public void AddProduct(Product product)
                 => (_products ?? (_products = new List<Product>())).Add(product);
@@ -2990,17 +3045,22 @@ namespace Microsoft.EntityFrameworkCore.ChangeTracking.Internal
             }
 
             // ReSharper disable once ConvertToAutoProperty
-            public int Id => _id;
+            public int Id
+                => _id;
 
             // ReSharper disable once ConvertToAutoPropertyWithPrivateSetter
-            public int CategoryId => _categoryId;
+            public int CategoryId
+                => _categoryId;
 
-            public void SetCategoryId(int categoryId) => _categoryId = categoryId;
+            public void SetCategoryId(int categoryId)
+                => _categoryId = categoryId;
 
             // ReSharper disable once ConvertToAutoPropertyWithPrivateSetter
-            public Category Category => _category;
+            public Category Category
+                => _category;
 
-            public void SetCategory(Category category) => _category = category;
+            public void SetCategory(Category category)
+                => _category = category;
 
             // ReSharper disable once ConvertToAutoPropertyWithPrivateSetter
             public ICollection<SpecialOffer> SpecialOffers
@@ -3032,18 +3092,23 @@ namespace Microsoft.EntityFrameworkCore.ChangeTracking.Internal
             }
 
             // ReSharper disable once ConvertToAutoProperty
-            public int Id => _id;
+            public int Id
+                => _id;
 
             // ReSharper disable once ConvertToAutoPropertyWithPrivateSetter
-            public int ProductId => _productId;
+            public int ProductId
+                => _productId;
 
             // ReSharper disable once UnusedMember.Local
-            public void SetProductId(int productId) => _productId = productId;
+            public void SetProductId(int productId)
+                => _productId = productId;
 
             // ReSharper disable once ConvertToAutoPropertyWithPrivateSetter
-            public Product Product => _product;
+            public Product Product
+                => _product;
 
-            public void SetProduct(Product product) => _product = product;
+            public void SetProduct(Product product)
+                => _product = product;
         }
 
         private sealed class FixupContext : DbContext

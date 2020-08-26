@@ -95,7 +95,7 @@ namespace Microsoft.EntityFrameworkCore.Cosmos.Query.Internal
         ///     any release. You should only use it directly in your code with extreme caution and knowing that
         ///     doing so can result in application failures when updating to a new Entity Framework Core release.
         /// </summary>
-        public override void Print(ExpressionPrinter expressionPrinter)
+        protected override void Print(ExpressionPrinter expressionPrinter)
         {
             Check.NotNull(expressionPrinter, nameof(expressionPrinter));
 
@@ -116,15 +116,15 @@ namespace Microsoft.EntityFrameworkCore.Cosmos.Query.Internal
         /// </summary>
         public override bool Equals(object obj)
             => obj != null
-               && (ReferenceEquals(this, obj)
-                   || obj is SqlConditionalExpression sqlConditionalExpression
-                   && Equals(sqlConditionalExpression));
+                && (ReferenceEquals(this, obj)
+                    || obj is SqlConditionalExpression sqlConditionalExpression
+                    && Equals(sqlConditionalExpression));
 
         private bool Equals(SqlConditionalExpression sqlConditionalExpression)
             => base.Equals(sqlConditionalExpression)
-               && Test.Equals(sqlConditionalExpression.Test)
-               && IfTrue.Equals(sqlConditionalExpression.IfTrue)
-               && IfFalse.Equals(sqlConditionalExpression.IfFalse);
+                && Test.Equals(sqlConditionalExpression.Test)
+                && IfTrue.Equals(sqlConditionalExpression.IfTrue)
+                && IfFalse.Equals(sqlConditionalExpression.IfFalse);
 
         /// <summary>
         ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to

@@ -102,9 +102,10 @@ namespace Microsoft.EntityFrameworkCore.Storage
         /// <param name="commandId"> The command correlation ID. </param>
         /// <param name="commandMethod"> The method that will be called on the created command. </param>
         /// <returns> The created command. </returns>
-        DbCommand CreateCommand(
+        DbCommand CreateDbCommand(
             RelationalCommandParameterObject parameterObject,
             Guid commandId,
-            DbCommandMethod commandMethod) => throw new NotImplementedException();
+            DbCommandMethod commandMethod)
+            => throw new NotImplementedException();
     }
 }

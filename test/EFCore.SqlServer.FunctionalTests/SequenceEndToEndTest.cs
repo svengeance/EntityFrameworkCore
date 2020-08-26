@@ -13,7 +13,6 @@ using Xunit;
 // ReSharper disable InconsistentNaming
 namespace Microsoft.EntityFrameworkCore
 {
-    [SqlServerCondition(SqlServerCondition.SupportsSequences)]
     public class SequenceEndToEndTest : IDisposable
     {
         [ConditionalFact]
@@ -434,6 +433,7 @@ namespace Microsoft.EntityFrameworkCore
 
         protected SqlServerTestStore TestStore { get; }
 
-        public void Dispose() => TestStore.Dispose();
+        public void Dispose()
+            => TestStore.Dispose();
     }
 }

@@ -4,6 +4,8 @@
 using System;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore.Diagnostics;
+using Microsoft.EntityFrameworkCore.Sqlite.Internal;
 using Microsoft.EntityFrameworkCore.TestModels.Northwind;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Xunit;
@@ -11,7 +13,7 @@ using Xunit.Abstractions;
 
 namespace Microsoft.EntityFrameworkCore.Query
 {
-    public class NorthwindSelectQuerySqliteTest : NorthwindSelectQueryTestBase<NorthwindQuerySqliteFixture<NoopModelCustomizer>>
+    public class NorthwindSelectQuerySqliteTest : NorthwindSelectQueryRelationalTestBase<NorthwindQuerySqliteFixture<NoopModelCustomizer>>
     {
         public NorthwindSelectQuerySqliteTest(NorthwindQuerySqliteFixture<NoopModelCustomizer> fixture, ITestOutputHelper testOutputHelper)
             : base(fixture)
@@ -132,24 +134,69 @@ FROM ""Orders"" AS ""o""");
 FROM ""Orders"" AS ""o""");
         }
 
-        [ConditionalTheory(Skip = "SQLite bug")]
+        [ConditionalTheory(Skip = "Issue#21541")]
         public override Task Project_single_element_from_collection_with_multiple_OrderBys_Take_and_FirstOrDefault_2(bool async)
             => base.Project_single_element_from_collection_with_multiple_OrderBys_Take_and_FirstOrDefault_2(async);
 
-        // Sqlite does not support cross/outer apply
-        public override void Select_nested_collection_multi_level()
-        {
-        }
+        public override async Task SelectMany_correlated_with_outer_1(bool async)
+            => Assert.Equal(
+                SqliteStrings.ApplyNotSupported,
+                (await Assert.ThrowsAsync<InvalidOperationException>(
+                    () => base.SelectMany_correlated_with_outer_1(async))).Message);
 
-        public override Task SelectMany_correlated_with_outer_1(bool async) => null;
+        public override async Task SelectMany_correlated_with_outer_2(bool async)
+            => Assert.Equal(
+                SqliteStrings.ApplyNotSupported,
+                (await Assert.ThrowsAsync<InvalidOperationException>(
+                    () => base.SelectMany_correlated_with_outer_2(async))).Message);
 
-        public override Task SelectMany_correlated_with_outer_2(bool async) => null;
+        public override async Task SelectMany_correlated_with_outer_3(bool async)
+            => Assert.Equal(
+                SqliteStrings.ApplyNotSupported,
+                (await Assert.ThrowsAsync<InvalidOperationException>(
+                    () => base.SelectMany_correlated_with_outer_3(async))).Message);
 
-        public override Task SelectMany_correlated_with_outer_3(bool async) => null;
+        public override async Task SelectMany_correlated_with_outer_4(bool async)
+            => Assert.Equal(
+                SqliteStrings.ApplyNotSupported,
+                (await Assert.ThrowsAsync<InvalidOperationException>(
+                    () => base.SelectMany_correlated_with_outer_4(async))).Message);
 
-        public override Task SelectMany_correlated_with_outer_4(bool async) => null;
+        public override async Task SelectMany_correlated_with_outer_5(bool async)
+            => Assert.Equal(
+                SqliteStrings.ApplyNotSupported,
+                (await Assert.ThrowsAsync<InvalidOperationException>(
+                    () => base.SelectMany_correlated_with_outer_5(async))).Message);
 
-        public override Task SelectMany_whose_selector_references_outer_source(bool async) => null;
+        public override async Task SelectMany_correlated_with_outer_6(bool async)
+            => Assert.Equal(
+                SqliteStrings.ApplyNotSupported,
+                (await Assert.ThrowsAsync<InvalidOperationException>(
+                    () => base.SelectMany_correlated_with_outer_6(async))).Message);
+
+        public override async Task SelectMany_correlated_with_outer_7(bool async)
+            => Assert.Equal(
+                SqliteStrings.ApplyNotSupported,
+                (await Assert.ThrowsAsync<InvalidOperationException>(
+                    () => base.SelectMany_correlated_with_outer_7(async))).Message);
+
+        public override async Task SelectMany_whose_selector_references_outer_source(bool async)
+            => Assert.Equal(
+                SqliteStrings.ApplyNotSupported,
+                (await Assert.ThrowsAsync<InvalidOperationException>(
+                    () => base.SelectMany_whose_selector_references_outer_source(async))).Message);
+
+        public override async Task Projecting_after_navigation_and_distinct_works_correctly(bool async)
+            => Assert.Equal(
+                SqliteStrings.ApplyNotSupported,
+                (await Assert.ThrowsAsync<InvalidOperationException>(
+                    () => base.Projecting_after_navigation_and_distinct_works_correctly(async))).Message);
+
+        public override async Task Select_nested_collection_deep(bool async)
+            => Assert.Equal(
+                SqliteStrings.ApplyNotSupported,
+                (await Assert.ThrowsAsync<InvalidOperationException>(
+                    () => base.Select_nested_collection_deep(async))).Message);
 
         [ConditionalTheory(Skip = "Issue#17324")]
         public override Task Project_single_element_from_collection_with_OrderBy_over_navigation_Take_and_FirstOrDefault_2(bool async)
@@ -166,6 +213,12 @@ FROM ""Orders"" AS ""o""");
         public override Task SelectMany_with_collection_being_correlated_subquery_which_references_inner_and_outer_entity(bool async)
         {
             return base.SelectMany_with_collection_being_correlated_subquery_which_references_inner_and_outer_entity(async);
+        }
+
+        public override Task Reverse_without_explicit_ordering_throws(bool async)
+        {
+            return AssertTranslationFailedWithDetails(
+                () => base.Reverse_without_explicit_ordering_throws(async), RelationalStrings.MissingOrderingInSqlExpression);
         }
 
         private void AssertSql(params string[] expected)

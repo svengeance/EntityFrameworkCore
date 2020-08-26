@@ -16,12 +16,17 @@ namespace Microsoft.EntityFrameworkCore.Cosmos.Query.Internal
     ///     any release. You should only use it directly in your code with extreme caution and knowing that
     ///     doing so can result in application failures when updating to a new Entity Framework Core release.
     /// </summary>
-    // Class is sealed because there are no public/protected constructors. Can be unsealed if this is changed.
     public sealed class SqlParameterExpression : SqlExpression
     {
         private readonly ParameterExpression _parameterExpression;
 
-        internal SqlParameterExpression(ParameterExpression parameterExpression, CoreTypeMapping typeMapping)
+        /// <summary>
+        ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+        ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+        ///     any release. You should only use it directly in your code with extreme caution and knowing that
+        ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+        /// </summary>
+        public SqlParameterExpression([NotNull] ParameterExpression parameterExpression, [CanBeNull] CoreTypeMapping typeMapping)
             : base(parameterExpression.Type, typeMapping)
         {
             _parameterExpression = parameterExpression;
@@ -33,7 +38,8 @@ namespace Microsoft.EntityFrameworkCore.Cosmos.Query.Internal
         ///     any release. You should only use it directly in your code with extreme caution and knowing that
         ///     doing so can result in application failures when updating to a new Entity Framework Core release.
         /// </summary>
-        public string Name => _parameterExpression.Name;
+        public string Name
+            => _parameterExpression.Name;
 
         /// <summary>
         ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
@@ -63,7 +69,7 @@ namespace Microsoft.EntityFrameworkCore.Cosmos.Query.Internal
         ///     any release. You should only use it directly in your code with extreme caution and knowing that
         ///     doing so can result in application failures when updating to a new Entity Framework Core release.
         /// </summary>
-        public override void Print(ExpressionPrinter expressionPrinter)
+        protected override void Print(ExpressionPrinter expressionPrinter)
         {
             Check.NotNull(expressionPrinter, nameof(expressionPrinter));
 
@@ -78,13 +84,13 @@ namespace Microsoft.EntityFrameworkCore.Cosmos.Query.Internal
         /// </summary>
         public override bool Equals(object obj)
             => obj != null
-               && (ReferenceEquals(this, obj)
-                   || obj is SqlParameterExpression sqlParameterExpression
-                   && Equals(sqlParameterExpression));
+                && (ReferenceEquals(this, obj)
+                    || obj is SqlParameterExpression sqlParameterExpression
+                    && Equals(sqlParameterExpression));
 
         private bool Equals(SqlParameterExpression sqlParameterExpression)
             => base.Equals(sqlParameterExpression)
-               && string.Equals(Name, sqlParameterExpression.Name);
+                && string.Equals(Name, sqlParameterExpression.Name);
 
         /// <summary>
         ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
@@ -92,6 +98,7 @@ namespace Microsoft.EntityFrameworkCore.Cosmos.Query.Internal
         ///     any release. You should only use it directly in your code with extreme caution and knowing that
         ///     doing so can result in application failures when updating to a new Entity Framework Core release.
         /// </summary>
-        public override int GetHashCode() => HashCode.Combine(base.GetHashCode(), Name);
+        public override int GetHashCode()
+            => HashCode.Combine(base.GetHashCode(), Name);
     }
 }

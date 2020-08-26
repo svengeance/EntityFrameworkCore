@@ -7,7 +7,6 @@ using System.Data;
 using System.Data.Common;
 using System.IO;
 using System.Linq;
-using System.Reflection;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
@@ -20,7 +19,9 @@ namespace Microsoft.EntityFrameworkCore.TestUtilities
     public class SqlServerTestStore : RelationalTestStore
     {
         public const int CommandTimeout = 300;
-        private static string CurrentDirectory => Environment.CurrentDirectory;
+
+        private static string CurrentDirectory
+            => Environment.CurrentDirectory;
 
         public static SqlServerTestStore GetNorthwindStore()
             => (SqlServerTestStore)SqlServerNorthwindTestStoreFactory.Instance
@@ -32,8 +33,8 @@ namespace Microsoft.EntityFrameworkCore.TestUtilities
         public static SqlServerTestStore GetOrCreateInitialized(string name)
             => new SqlServerTestStore(name).InitializeSqlServer(null, (Func<DbContext>)null, null);
 
-        public static SqlServerTestStore GetOrCreate(string name, string scriptPath)
-            => new SqlServerTestStore(name, scriptPath: scriptPath);
+        public static SqlServerTestStore GetOrCreate(string name, string scriptPath, bool? multipleActiveResultSets = null)
+            => new SqlServerTestStore(name, scriptPath: scriptPath, multipleActiveResultSets: multipleActiveResultSets);
 
         public static SqlServerTestStore Create(string name, bool useFileName = false)
             => new SqlServerTestStore(name, useFileName, shared: false);
@@ -68,11 +69,15 @@ namespace Microsoft.EntityFrameworkCore.TestUtilities
         }
 
         public SqlServerTestStore InitializeSqlServer(
-            IServiceProvider serviceProvider, Func<DbContext> createContext, Action<DbContext> seed)
+            IServiceProvider serviceProvider,
+            Func<DbContext> createContext,
+            Action<DbContext> seed)
             => (SqlServerTestStore)Initialize(serviceProvider, createContext, seed);
 
         public SqlServerTestStore InitializeSqlServer(
-            IServiceProvider serviceProvider, Func<SqlServerTestStore, DbContext> createContext, Action<DbContext> seed)
+            IServiceProvider serviceProvider,
+            Func<SqlServerTestStore, DbContext> createContext,
+            Action<DbContext> seed)
             => InitializeSqlServer(serviceProvider, () => createContext(this), seed);
 
         protected override void Initialize(Func<DbContext> createContext, Action<DbContext> seed, Action<DbContext> clean)
@@ -291,8 +296,11 @@ namespace Microsoft.EntityFrameworkCore.TestUtilities
                 }, sql, false, parameters);
 
         private static T Execute<T>(
-            DbConnection connection, Func<DbCommand, T> execute, string sql,
-            bool useTransaction = false, object[] parameters = null)
+            DbConnection connection,
+            Func<DbCommand, T> execute,
+            string sql,
+            bool useTransaction = false,
+            object[] parameters = null)
             => new TestSqlServerRetryingExecutionStrategy().Execute(
                 new
                 {
@@ -305,7 +313,11 @@ namespace Microsoft.EntityFrameworkCore.TestUtilities
                 state => ExecuteCommand(state.connection, state.execute, state.sql, state.useTransaction, state.parameters));
 
         private static T ExecuteCommand<T>(
-            DbConnection connection, Func<DbCommand, T> execute, string sql, bool useTransaction, object[] parameters)
+            DbConnection connection,
+            Func<DbCommand, T> execute,
+            string sql,
+            bool useTransaction,
+            object[] parameters)
         {
             if (connection.State != ConnectionState.Closed)
             {
@@ -337,8 +349,11 @@ namespace Microsoft.EntityFrameworkCore.TestUtilities
         }
 
         private static Task<T> ExecuteAsync<T>(
-            DbConnection connection, Func<DbCommand, Task<T>> executeAsync, string sql,
-            bool useTransaction = false, IReadOnlyList<object> parameters = null)
+            DbConnection connection,
+            Func<DbCommand, Task<T>> executeAsync,
+            string sql,
+            bool useTransaction = false,
+            IReadOnlyList<object> parameters = null)
             => new TestSqlServerRetryingExecutionStrategy().ExecuteAsync(
                 new
                 {
@@ -351,7 +366,10 @@ namespace Microsoft.EntityFrameworkCore.TestUtilities
                 state => ExecuteCommandAsync(state.connection, state.executeAsync, state.sql, state.useTransaction, state.parameters));
 
         private static async Task<T> ExecuteCommandAsync<T>(
-            DbConnection connection, Func<DbCommand, Task<T>> executeAsync, string sql, bool useTransaction,
+            DbConnection connection,
+            Func<DbCommand, Task<T>> executeAsync,
+            string sql,
+            bool useTransaction,
             IReadOnlyList<object> parameters)
         {
             if (connection.State != ConnectionState.Closed)
@@ -386,7 +404,9 @@ namespace Microsoft.EntityFrameworkCore.TestUtilities
         }
 
         private static DbCommand CreateCommand(
-            DbConnection connection, string commandText, IReadOnlyList<object> parameters = null)
+            DbConnection connection,
+            string commandText,
+            IReadOnlyList<object> parameters = null)
         {
             var command = (SqlCommand)connection.CreateCommand();
 

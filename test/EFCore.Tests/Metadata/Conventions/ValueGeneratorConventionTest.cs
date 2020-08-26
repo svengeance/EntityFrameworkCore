@@ -3,6 +3,7 @@
 
 using System.Collections.Generic;
 using System.Linq;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Microsoft.EntityFrameworkCore.Metadata.Conventions.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata.Conventions.Internal;
@@ -446,49 +447,44 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Conventions
         #endregion
 
         private static void RunConvention(InternalEntityTypeBuilder entityBuilder)
-        {
-            new ValueGenerationConvention(CreateDependencies())
+            => new ValueGenerationConvention(CreateDependencies())
                 .ProcessEntityTypePrimaryKeyChanged(
                     entityBuilder, entityBuilder.Metadata.FindPrimaryKey(), null,
                     new ConventionContext<IConventionKey>(entityBuilder.Metadata.Model.ConventionDispatcher));
-        }
 
-        private static void RunConvention(InternalRelationshipBuilder foreignKeyBuilder)
-        {
-            new ValueGenerationConvention(CreateDependencies())
+        private static void RunConvention(InternalForeignKeyBuilder foreignKeyBuilder)
+            => new ValueGenerationConvention(CreateDependencies())
                 .ProcessForeignKeyAdded(
                     foreignKeyBuilder,
-                    new ConventionContext<IConventionRelationshipBuilder>(
+                    new ConventionContext<IConventionForeignKeyBuilder>(
                         foreignKeyBuilder.Metadata.DeclaringEntityType.Model.ConventionDispatcher));
-        }
 
         private static void RunConvention(InternalEntityTypeBuilder entityBuilder, ForeignKey foreignKey)
-        {
-            new ValueGenerationConvention(CreateDependencies())
+            => new ValueGenerationConvention(CreateDependencies())
                 .ProcessForeignKeyRemoved(
                     entityBuilder, foreignKey,
                     new ConventionContext<IConventionForeignKey>(entityBuilder.Metadata.Model.ConventionDispatcher));
-        }
 
         private static ProviderConventionSetBuilderDependencies CreateDependencies()
             => InMemoryTestHelpers.Instance.CreateContextServices().GetRequiredService<ProviderConventionSetBuilderDependencies>();
 
         private static InternalModelBuilder CreateInternalModelBuilder()
         {
-            var conventions = new ConventionSet();
-            var dependencies = CreateDependencies();
+            var serviceProvider = InMemoryTestHelpers.Instance.CreateContextServices();
+            var conventionSet = new ConventionSet();
+            var dependencies = serviceProvider.GetRequiredService<ProviderConventionSetBuilderDependencies>();
 
-            conventions.EntityTypeAddedConventions.Add(new PropertyDiscoveryConvention(dependencies));
-
-            conventions.EntityTypeAddedConventions.Add(new KeyDiscoveryConvention(dependencies));
+            // Use public API to add conventions, issue #214
+            conventionSet.EntityTypeAddedConventions.Add(new PropertyDiscoveryConvention(dependencies));
+            conventionSet.EntityTypeAddedConventions.Add(new KeyDiscoveryConvention(dependencies));
 
             var keyConvention = new ValueGenerationConvention(dependencies);
 
-            conventions.ForeignKeyAddedConventions.Add(keyConvention);
-            conventions.ForeignKeyRemovedConventions.Add(keyConvention);
-            conventions.EntityTypePrimaryKeyChangedConventions.Add(keyConvention);
+            conventionSet.ForeignKeyAddedConventions.Add(keyConvention);
+            conventionSet.ForeignKeyRemovedConventions.Add(keyConvention);
+            conventionSet.EntityTypePrimaryKeyChangedConventions.Add(keyConvention);
 
-            return new InternalModelBuilder(new Model(conventions));
+            return new Model(conventionSet, serviceProvider.GetRequiredService<ModelDependencies>()).Builder;
         }
     }
 }

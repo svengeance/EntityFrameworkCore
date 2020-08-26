@@ -78,22 +78,24 @@ namespace Microsoft.EntityFrameworkCore.Cosmos.Storage.Internal
         /// </summary>
         public virtual async Task<bool> EnsureCreatedAsync(CancellationToken cancellationToken = default)
         {
-            var created = await _cosmosClient.CreateDatabaseIfNotExistsAsync(cancellationToken);
+            var created = await _cosmosClient.CreateDatabaseIfNotExistsAsync(cancellationToken)
+                .ConfigureAwait(false);
             foreach (var entityType in _model.GetEntityTypes())
             {
                 var containerName = entityType.GetContainer();
                 if (containerName != null)
                 {
                     created |= await _cosmosClient.CreateContainerIfNotExistsAsync(
-                        containerName,
-                        GetPartitionKeyStoreName(entityType),
-                        cancellationToken);
+                            containerName,
+                            GetPartitionKeyStoreName(entityType),
+                            cancellationToken)
+                        .ConfigureAwait(false);
                 }
             }
 
             if (created)
             {
-                await SeedAsync(cancellationToken);
+                await SeedAsync(cancellationToken).ConfigureAwait(false);
             }
 
             return created;
@@ -146,7 +148,8 @@ namespace Microsoft.EntityFrameworkCore.Cosmos.Storage.Internal
         ///     any release. You should only use it directly in your code with extreme caution and knowing that
         ///     doing so can result in application failures when updating to a new Entity Framework Core release.
         /// </summary>
-        public virtual bool EnsureDeleted() => _cosmosClient.DeleteDatabase();
+        public virtual bool EnsureDeleted()
+            => _cosmosClient.DeleteDatabase();
 
         /// <summary>
         ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to

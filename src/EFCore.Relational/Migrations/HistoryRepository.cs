@@ -68,7 +68,8 @@ namespace Microsoft.EntityFrameworkCore.Migrations
         /// <summary>
         ///     A helper class for generation of SQL.
         /// </summary>
-        protected virtual ISqlGenerationHelper SqlGenerationHelper => Dependencies.SqlGenerationHelper;
+        protected virtual ISqlGenerationHelper SqlGenerationHelper
+            => Dependencies.SqlGenerationHelper;
 
         /// <summary>
         ///     THe history table name.
@@ -76,7 +77,7 @@ namespace Microsoft.EntityFrameworkCore.Migrations
         protected virtual string TableName { get; }
 
         /// <summary>
-        ///     The schema that contains the history table, or <c>null</c> if the default schema should be used.
+        ///     The schema that contains the history table, or <see langword="null" /> if the default schema should be used.
         /// </summary>
         protected virtual string TableSchema { get; }
 
@@ -94,8 +95,9 @@ namespace Microsoft.EntityFrameworkCore.Migrations
             if (_model == null)
             {
                 var conventionSet = Dependencies.ConventionSetBuilder.CreateConventionSet();
-                ConventionSet.Remove(conventionSet.ModelInitializedConventions, typeof(DbSetFindingConvention));
 
+                // Use public API to remove the convention, issue #214
+                ConventionSet.Remove(conventionSet.ModelInitializedConventions, typeof(DbSetFindingConvention));
                 var modelBuilder = new ModelBuilder(conventionSet);
                 modelBuilder.Entity<HistoryRow>(
                     x =>
@@ -127,7 +129,7 @@ namespace Microsoft.EntityFrameworkCore.Migrations
         /// <summary>
         ///     Checks whether or not the history table exists.
         /// </summary>
-        /// <returns> <c>true</c> if the table already exists, <c>false</c> otherwise. </returns>
+        /// <returns> <see langword="true" /> if the table already exists, <see langword="false" /> otherwise. </returns>
         public virtual bool Exists()
             => Dependencies.DatabaseCreator.Exists()
                 && InterpretExistsResult(
@@ -145,10 +147,10 @@ namespace Microsoft.EntityFrameworkCore.Migrations
         /// <param name="cancellationToken">A <see cref="CancellationToken" /> to observe while waiting for the task to complete.</param>
         /// <returns>
         ///     A task that represents the asynchronous operation. The task result contains
-        ///     <c>true</c> if the table already exists, <c>false</c> otherwise.
+        ///     <see langword="true" /> if the table already exists, <see langword="false" /> otherwise.
         /// </returns>
         public virtual async Task<bool> ExistsAsync(CancellationToken cancellationToken = default)
-            => await Dependencies.DatabaseCreator.ExistsAsync(cancellationToken)
+            => await Dependencies.DatabaseCreator.ExistsAsync(cancellationToken).ConfigureAwait(false)
                 && InterpretExistsResult(
                     await Dependencies.RawSqlCommandBuilder.Build(ExistsSql).ExecuteScalarAsync(
                         new RelationalCommandParameterObject(
@@ -157,12 +159,12 @@ namespace Microsoft.EntityFrameworkCore.Migrations
                             null,
                             Dependencies.CurrentContext.Context,
                             Dependencies.CommandLogger),
-                        cancellationToken));
+                        cancellationToken).ConfigureAwait(false));
 
         /// <summary>
         ///     Interprets the result of executing <see cref="ExistsSql" />.
         /// </summary>
-        /// <returns><c>true</c> if the table already exists, <c>false</c> otherwise.</returns>
+        /// <returns><see langword="true" /> if the table already exists, <see langword="false" /> otherwise.</returns>
         protected abstract bool InterpretExistsResult([NotNull] object value);
 
         /// <summary>
@@ -180,7 +182,7 @@ namespace Microsoft.EntityFrameworkCore.Migrations
         {
             var model = EnsureModel();
 
-            var operations = Dependencies.ModelDiffer.GetDifferences(null, model);
+            var operations = Dependencies.ModelDiffer.GetDifferences(null, model.GetRelationalModel());
             var commandList = Dependencies.MigrationsSqlGenerator.Generate(operations, model);
 
             return string.Concat(commandList.Select(c => c.CommandText));
@@ -244,7 +246,7 @@ namespace Microsoft.EntityFrameworkCore.Migrations
         {
             var rows = new List<HistoryRow>();
 
-            if (await ExistsAsync(cancellationToken))
+            if (await ExistsAsync(cancellationToken).ConfigureAwait(false))
             {
                 var command = Dependencies.RawSqlCommandBuilder.Build(GetAppliedMigrationsSql);
 
@@ -255,8 +257,8 @@ namespace Microsoft.EntityFrameworkCore.Migrations
                         null,
                         Dependencies.CurrentContext.Context,
                         Dependencies.CommandLogger),
-                    cancellationToken);
-                while (await reader.ReadAsync(cancellationToken))
+                    cancellationToken).ConfigureAwait(false);
+                while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
                 {
                     rows.Add(new HistoryRow(reader.DbDataReader.GetString(0), reader.DbDataReader.GetString(1)));
                 }

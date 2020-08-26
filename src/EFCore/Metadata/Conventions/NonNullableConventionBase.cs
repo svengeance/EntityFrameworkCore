@@ -3,12 +3,12 @@
 
 using System;
 using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Reflection;
+using JetBrains.Annotations;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Microsoft.EntityFrameworkCore.Metadata.Conventions.Infrastructure;
-using JetbrainsNotNull = JetBrains.Annotations.NotNullAttribute;
+using CA = System.Diagnostics.CodeAnalysis;
 
 namespace Microsoft.EntityFrameworkCore.Metadata.Conventions
 {
@@ -16,7 +16,7 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Conventions
     ///     A base type for conventions that configure model aspects based on whether the member type
     ///     is a non-nullable reference type.
     /// </summary>
-    public abstract class NonNullableConventionBase : IModelFinalizedConvention
+    public abstract class NonNullableConventionBase : IModelFinalizingConvention
     {
         // For the interpretation of nullability metadata, see
         // https://github.com/dotnet/roslyn/blob/master/docs/features/nullable-metadata.md
@@ -29,7 +29,7 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Conventions
         ///     Creates a new instance of <see cref="NonNullableConventionBase" />.
         /// </summary>
         /// <param name="dependencies"> Parameter object containing dependencies for this convention. </param>
-        protected NonNullableConventionBase([JetbrainsNotNull] ProviderConventionSetBuilderDependencies dependencies)
+        protected NonNullableConventionBase([NotNull] ProviderConventionSetBuilderDependencies dependencies)
         {
             Dependencies = dependencies;
         }
@@ -44,10 +44,10 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Conventions
         /// </summary>
         /// <param name="modelBuilder"> The model builder used to build the model. </param>
         /// <param name="memberInfo"> The member info. </param>
-        /// <returns> <c>true</c> if the member type is a non-nullable reference type. </returns>
+        /// <returns> <see langword="true" /> if the member type is a non-nullable reference type. </returns>
         protected virtual bool IsNonNullableReferenceType(
-            [JetbrainsNotNull] IConventionModelBuilder modelBuilder,
-            [JetbrainsNotNull] MemberInfo memberInfo)
+            [NotNull] IConventionModelBuilder modelBuilder,
+            [NotNull] MemberInfo memberInfo)
         {
             if (memberInfo.GetMemberType().IsValueType)
             {
@@ -59,8 +59,8 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Conventions
             // First check for [MaybeNull] on the return value. If it exists, the member is nullable.
             var isMaybeNull = memberInfo switch
             {
-                FieldInfo f => f.GetCustomAttribute<MaybeNullAttribute>() != null,
-                PropertyInfo p => p.GetMethod?.ReturnParameter?.GetCustomAttribute<MaybeNullAttribute>() != null,
+                FieldInfo f => f.GetCustomAttribute<CA.MaybeNullAttribute>() != null,
+                PropertyInfo p => p.GetMethod?.ReturnParameter?.GetCustomAttribute<CA.MaybeNullAttribute>() != null,
                 _ => false
             };
 
@@ -69,9 +69,9 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Conventions
                 return false;
             }
 
-            // For C# 8.0 nullable types, the C# currently synthesizes a NullableAttribute that expresses nullability into assemblies
-            // it produces. If the model is spread across more than one assembly, there will be multiple versions of this attribute,
-            // so look for it by name, caching to avoid reflection on every check.
+            // For C# 8.0 nullable types, the C# compiler currently synthesizes a NullableAttribute that expresses nullability into
+            // assemblies it produces. If the model is spread across more than one assembly, there will be multiple versions of this
+            // attribute, so look for it by name, caching to avoid reflection on every check.
             // Note that this may change - if https://github.com/dotnet/corefx/issues/36222 is done we can remove all of this.
 
             // First look for NullableAttribute on the member itself
@@ -114,6 +114,18 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Conventions
 
                     if (state.NullableContextFlagFieldInfo?.GetValue(contextAttr) is byte flag)
                     {
+                        // We currently don't calculate support nullability for generic properties, since calculating that is complex
+                        // (depends on the nullability of generic type argument).
+                        // However, we special case Dictionary as it's used for property bags, and specifically don't identify its indexer
+                        // as non-nullable.
+                        if (memberInfo is PropertyInfo property
+                            && property.IsIndexerProperty()
+                            && type.IsGenericType
+                            && type.GetGenericTypeDefinition() == typeof(Dictionary<,>))
+                        {
+                            return false;
+                        }
+
                         return state.TypeCache[type] = flag == 1;
                     }
                 }
@@ -130,12 +142,10 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Conventions
                 ?? modelBuilder.Metadata.AddAnnotation(StateAnnotationName, new NonNullabilityConventionState())
             ).Value;
 
-        /// <summary>
-        ///     Called after a model is finalized. Removes the cached state annotation used by this convention.
-        /// </summary>
-        /// <param name="modelBuilder"> The builder for the model. </param>
-        /// <param name="context"> Additional information associated with convention execution. </param>
-        public virtual void ProcessModelFinalized(IConventionModelBuilder modelBuilder, IConventionContext<IConventionModelBuilder> context)
+        /// <inheritdoc />
+        public virtual void ProcessModelFinalizing(
+            IConventionModelBuilder modelBuilder,
+            IConventionContext<IConventionModelBuilder> context)
             => modelBuilder.Metadata.RemoveAnnotation(StateAnnotationName);
 
         private sealed class NonNullabilityConventionState

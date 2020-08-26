@@ -45,7 +45,7 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Conventions
                 && oldBaseType.BaseType == null
                 && !oldBaseType.GetDirectlyDerivedTypes().Any())
             {
-                oldBaseType.Builder?.HasNoDeclaredDiscriminator();
+                oldBaseType.Builder?.HasNoDiscriminator();
             }
 
             var conventionEntityTypeBuilder = entityTypeBuilder;
@@ -57,7 +57,7 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Conventions
             {
                 if (derivedEntityTypes.Count == 0)
                 {
-                    conventionEntityTypeBuilder.HasNoDeclaredDiscriminator();
+                    conventionEntityTypeBuilder.HasNoDiscriminator();
                     return;
                 }
 
@@ -65,7 +65,7 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Conventions
             }
             else
             {
-                if (conventionEntityTypeBuilder.HasNoDeclaredDiscriminator() == null)
+                if (conventionEntityTypeBuilder.HasNoDiscriminator() == null)
                 {
                     return;
                 }
@@ -102,7 +102,7 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Conventions
                 && oldBaseType.BaseType == null
                 && !oldBaseType.GetDirectlyDerivedTypes().Any())
             {
-                oldBaseType.Builder?.HasNoDeclaredDiscriminator();
+                oldBaseType.Builder?.HasNoDiscriminator();
             }
         }
 
@@ -112,7 +112,8 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Conventions
         /// <param name="entityTypes"> The entity types to configure. </param>
         /// <param name="discriminatorBuilder"> The discriminator builder. </param>
         protected virtual void SetDefaultDiscriminatorValues(
-            [NotNull] IEnumerable<IConventionEntityType> entityTypes, [NotNull] IConventionDiscriminatorBuilder discriminatorBuilder)
+            [NotNull] IEnumerable<IConventionEntityType> entityTypes,
+            [NotNull] IConventionDiscriminatorBuilder discriminatorBuilder)
         {
             foreach (var entityType in entityTypes)
             {

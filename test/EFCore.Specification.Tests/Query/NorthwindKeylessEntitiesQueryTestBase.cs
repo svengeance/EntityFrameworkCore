@@ -1,7 +1,6 @@
 // Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
-using System;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore.TestModels.Northwind;
@@ -19,7 +18,8 @@ namespace Microsoft.EntityFrameworkCore.Query
         {
         }
 
-        protected NorthwindContext CreateContext() => Fixture.CreateContext();
+        protected NorthwindContext CreateContext()
+            => Fixture.CreateContext();
 
         protected virtual void ClearLog()
         {
@@ -31,7 +31,7 @@ namespace Microsoft.EntityFrameworkCore.Query
         {
             return AssertQuery(
                 async,
-                ss => ss.Set<CustomerView>());
+                ss => ss.Set<CustomerQuery>());
         }
 
         [ConditionalTheory]
@@ -40,14 +40,14 @@ namespace Microsoft.EntityFrameworkCore.Query
         {
             return AssertQuery(
                 async,
-                ss => ss.Set<CustomerView>().Where(c => c.City == "London"));
+                ss => ss.Set<CustomerQuery>().Where(c => c.City == "London"));
         }
 
         [ConditionalFact]
         public virtual void KeylessEntity_by_database_view()
         {
             using var context = CreateContext();
-            var results = context.Set<ProductQuery>().ToArray();
+            var results = context.Set<ProductView>().ToArray();
 
             Assert.Equal(69, results.Length);
         }
@@ -66,11 +66,11 @@ namespace Microsoft.EntityFrameworkCore.Query
         {
             using var context = CreateContext();
             var results
-                = context.Set<CustomerQuery>()
+                = context.Set<CustomerQueryWithQueryFilter>()
                     .Where(cq => cq.OrderCount > 0)
                     .ToArray();
 
-            Assert.Equal(4, results.Length);
+            Assert.Equal(89, results.Length);
         }
 
         [ConditionalTheory]
@@ -82,7 +82,7 @@ namespace Microsoft.EntityFrameworkCore.Query
                 ss => ss.Set<OrderQuery>().Where(ov => ov.CustomerID == "ALFKI"));
         }
 
-        [ConditionalTheory]
+        [ConditionalTheory(Skip = "Issue#21828")]
         [MemberData(nameof(IsAsyncData))]
         public virtual Task KeylessEntity_with_defining_query_and_correlated_collection(bool async)
         {
@@ -111,46 +111,31 @@ namespace Microsoft.EntityFrameworkCore.Query
 
         [ConditionalTheory]
         [MemberData(nameof(IsAsyncData))]
-        public virtual async Task KeylessEntity_with_included_nav(bool async)
+        public virtual Task KeylessEntity_with_included_nav(bool async)
         {
-            using var ctx = CreateContext();
-            if (async)
-            {
-                await Assert.ThrowsAsync<InvalidOperationException>(
-                    () => (from ov in ctx.Set<OrderQuery>().Include(ov => ov.Customer)
-                           where ov.CustomerID == "ALFKI"
-                           select ov).ToListAsync());
-            }
-            else
-            {
-                await Assert.ThrowsAsync<InvalidOperationException>(
-                    () => Task.FromResult(
-                        (from ov in ctx.Set<OrderQuery>().Include(ov => ov.Customer)
-                         where ov.CustomerID == "ALFKI"
-                         select ov).ToList()));
-            }
+            return AssertQuery(
+                async,
+                ss => from ov in ss.Set<OrderQuery>().Include(ov => ov.Customer)
+                      where ov.CustomerID == "ALFKI"
+                      select ov,
+                elementAsserter: (e, a) => AssertInclude(e, a, new ExpectedInclude<OrderQuery>(ov => ov.Customer)),
+                entryCount: 1);
         }
 
-        [ConditionalTheory]
+        [ConditionalTheory(Skip = "Issue#21828")]
         [MemberData(nameof(IsAsyncData))]
-        public virtual async Task KeylessEntity_with_included_navs_multi_level(bool async)
+        public virtual Task KeylessEntity_with_included_navs_multi_level(bool async)
         {
-            using var ctx = CreateContext();
-            if (async)
-            {
-                await Assert.ThrowsAsync<InvalidOperationException>(
-                    () => (from ov in ctx.Set<OrderQuery>().Include(ov => ov.Customer.Orders)
-                           where ov.CustomerID == "ALFKI"
-                           select ov).ToListAsync());
-            }
-            else
-            {
-                await Assert.ThrowsAsync<InvalidOperationException>(
-                    () => Task.FromResult(
-                        (from ov in ctx.Set<OrderQuery>().Include(ov => ov.Customer.Orders)
-                         where ov.CustomerID == "ALFKI"
-                         select ov).ToList()));
-            }
+            return AssertQuery(
+                async,
+                ss => from ov in ss.Set<OrderQuery>().Include(ov => ov.Customer.Orders)
+                      where ov.CustomerID == "ALFKI"
+                      select ov,
+                elementAsserter: (e, a) => AssertInclude(
+                    e, a,
+                    new ExpectedInclude<OrderQuery>(ov => ov.Customer),
+                    new ExpectedInclude<Customer>(c => c.Orders, "Customer")),
+                entryCount: 1);
         }
 
         [ConditionalTheory]
@@ -177,14 +162,46 @@ namespace Microsoft.EntityFrameworkCore.Query
 
         [ConditionalTheory]
         [MemberData(nameof(IsAsyncData))]
-        public virtual Task KeylesEntity_groupby(bool async)
+        public virtual Task KeylessEntity_groupby(bool async)
         {
             return AssertQuery(
                 async,
-                ss => ss.Set<CustomerView>()
+                ss => ss.Set<CustomerQuery>()
                     .GroupBy(cv => cv.City)
-                    .Select(g => new { g.Key, Count = g.Count(), Sum = g.Sum(e => e.Address.Length) }),
+                    .Select(
+                        g => new
+                        {
+                            g.Key,
+                            Count = g.Count(),
+                            Sum = g.Sum(e => e.Address.Length)
+                        }),
                 elementSorter: e => (e.Key, e.Count, e.Sum));
+        }
+
+        [ConditionalFact]
+        public virtual void Entity_mapped_to_view_on_right_side_of_join()
+        {
+            using var context = CreateContext();
+
+            var results = (from o in context.Set<Order>()
+                           join pv in context.Set<ProductView>() on o.CustomerID equals pv.CategoryName into grouping
+                           from pv in grouping.DefaultIfEmpty()
+                           select new { Order = o, ProductView = pv }).ToList();
+
+            Assert.Equal(830, results.Count);
+        }
+
+        [ConditionalTheory]
+        [MemberData(nameof(IsAsyncData))]
+        public virtual Task Collection_correlated_with_keyless_entity_in_predicate_works(bool async)
+        {
+            return AssertQuery(
+                async,
+                ss => ss.Set<CustomerQuery>()
+                    .Where(cq => ss.Set<Customer>().Where(c => c.City == cq.City).Any())
+                    .Select(pv => new { pv.City, pv.ContactName })
+                    .OrderBy(x => x.ContactName)
+                    .Take(2));
         }
     }
 }

@@ -302,7 +302,8 @@ namespace Microsoft.EntityFrameworkCore.ChangeTracking.Internal
 
         private class BaxterWithMappingContext : BaxterContext
         {
-            protected override bool UseTypeMapping => true;
+            protected override bool UseTypeMapping
+                => true;
         }
 
         private class ConcreteTypeMapping : CoreTypeMapping
@@ -323,7 +324,8 @@ namespace Microsoft.EntityFrameworkCore.ChangeTracking.Internal
 
         private class BaxterContext : DbContext
         {
-            protected virtual bool UseTypeMapping => false;
+            protected virtual bool UseTypeMapping
+                => false;
 
             protected internal override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
                 => optionsBuilder
@@ -351,11 +353,11 @@ namespace Microsoft.EntityFrameworkCore.ChangeTracking.Internal
 
                 if (UseTypeMapping)
                 {
-                    property[CoreAnnotationNames.TypeMapping]
-                        = new ConcreteTypeMapping(typeof(int[]), intArrayConverter, intArrayComparer);
+                    property.SetTypeMapping(
+                        new ConcreteTypeMapping(typeof(int[]), intArrayConverter, intArrayComparer));
 
-                    shadowProperty[CoreAnnotationNames.TypeMapping]
-                        = new ConcreteTypeMapping(typeof(int[]), intArrayConverter, intArrayComparer);
+                    shadowProperty.SetTypeMapping(
+                        new ConcreteTypeMapping(typeof(int[]), intArrayConverter, intArrayComparer));
                 }
                 else
                 {
@@ -410,8 +412,8 @@ namespace Microsoft.EntityFrameworkCore.ChangeTracking.Internal
 
             Assert.Same(entry, testListener.KeyChange.Item1);
             Assert.Same(entry.EntityType.FindProperty("PrincipalId"), testListener.KeyChange.Item2);
-            Assert.Equal(1, testListener.KeyChange.Item3.Count);
-            Assert.Equal(0, testListener.KeyChange.Item4.Count);
+            Assert.Single(testListener.KeyChange.Item3);
+            Assert.Empty(testListener.KeyChange.Item4);
             Assert.Equal(77, testListener.KeyChange.Item5);
             Assert.Equal(78, testListener.KeyChange.Item6);
 
@@ -443,8 +445,8 @@ namespace Microsoft.EntityFrameworkCore.ChangeTracking.Internal
 
             Assert.Same(entry, testListener.KeyChange.Item1);
             Assert.Same(entry.EntityType.FindProperty("PrincipalId"), testListener.KeyChange.Item2);
-            Assert.Equal(1, testListener.KeyChange.Item3.Count);
-            Assert.Equal(0, testListener.KeyChange.Item4.Count);
+            Assert.Single(testListener.KeyChange.Item3);
+            Assert.Empty(testListener.KeyChange.Item4);
             Assert.Equal(78, testListener.KeyChange.Item5);
             Assert.Equal(77, testListener.KeyChange.Item6);
 
@@ -475,8 +477,8 @@ namespace Microsoft.EntityFrameworkCore.ChangeTracking.Internal
 
             Assert.Same(entry, testListener.KeyChange.Item1);
             Assert.Same(property, testListener.KeyChange.Item2);
-            Assert.Equal(1, testListener.KeyChange.Item3.Count);
-            Assert.Equal(0, testListener.KeyChange.Item4.Count);
+            Assert.Single(testListener.KeyChange.Item3);
+            Assert.Empty(testListener.KeyChange.Item4);
             Assert.Equal(77, testListener.KeyChange.Item5);
             Assert.Equal(78, testListener.KeyChange.Item6);
 
@@ -509,8 +511,8 @@ namespace Microsoft.EntityFrameworkCore.ChangeTracking.Internal
 
             Assert.Same(entry, testListener.KeyChange.Item1);
             Assert.Same(entry.EntityType.FindProperty("Id"), testListener.KeyChange.Item2);
-            Assert.Equal(1, testListener.KeyChange.Item3.Count);
-            Assert.Equal(0, testListener.KeyChange.Item4.Count);
+            Assert.Single(testListener.KeyChange.Item3);
+            Assert.Empty(testListener.KeyChange.Item4);
             Assert.Equal(-1, testListener.KeyChange.Item5);
             Assert.Equal(78, testListener.KeyChange.Item6);
 
@@ -546,8 +548,8 @@ namespace Microsoft.EntityFrameworkCore.ChangeTracking.Internal
 
             Assert.Same(entry, testListener.KeyChange.Item1);
             Assert.Same(entry.EntityType.FindProperty("Id"), testListener.KeyChange.Item2);
-            Assert.Equal(1, testListener.KeyChange.Item3.Count);
-            Assert.Equal(0, testListener.KeyChange.Item4.Count);
+            Assert.Single(testListener.KeyChange.Item3);
+            Assert.Empty(testListener.KeyChange.Item4);
             Assert.Equal(-1, testListener.KeyChange.Item5);
             Assert.Equal(78, testListener.KeyChange.Item6);
 
@@ -624,8 +626,8 @@ namespace Microsoft.EntityFrameworkCore.ChangeTracking.Internal
 
             Assert.Same(entry, testListener.KeyChange.Item1);
             Assert.Same(entry.EntityType.FindProperty("DependentId"), testListener.KeyChange.Item2);
-            Assert.Equal(0, testListener.KeyChange.Item3.Count);
-            Assert.Equal(1, testListener.KeyChange.Item4.Count);
+            Assert.Empty(testListener.KeyChange.Item3);
+            Assert.Single(testListener.KeyChange.Item4);
             Assert.Equal(77, testListener.KeyChange.Item5);
             Assert.Equal(78, testListener.KeyChange.Item6);
 
@@ -657,8 +659,8 @@ namespace Microsoft.EntityFrameworkCore.ChangeTracking.Internal
 
             Assert.Same(entry, testListener.KeyChange.Item1);
             Assert.Same(entry.EntityType.FindProperty("DependentId"), testListener.KeyChange.Item2);
-            Assert.Equal(0, testListener.KeyChange.Item3.Count);
-            Assert.Equal(1, testListener.KeyChange.Item4.Count);
+            Assert.Empty(testListener.KeyChange.Item3);
+            Assert.Single(testListener.KeyChange.Item4);
             Assert.Equal(78, testListener.KeyChange.Item5);
             Assert.Equal(77, testListener.KeyChange.Item6);
 
@@ -688,8 +690,8 @@ namespace Microsoft.EntityFrameworkCore.ChangeTracking.Internal
 
             Assert.Same(entry, testListener.KeyChange.Item1);
             Assert.Same(property, testListener.KeyChange.Item2);
-            Assert.Equal(0, testListener.KeyChange.Item3.Count);
-            Assert.Equal(1, testListener.KeyChange.Item4.Count);
+            Assert.Empty(testListener.KeyChange.Item3);
+            Assert.Single(testListener.KeyChange.Item4);
             Assert.Equal(77, testListener.KeyChange.Item5);
             Assert.Equal(78, testListener.KeyChange.Item6);
 
@@ -1245,8 +1247,8 @@ namespace Microsoft.EntityFrameworkCore.ChangeTracking.Internal
 
             Assert.Same(entry, testListener.KeyChange.Item1);
             Assert.Same(entry.EntityType.FindProperty("PrincipalId"), testListener.KeyChange.Item2);
-            Assert.Equal(1, testListener.KeyChange.Item3.Count);
-            Assert.Equal(0, testListener.KeyChange.Item4.Count);
+            Assert.Single(testListener.KeyChange.Item3);
+            Assert.Empty(testListener.KeyChange.Item4);
             Assert.Equal(77, testListener.KeyChange.Item5);
             Assert.Equal(78, testListener.KeyChange.Item6);
 
@@ -1272,8 +1274,8 @@ namespace Microsoft.EntityFrameworkCore.ChangeTracking.Internal
 
             Assert.Same(entry, testListener.KeyChange.Item1);
             Assert.Same(entry.EntityType.FindProperty("PrincipalId"), testListener.KeyChange.Item2);
-            Assert.Equal(1, testListener.KeyChange.Item3.Count);
-            Assert.Equal(0, testListener.KeyChange.Item4.Count);
+            Assert.Single(testListener.KeyChange.Item3);
+            Assert.Empty(testListener.KeyChange.Item4);
             Assert.Equal(78, testListener.KeyChange.Item5);
             Assert.Equal(77, testListener.KeyChange.Item6);
 
@@ -1303,8 +1305,8 @@ namespace Microsoft.EntityFrameworkCore.ChangeTracking.Internal
 
             Assert.Same(entry, testListener.KeyChange.Item1);
             Assert.Same(entry.EntityType.FindProperty("Id"), testListener.KeyChange.Item2);
-            Assert.Equal(1, testListener.KeyChange.Item3.Count);
-            Assert.Equal(0, testListener.KeyChange.Item4.Count);
+            Assert.Single(testListener.KeyChange.Item3);
+            Assert.Empty(testListener.KeyChange.Item4);
             Assert.Equal(-1, testListener.KeyChange.Item5);
             Assert.Equal(78, testListener.KeyChange.Item6);
 
@@ -1349,8 +1351,8 @@ namespace Microsoft.EntityFrameworkCore.ChangeTracking.Internal
 
             Assert.Same(entry, testListener.KeyChange.Item1);
             Assert.Same(entry.EntityType.FindProperty("DependentId"), testListener.KeyChange.Item2);
-            Assert.Equal(0, testListener.KeyChange.Item3.Count);
-            Assert.Equal(1, testListener.KeyChange.Item4.Count);
+            Assert.Empty(testListener.KeyChange.Item3);
+            Assert.Single(testListener.KeyChange.Item4);
             Assert.Equal(77, testListener.KeyChange.Item5);
             Assert.Equal(78, testListener.KeyChange.Item6);
 
@@ -1376,8 +1378,8 @@ namespace Microsoft.EntityFrameworkCore.ChangeTracking.Internal
 
             Assert.Same(entry, testListener.KeyChange.Item1);
             Assert.Same(entry.EntityType.FindProperty("DependentId"), testListener.KeyChange.Item2);
-            Assert.Equal(0, testListener.KeyChange.Item3.Count);
-            Assert.Equal(1, testListener.KeyChange.Item4.Count);
+            Assert.Empty(testListener.KeyChange.Item3);
+            Assert.Single(testListener.KeyChange.Item4);
             Assert.Equal(78, testListener.KeyChange.Item5);
             Assert.Equal(77, testListener.KeyChange.Item6);
 
@@ -2114,25 +2116,31 @@ namespace Microsoft.EntityFrameworkCore.ChangeTracking.Internal
             {
             }
 
-            public Tuple<InternalEntityEntry, IProperty, IReadOnlyList<IKey>, IReadOnlyList<IForeignKey>, object, object> KeyChange
+            public Tuple<InternalEntityEntry, IProperty, IEnumerable<IKey>, IEnumerable<IForeignKey>, object, object> KeyChange
             {
                 get;
                 set;
             }
 
-            public Tuple<InternalEntityEntry, INavigation, object, object> ReferenceChange { get; set; }
-            public Tuple<InternalEntityEntry, INavigation, IEnumerable<object>, IEnumerable<object>> CollectionChange { get; set; }
+            public Tuple<InternalEntityEntry, INavigationBase, object, object> ReferenceChange { get; set; }
+            public Tuple<InternalEntityEntry, INavigationBase, IEnumerable<object>, IEnumerable<object>> CollectionChange { get; set; }
 
             public override void NavigationReferenceChanged(
-                InternalEntityEntry entry, INavigation navigation, object oldValue, object newValue)
+                InternalEntityEntry entry,
+                INavigationBase navigationBase,
+                object oldValue,
+                object newValue)
             {
-                ReferenceChange = Tuple.Create(entry, navigation, oldValue, newValue);
+                ReferenceChange = Tuple.Create(entry, navigationBase, oldValue, newValue);
 
-                base.NavigationReferenceChanged(entry, navigation, oldValue, newValue);
+                base.NavigationReferenceChanged(entry, navigationBase, oldValue, newValue);
             }
 
             public override void NavigationCollectionChanged(
-                InternalEntityEntry entry, INavigation navigation, IEnumerable<object> added, IEnumerable<object> removed)
+                InternalEntityEntry entry,
+                INavigationBase navigation,
+                IEnumerable<object> added,
+                IEnumerable<object> removed)
             {
                 // ReSharper disable PossibleMultipleEnumeration
                 CollectionChange = Tuple.Create(entry, navigation, added, removed);
@@ -2144,8 +2152,8 @@ namespace Microsoft.EntityFrameworkCore.ChangeTracking.Internal
             public override void KeyPropertyChanged(
                 InternalEntityEntry entry,
                 IProperty property,
-                IReadOnlyList<IKey> containingPrincipalKeys,
-                IReadOnlyList<IForeignKey> containingForeignKeys,
+                IEnumerable<IKey> containingPrincipalKeys,
+                IEnumerable<IForeignKey> containingForeignKeys,
                 object oldValue,
                 object newValue)
             {

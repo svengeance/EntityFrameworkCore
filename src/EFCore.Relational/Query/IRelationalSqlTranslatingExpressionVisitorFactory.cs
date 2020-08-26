@@ -2,7 +2,6 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using JetBrains.Annotations;
-using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Microsoft.EntityFrameworkCore.Query
@@ -19,8 +18,14 @@ namespace Microsoft.EntityFrameworkCore.Query
     /// </summary>
     public interface IRelationalSqlTranslatingExpressionVisitorFactory
     {
+        /// <summary>
+        ///     Creates a new <see cref="RelationalSqlTranslatingExpressionVisitor" />.
+        /// </summary>
+        /// <param name="queryCompilationContext"> The query compilation context to use. </param>
+        /// <param name="queryableMethodTranslatingExpressionVisitor"> The visitor to use to translate subqueries. </param>
+        /// <returns> A relational sql translating expression visitor. </returns>
         RelationalSqlTranslatingExpressionVisitor Create(
-            [NotNull] IModel model,
+            [NotNull] QueryCompilationContext queryCompilationContext,
             [NotNull] QueryableMethodTranslatingExpressionVisitor queryableMethodTranslatingExpressionVisitor);
     }
 }

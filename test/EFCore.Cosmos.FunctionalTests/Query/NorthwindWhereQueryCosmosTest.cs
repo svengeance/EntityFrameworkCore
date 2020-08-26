@@ -406,7 +406,8 @@ WHERE ((c[""Discriminator""] = ""Customer"") AND (c[""City""] = @__city_0))");
                 @"-- @__city_0='London'
 SELECT c
 FROM root c
-WHERE ((c[""Discriminator""] = ""Customer"") AND (c[""City""] = @__city_0))", queryString, ignoreLineEndingDifferences: true, ignoreWhiteSpaceDifferences: true);
+WHERE ((c[""Discriminator""] = ""Customer"") AND (c[""City""] = @__city_0))", queryString, ignoreLineEndingDifferences: true,
+                ignoreWhiteSpaceDifferences: true);
 
             return null;
         }
@@ -480,6 +481,12 @@ WHERE ((c[""Discriminator""] = ""Customer"") AND @__predicate_0)");
 
 SELECT c
 FROM root c
+WHERE ((c[""Discriminator""] = ""Customer"") AND (c[""City""] = @__city_0))",
+                //
+                @"@__city_0='Seattle'
+
+SELECT c
+FROM root c
 WHERE ((c[""Discriminator""] = ""Customer"") AND (c[""City""] = @__city_0))");
         }
 
@@ -530,6 +537,12 @@ WHERE ((c[""Discriminator""] = ""Employee"") AND (c[""EmployeeID""] > @__p_0))")
 
 SELECT c
 FROM root c
+WHERE ((c[""Discriminator""] = ""Customer"") AND (c[""City""] = @__GetCity_0))",
+                //
+                @"@__GetCity_0='Seattle'
+
+SELECT c
+FROM root c
 WHERE ((c[""Discriminator""] = ""Customer"") AND (c[""City""] = @__GetCity_0))");
         }
 
@@ -539,6 +552,12 @@ WHERE ((c[""Discriminator""] = ""Customer"") AND (c[""City""] = @__GetCity_0))")
 
             AssertSql(
                 @"@__city_InstanceFieldValue_0='London'
+
+SELECT c
+FROM root c
+WHERE ((c[""Discriminator""] = ""Customer"") AND (c[""City""] = @__city_InstanceFieldValue_0))",
+                //
+                @"@__city_InstanceFieldValue_0='Seattle'
 
 SELECT c
 FROM root c
@@ -554,6 +573,12 @@ WHERE ((c[""Discriminator""] = ""Customer"") AND (c[""City""] = @__city_Instance
 
 SELECT c
 FROM root c
+WHERE ((c[""Discriminator""] = ""Customer"") AND (c[""City""] = @__city_InstancePropertyValue_0))",
+                //
+                @"@__city_InstancePropertyValue_0='Seattle'
+
+SELECT c
+FROM root c
 WHERE ((c[""Discriminator""] = ""Customer"") AND (c[""City""] = @__city_InstancePropertyValue_0))");
         }
 
@@ -563,6 +588,12 @@ WHERE ((c[""Discriminator""] = ""Customer"") AND (c[""City""] = @__city_Instance
 
             AssertSql(
                 @"@__StaticFieldValue_0='London'
+
+SELECT c
+FROM root c
+WHERE ((c[""Discriminator""] = ""Customer"") AND (c[""City""] = @__StaticFieldValue_0))",
+                //
+                @"@__StaticFieldValue_0='Seattle'
 
 SELECT c
 FROM root c
@@ -578,6 +609,12 @@ WHERE ((c[""Discriminator""] = ""Customer"") AND (c[""City""] = @__StaticFieldVa
 
 SELECT c
 FROM root c
+WHERE ((c[""Discriminator""] = ""Customer"") AND (c[""City""] = @__StaticPropertyValue_0))",
+                //
+                @"@__StaticPropertyValue_0='Seattle'
+
+SELECT c
+FROM root c
 WHERE ((c[""Discriminator""] = ""Customer"") AND (c[""City""] = @__StaticPropertyValue_0))");
         }
 
@@ -590,6 +627,12 @@ WHERE ((c[""Discriminator""] = ""Customer"") AND (c[""City""] = @__StaticPropert
 
 SELECT c
 FROM root c
+WHERE ((c[""Discriminator""] = ""Customer"") AND (c[""City""] = @__city_Nested_InstanceFieldValue_0))",
+                //
+                @"@__city_Nested_InstanceFieldValue_0='Seattle'
+
+SELECT c
+FROM root c
 WHERE ((c[""Discriminator""] = ""Customer"") AND (c[""City""] = @__city_Nested_InstanceFieldValue_0))");
         }
 
@@ -599,6 +642,12 @@ WHERE ((c[""Discriminator""] = ""Customer"") AND (c[""City""] = @__city_Nested_I
 
             AssertSql(
                 @"@__city_Nested_InstancePropertyValue_0='London'
+
+SELECT c
+FROM root c
+WHERE ((c[""Discriminator""] = ""Customer"") AND (c[""City""] = @__city_Nested_InstancePropertyValue_0))",
+                //
+                @"@__city_Nested_InstancePropertyValue_0='Seattle'
 
 SELECT c
 FROM root c
@@ -629,6 +678,12 @@ WHERE ((c[""Discriminator""] = ""Customer"") AND (c[""City""] = @__InstanceField
 
             AssertSql(
                 @"@__InstanceFieldValue_0='London'
+
+SELECT c
+FROM root c
+WHERE ((c[""Discriminator""] = ""Customer"") AND (c[""City""] = @__InstanceFieldValue_0))",
+                //
+                @"@__InstanceFieldValue_0='Seattle'
 
 SELECT c
 FROM root c
@@ -1527,7 +1582,11 @@ WHERE ((c[""Discriminator""] = ""Customer"") AND false)");
             AssertSql(
                 @"SELECT c
 FROM root c
-WHERE ((c[""Discriminator""] = ""Customer"") AND false)");
+WHERE ((c[""Discriminator""] = ""Customer"") AND false)",
+                //
+                @"SELECT c
+FROM root c
+WHERE ((c[""Discriminator""] = ""Customer"") AND ((c[""CustomerID""] = ""ALFKI"") AND true))");
         }
 
         public override async Task Where_default(bool async)
@@ -1554,6 +1613,16 @@ WHERE ((c[""Discriminator""] = ""Customer"") AND (c[""CustomerID""] = ""ALFKI"")
         public override async Task Where_expression_invoke_2(bool async)
         {
             await base.Where_expression_invoke_2(async);
+
+            AssertSql(
+                @"SELECT c
+FROM root c
+WHERE ((c[""Discriminator""] = ""Customer"") AND (c[""CustomerID""] = ""ALFKI""))");
+        }
+
+        public override async Task Where_expression_invoke_3(bool async)
+        {
+            await base.Where_expression_invoke_3(async);
 
             AssertSql(
                 @"SELECT c
@@ -1765,7 +1834,6 @@ FROM root c
 WHERE ((c[""Discriminator""] = ""Customer"") AND ((c[""City""] = null) AND (c[""Country""] = ""UK"")))");
         }
 
-        [ConditionalTheory(Skip = "Issue #17246")]
         public override async Task Where_Is_on_same_type(bool async)
         {
             await base.Where_Is_on_same_type(async);
@@ -1773,7 +1841,7 @@ WHERE ((c[""Discriminator""] = ""Customer"") AND ((c[""City""] = null) AND (c[""
             AssertSql(
                 @"SELECT c
 FROM root c
-WHERE ((c[""Discriminator""] = ""Customer"") AND (c[""Discriminator""] = ""Customer""))");
+WHERE (c[""Discriminator""] = ""Customer"")");
         }
 
         public override async Task Where_chain(bool async)
@@ -1915,10 +1983,14 @@ WHERE ((c[""Discriminator""] = ""Order"") AND @__p_0)");
             return base.Decimal_cast_to_double_works(async);
         }
 
-        [ConditionalTheory(Skip = "Issue#16391")]
-        public override Task Where_is_conditional(bool async)
+        public override async Task Where_is_conditional(bool async)
         {
-            return base.Where_is_conditional(async);
+            await base.Where_is_conditional(async);
+
+            AssertSql(
+                @"SELECT c
+FROM root c
+WHERE ((c[""Discriminator""] = ""Product"") AND (true ? false : true))");
         }
 
         [ConditionalTheory(Skip = "Issue#17246")]
@@ -1945,6 +2017,128 @@ WHERE ((c[""Discriminator""] = ""Order"") AND @__p_0)");
             await base.Using_same_parameter_twice_in_query_generates_one_sql_parameter(async);
 
             AssertSql(" ");
+        }
+
+        [ConditionalTheory(Skip = "Issue #17246")]
+        public override Task Where_Queryable_ToList_Count(bool async)
+        {
+            return base.Where_Queryable_ToList_Count(async);
+        }
+
+        [ConditionalTheory(Skip = "Issue #17246")]
+        public override Task Where_Queryable_ToList_Contains(bool async)
+        {
+            return base.Where_Queryable_ToList_Contains(async);
+        }
+
+        [ConditionalTheory(Skip = "Issue #17246")]
+        public override Task Where_Queryable_ToArray_Count(bool async)
+        {
+            return base.Where_Queryable_ToArray_Count(async);
+        }
+
+        [ConditionalTheory(Skip = "Issue #17246")]
+        public override Task Where_Queryable_ToArray_Contains(bool async)
+        {
+            return base.Where_Queryable_ToArray_Contains(async);
+        }
+
+        [ConditionalTheory(Skip = "Issue #17246")]
+        public override Task Where_Queryable_AsEnumerable_Count(bool async)
+        {
+            return base.Where_Queryable_AsEnumerable_Count(async);
+        }
+
+        [ConditionalTheory(Skip = "Issue #17246")]
+        public override Task Where_Queryable_AsEnumerable_Contains(bool async)
+        {
+            return base.Where_Queryable_AsEnumerable_Contains(async);
+        }
+
+        [ConditionalTheory(Skip = "Issue #17246")]
+        public override Task Where_Queryable_ToList_Count_member(bool async)
+        {
+            return base.Where_Queryable_ToList_Count_member(async);
+        }
+
+        [ConditionalTheory(Skip = "Issue #17246")]
+        public override Task Where_Queryable_ToArray_Length_member(bool async)
+        {
+            return base.Where_Queryable_ToArray_Length_member(async);
+        }
+
+        [ConditionalTheory(Skip = "Issue #17246")]
+        public override Task Where_collection_navigation_ToList_Count(bool async)
+        {
+            return base.Where_collection_navigation_ToList_Count(async);
+        }
+
+        [ConditionalTheory(Skip = "Issue #17246")]
+        public override Task Where_collection_navigation_ToList_Contains(bool async)
+        {
+            return base.Where_collection_navigation_ToList_Contains(async);
+        }
+
+        [ConditionalTheory(Skip = "Issue #17246")]
+        public override Task Where_collection_navigation_ToArray_Count(bool async)
+        {
+            return base.Where_collection_navigation_ToArray_Count(async);
+        }
+
+        [ConditionalTheory(Skip = "Issue #17246")]
+        public override Task Where_collection_navigation_ToArray_Contains(bool async)
+        {
+            return base.Where_collection_navigation_ToArray_Contains(async);
+        }
+
+        [ConditionalTheory(Skip = "Issue #17246")]
+        public override Task Where_collection_navigation_AsEnumerable_Count(bool async)
+        {
+            return base.Where_collection_navigation_AsEnumerable_Count(async);
+        }
+
+        [ConditionalTheory(Skip = "Issue #17246")]
+        public override Task Where_collection_navigation_AsEnumerable_Contains(bool async)
+        {
+            return base.Where_collection_navigation_AsEnumerable_Contains(async);
+        }
+
+        [ConditionalTheory(Skip = "Issue #17246")]
+        public override Task Where_collection_navigation_ToList_Count_member(bool async)
+        {
+            return base.Where_collection_navigation_ToList_Count_member(async);
+        }
+
+        [ConditionalTheory(Skip = "Issue #17246")]
+        public override Task Where_collection_navigation_ToArray_Length_member(bool async)
+        {
+            return base.Where_collection_navigation_ToArray_Length_member(async);
+        }
+
+        [ConditionalTheory(Skip = "Issue#17246 (Contains over subquery is not supported")]
+        public override Task Where_Queryable_AsEnumerable_Contains_negated(bool async)
+        {
+            return base.Where_Queryable_AsEnumerable_Contains_negated(async);
+        }
+
+        public override async Task Where_list_object_contains_over_value_type(bool async)
+        {
+            await base.Where_list_object_contains_over_value_type(async);
+
+            AssertSql(
+                @"SELECT c
+FROM root c
+WHERE ((c[""Discriminator""] = ""Order"") AND c[""OrderID""] IN (10248, 10249))");
+        }
+
+        public override async Task Where_array_of_object_contains_over_value_type(bool async)
+        {
+            await base.Where_array_of_object_contains_over_value_type(async);
+
+            AssertSql(
+                @"SELECT c
+FROM root c
+WHERE ((c[""Discriminator""] = ""Order"") AND c[""OrderID""] IN (10248, 10249))");
         }
 
         private void AssertSql(params string[] expected)

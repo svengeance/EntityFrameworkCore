@@ -140,16 +140,15 @@ namespace Microsoft.EntityFrameworkCore.ChangeTracking.Internal
                     continue;
                 }
 
-                var memberAccess = (Expression)Expression.MakeMemberAccess(
-                    entityVariable,
-                    propertyBase.GetMemberInfo(forMaterialization: false, forSet: false));
+                var memberInfo = propertyBase.GetMemberInfo(forMaterialization: false, forSet: false);
+                var memberAccess = PropertyBase.CreateMemberAccess(propertyBase, entityVariable, memberInfo);
 
                 if (memberAccess.Type != propertyBase.ClrType)
                 {
                     memberAccess = Expression.Convert(memberAccess, propertyBase.ClrType);
                 }
 
-                arguments[i] = (propertyBase as INavigation)?.IsCollection() ?? false
+                arguments[i] = (propertyBase as INavigation)?.IsCollection ?? false
                     ? Expression.Call(
                         null,
                         _snapshotCollectionMethod,
@@ -219,7 +218,8 @@ namespace Microsoft.EntityFrameworkCore.ChangeTracking.Internal
         ///     doing so can result in application failures when updating to a new Entity Framework Core release.
         /// </summary>
         protected virtual Expression CreateReadShadowValueExpression(
-            [CanBeNull] ParameterExpression parameter, [NotNull] IPropertyBase property)
+            [CanBeNull] ParameterExpression parameter,
+            [NotNull] IPropertyBase property)
             => Expression.Call(
                 parameter,
                 InternalEntityEntry.ReadShadowValueMethod.MakeGenericMethod(property.ClrType),
@@ -232,7 +232,8 @@ namespace Microsoft.EntityFrameworkCore.ChangeTracking.Internal
         ///     doing so can result in application failures when updating to a new Entity Framework Core release.
         /// </summary>
         protected virtual Expression CreateReadValueExpression(
-            [CanBeNull] ParameterExpression parameter, [NotNull] IPropertyBase property)
+            [CanBeNull] ParameterExpression parameter,
+            [NotNull] IPropertyBase property)
             => Expression.Call(
                 parameter,
                 InternalEntityEntry.GetCurrentValueMethod.MakeGenericMethod(property.ClrType),
@@ -260,7 +261,8 @@ namespace Microsoft.EntityFrameworkCore.ChangeTracking.Internal
         ///     any release. You should only use it directly in your code with extreme caution and knowing that
         ///     doing so can result in application failures when updating to a new Entity Framework Core release.
         /// </summary>
-        protected virtual bool UseEntityVariable => true;
+        protected virtual bool UseEntityVariable
+            => true;
 
         private static readonly MethodInfo _snapshotCollectionMethod
             = typeof(SnapshotFactoryFactory).GetTypeInfo().GetDeclaredMethod(nameof(SnapshotCollection));
@@ -269,6 +271,6 @@ namespace Microsoft.EntityFrameworkCore.ChangeTracking.Internal
         private static HashSet<object> SnapshotCollection(IEnumerable<object> collection)
             => collection == null
                 ? null
-                : new HashSet<object>(collection, ReferenceEqualityComparer.Instance);
+                : new HashSet<object>(collection, LegacyReferenceEqualityComparer.Instance);
     }
 }
